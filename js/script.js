@@ -53,7 +53,7 @@ async function login() {
 
         alert("Access denied. Administrator account required.");
 
-        await supabase.auth.signOut();
+        await window.supabaseClient.auth.signOut();
 
         return;
 
