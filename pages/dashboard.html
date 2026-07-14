@@ -1,1 +1,165 @@
+<!DOCTYPE html>
 
+<html>
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Dashboard</title>
+
+<link rel="stylesheet" href="../css/styles.css">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+</head>
+
+<body>
+
+<div class="sidebar">
+
+<h2>PDDM</h2>
+
+<ul>
+
+<li class="active">
+
+Dashboard
+
+</li>
+
+<li>
+
+Requests
+
+</li>
+
+<li onclick="logout()">
+
+Logout
+
+</li>
+
+</ul>
+
+</div>
+
+<div class="content">
+
+<h1>
+
+Dashboard
+
+</h1>
+
+<p id="welcome"></p>
+
+<div class="cards">
+
+<div class="card">
+
+<h2>
+
+Customers
+
+</h2>
+
+<h1>
+
+125
+
+</h1>
+
+</div>
+
+<div class="card">
+
+<h2>
+
+Sellers
+
+</h2>
+
+<h1>
+
+27
+
+</h1>
+
+</div>
+
+<div class="card">
+
+<h2>
+
+Products
+
+</h2>
+
+<h1>
+
+463
+
+</h1>
+
+</div>
+
+<div class="card">
+
+<h2>
+
+Orders
+
+</h2>
+
+<h1>
+
+214
+
+</h1>
+
+</div>
+
+</div>
+
+<div class="activity">
+
+<h2>
+
+Recent Activity
+
+</h2>
+
+<ul>
+
+<li>New customer registered.</li>
+
+<li>Seller added new products.</li>
+
+<li>Order completed.</li>
+
+<li>Inventory updated.</li>
+
+</ul>
+
+</div>
+
+</div>
+
+<script src="../js/supabase.js"></script>
+
+<script src="../js/script.js"></script>
+
+<script>
+
+document.getElementById("welcome").innerHTML=
+
+"Welcome, "+localStorage.getItem("adminName");
+
+</script>
+
+</body>
+
+</html>
