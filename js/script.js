@@ -1,7 +1,6 @@
 async function login() {
 
     const email = document.getElementById("email").value.trim();
-
     const password = document.getElementById("password").value.trim();
 
     if (!email || !password) {
@@ -12,10 +11,12 @@ async function login() {
 
     }
 
-    const { data, error } = await window.supabaseClient.auth.signInWithPassword({
+    // Login
 
-        email,
-        password
+    const { data, error } = await db.auth.signInWithPassword({
+
+        email: email,
+        password: password
 
     });
 
@@ -29,11 +30,13 @@ async function login() {
 
     const user = data.user;
 
-    const { data: profile, error: profileError } = await window.supabaseClient
+    // Get Profile
+
+    const { data: profile, error: profileError } = await db
 
         .from("profiles")
 
-        .select("role, full_name")
+        .select("full_name, role")
 
         .eq("id", user.id)
 
@@ -43,7 +46,7 @@ async function login() {
 
         alert(profileError.message);
 
-        await supabase.auth.signOut();
+        await db.auth.signOut();
 
         return;
 
@@ -51,9 +54,9 @@ async function login() {
 
     if (profile.role !== "admin") {
 
-        alert("Access denied. Administrator account required.");
+        alert("Access denied.");
 
-        await window.supabaseClient.auth.signOut();
+        await db.auth.signOut();
 
         return;
 
@@ -65,9 +68,17 @@ async function login() {
 
 }
 
+
+
+// ==============================
+// LOGOUT
+// ==============================
+
 async function logout(){
 
-    await supabase.auth.signOut();
+    await db.auth.signOut();
+
+    localStorage.removeItem("adminName");
 
     window.location.href="../index.html";
 
