@@ -29,7 +29,7 @@ async function login() {
 
     const user = data.user;
 
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError } = await window.supabaseClient
 
         .from("profiles")
 
