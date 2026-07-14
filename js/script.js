@@ -12,7 +12,7 @@ async function login() {
 
     }
 
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await window.supabaseClient.auth.signInWithPassword({
 
         email,
         password
