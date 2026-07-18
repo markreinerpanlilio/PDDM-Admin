@@ -1,164 +1,124 @@
 <!DOCTYPE html>
-
-<html>
+<html lang="en">
 
 <head>
 
-<meta charset="UTF-8">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PDDM Admin Dashboard</title>
 
-<title>Dashboard</title>
+    <link rel="stylesheet" href="../css/styles.css">
 
-<link rel="stylesheet" href="../css/styles.css">
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 </head>
 
 <body>
 
-<div class="sidebar">
+    <!-- Sidebar -->
 
-<h2>PDDM</h2>
+    <div class="sidebar">
 
-<ul>
+        <h2>PDDM ADMIN</h2>
 
-<li class="active">
+        <ul>
 
-Dashboard
+            <li class="active">
+                Dashboard
+            </li>
 
-</li>
+            <li>
+                Requests
+            </li>
 
-<li>
+            <li>
+                Market Price
+            </li>
 
-Requests
+            <li onclick="logout()">
+                Logout
+            </li>
 
-</li>
+        </ul>
 
-<li onclick="logout()">
+    </div>
 
-Logout
+    <!-- Main Content -->
 
-</li>
+    <div class="content">
 
-</ul>
+        <h1>Dashboard</h1>
 
-</div>
+        <h3 id="welcome"></h3>
 
-<div class="content">
+        <!-- Analytics -->
 
-<h1>
+        <div class="cards">
 
-Dashboard
+            <div class="card">
 
-</h1>
+                <h2>Total Customers</h2>
 
-<p id="welcome"></p>
+                <h1>126</h1>
 
-<div class="cards">
+            </div>
 
-<div class="card">
+            <div class="card">
 
-<h2>
+                <h2>Total Sellers</h2>
 
-Customers
+                <h1>24</h1>
 
-</h2>
+            </div>
 
-<h1>
+        </div>
 
-125
+        <!-- Market Overview -->
 
-</h1>
+        <div class="chart-section">
 
-</div>
+            <h2>Market Overview</h2>
 
-<div class="card">
+            <div class="chart-placeholder">
 
-<h2>
+                Chart will be displayed here.
 
-Sellers
+            </div>
 
-</h2>
+        </div>
 
-<h1>
+        <!-- Recent Activities -->
 
-27
+        <div class="activity">
 
-</h1>
+            <h2>Recent Activities</h2>
 
-</div>
+            <ul>
 
-<div class="card">
+                <li>Customer "Juan Dela Cruz" created an account.</li>
 
-<h2>
+                <li>Seller "Fresh Market Stall" added new vegetables.</li>
 
-Products
+                <li>Customer placed Order #1003.</li>
 
-</h2>
+                <li>Seller updated product inventory.</li>
 
-<h1>
+            </ul>
 
-463
+        </div>
 
-</h1>
+    </div>
 
-</div>
+    <script src="../js/supabase.js"></script>
+    <script src="../js/script.js"></script>
 
-<div class="card">
+    <script>
 
-<h2>
+        document.getElementById("welcome").innerHTML =
+            "Welcome, " + localStorage.getItem("adminName");
 
-Orders
-
-</h2>
-
-<h1>
-
-214
-
-</h1>
-
-</div>
-
-</div>
-
-<div class="activity">
-
-<h2>
-
-Recent Activity
-
-</h2>
-
-<ul>
-
-<li>New customer registered.</li>
-
-<li>Seller added new products.</li>
-
-<li>Order completed.</li>
-
-<li>Inventory updated.</li>
-
-</ul>
-
-</div>
-
-</div>
-
-<script src="../js/supabase.js"></script>
-
-<script src="../js/script.js"></script>
-
-<script>
-
-document.getElementById("welcome").innerHTML=
-
-"Welcome, "+localStorage.getItem("adminName");
-
-</script>
+    </script>
 
 </body>
 
