@@ -1,3 +1,7 @@
+// ==========================================
+// LOGIN
+// ==========================================
+
 async function login() {
 
     const email = document.getElementById("email").value.trim();
@@ -6,31 +10,25 @@ async function login() {
     if (!email || !password) {
 
         alert("Please enter your email and password.");
-
         return;
 
     }
 
-    // Login
-
     const { data, error } = await db.auth.signInWithPassword({
 
-        email: email,
-        password: password
+        email,
+        password
 
     });
 
     if (error) {
 
         alert(error.message);
-
         return;
 
     }
 
     const user = data.user;
-
-    // Get Profile
 
     const { data: profile, error: profileError } = await db
 
@@ -70,9 +68,85 @@ async function login() {
 
 
 
-// ==============================
+// ==========================================
+// DASHBOARD
+// ==========================================
+
+async function loadDashboard() {
+
+    const { data: sessionData } = await db.auth.getUser();
+
+    if (!sessionData.user) {
+
+        window.location.href = "../index.html";
+
+        return;
+
+    }
+
+    const { data: profile } = await db
+
+        .from("profiles")
+
+        .select("role")
+
+        .eq("id", sessionData.user.id)
+
+        .single();
+
+    if (!profile || profile.role !== "admin") {
+
+        await db.auth.signOut();
+
+        window.location.href = "../index.html";
+
+        return;
+
+    }
+
+    // CUSTOMER COUNT
+
+    const { count: customerCount } = await db
+
+        .from("profiles")
+
+        .select("*", {
+
+            count: "exact",
+            head: true
+
+        })
+
+        .eq("role", "customer");
+
+
+    // SELLER COUNT
+
+    const { count: sellerCount } = await db
+
+        .from("profiles")
+
+        .select("*", {
+
+            count: "exact",
+            head: true
+
+        })
+
+        .eq("role", "seller");
+
+
+    document.getElementById("customerCount").textContent = customerCount;
+
+    document.getElementById("sellerCount").textContent = sellerCount;
+
+}
+
+
+
+// ==========================================
 // LOGOUT
-// ==============================
+// ==========================================
 
 async function logout(){
 
