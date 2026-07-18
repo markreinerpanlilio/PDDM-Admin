@@ -52,15 +52,13 @@
 
         <h3 id="welcome"></h3>
 
-        <!-- Analytics -->
-
         <div class="cards">
 
             <div class="card">
 
                 <h2>Total Customers</h2>
 
-                <h1>126</h1>
+                <h1 id="customerCount">0</h1>
 
             </div>
 
@@ -68,13 +66,11 @@
 
                 <h2>Total Sellers</h2>
 
-                <h1>24</h1>
+                <h1 id="sellerCount">0</h1>
 
             </div>
 
         </div>
-
-        <!-- Market Overview -->
 
         <div class="chart-section">
 
@@ -88,26 +84,6 @@
 
         </div>
 
-        <!-- Recent Activities -->
-
-        <div class="activity">
-
-            <h2>Recent Activities</h2>
-
-            <ul>
-
-                <li>Customer "Juan Dela Cruz" created an account.</li>
-
-                <li>Seller "Fresh Market Stall" added new vegetables.</li>
-
-                <li>Customer placed Order #1003.</li>
-
-                <li>Seller updated product inventory.</li>
-
-            </ul>
-
-        </div>
-
     </div>
 
     <script src="../js/supabase.js"></script>
@@ -115,8 +91,10 @@
 
     <script>
 
-        document.getElementById("welcome").innerHTML =
+        document.getElementById("welcome").textContent =
             "Welcome, " + localStorage.getItem("adminName");
+
+        loadDashboard();
 
     </script>
 
