@@ -335,3 +335,130 @@ body{
     }
 
 }
+/* ==========================================
+   COLLAPSIBLE SIDEBAR
+========================================== */
+
+.sidebar{
+
+    transition:.3s ease;
+
+}
+
+.sidebar.collapsed{
+
+    width:70px;
+
+}
+
+.sidebar-header{
+
+    display:flex;
+
+    align-items:center;
+
+    padding:18px;
+
+}
+
+.menu-btn{
+
+    background:none;
+
+    border:none;
+
+    color:white;
+
+    font-size:26px;
+
+    cursor:pointer;
+
+}
+
+.sidebar-title{
+
+    margin-left:15px;
+
+    white-space:nowrap;
+
+    transition:.3s;
+
+}
+
+.sidebar.collapsed .sidebar-title{
+
+    opacity:0;
+
+    width:0;
+
+    overflow:hidden;
+
+}
+
+.sidebar ul{
+
+    margin-top:20px;
+
+}
+
+.sidebar li{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:15px;
+
+}
+
+.sidebar .icon{
+
+    font-size:20px;
+
+    min-width:22px;
+
+    text-align:center;
+
+}
+
+.sidebar .text{
+
+    transition:.3s;
+
+    white-space:nowrap;
+
+}
+
+.sidebar.collapsed .text{
+
+    opacity:0;
+
+    width:0;
+
+    overflow:hidden;
+
+}
+
+
+
+/* ==========================================
+   CONTENT
+========================================== */
+
+.content{
+
+    transition:.3s ease;
+
+}
+
+.content.collapsed-content{
+
+    margin-left:70px;
+
+}
+
+.content.expanded-content{
+
+    margin-left:240px;
+
+}
