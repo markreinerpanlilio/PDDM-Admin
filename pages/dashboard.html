@@ -10,13 +10,19 @@
 
     <link rel="stylesheet" href="../css/styles.css">
 
+    <!-- Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 </head>
 
 <body>
 
-    <!-- Sidebar -->
+    <!-- ===========================
+         SIDEBAR
+    ============================ -->
 
     <div class="sidebar">
 
@@ -24,39 +30,71 @@
 
         <ul>
 
-            <li class="active">
-                Dashboard
-            </li>
+            <li class="active">Dashboard</li>
 
-            <li>
-                Requests
-            </li>
+            <li>Requests</li>
 
-            <li>
-                Market Price
-            </li>
+            <li>Market Price</li>
 
-            <li onclick="logout()">
-                Logout
-            </li>
+            <li onclick="logout()">Logout</li>
 
         </ul>
 
     </div>
 
-    <!-- Main Content -->
+
+
+    <!-- ===========================
+         CONTENT
+    ============================ -->
 
     <div class="content">
 
-        <h1>Dashboard</h1>
+        <!-- Header -->
 
-        <h3 id="welcome"></h3>
+        <div class="dashboard-header">
+
+            <div>
+
+                <h1>Dashboard</h1>
+
+                <h3 id="welcome"></h3>
+
+            </div>
+
+            <div class="header-actions">
+
+                <select id="dateFilter">
+
+                    <option value="today">Today</option>
+
+                    <option value="week">This Week</option>
+
+                    <option value="month">This Month</option>
+
+                    <option value="year">This Year</option>
+
+                </select>
+
+                <button class="refresh-btn" onclick="loadDashboard()">
+
+                    Refresh
+
+                </button>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- Analytics Cards -->
 
         <div class="cards">
 
             <div class="card">
 
-                <h2>Total Customers</h2>
+                <h2>Customers</h2>
 
                 <h1 id="customerCount">0</h1>
 
@@ -64,21 +102,127 @@
 
             <div class="card">
 
-                <h2>Total Sellers</h2>
+                <h2>Sellers</h2>
 
                 <h1 id="sellerCount">0</h1>
 
             </div>
 
+            <div class="card">
+
+                <h2>Active Customers</h2>
+
+                <h1 id="activeCustomerCount">0</h1>
+
+            </div>
+
+            <div class="card">
+
+                <h2>Active Sellers</h2>
+
+                <h1 id="activeSellerCount">0</h1>
+
+            </div>
+
         </div>
 
-        <div class="chart-section">
 
-            <h2>Market Overview</h2>
 
-            <div class="chart-placeholder">
+        <!-- Row 1 -->
 
-                Chart will be displayed here.
+        <div class="dashboard-grid">
+
+            <!-- User Growth -->
+
+            <div class="panel large-panel">
+
+                <h2>User Growth</h2>
+
+                <div class="chart-container">
+
+                    <canvas id="userGrowthChart"></canvas>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- Price Compliance -->
+
+            <div class="panel">
+
+                <h2>Price Compliance</h2>
+
+                <div class="chart-container">
+
+                    <canvas id="priceComplianceChart"></canvas>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- Row 2 -->
+
+        <div class="panel full-panel">
+
+            <h2>Market Activity</h2>
+
+            <div class="chart-container large-chart">
+
+                <canvas id="marketActivityChart"></canvas>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- Row 3 -->
+
+        <div class="dashboard-grid">
+
+            <!-- Quick Actions -->
+
+            <div class="panel">
+
+                <h2>Quick Actions</h2>
+
+                <div class="quick-actions">
+
+                    <button>View Requests</button>
+
+                    <button>Market Price</button>
+
+                    <button onclick="loadDashboard()">
+
+                        Refresh Dashboard
+
+                    </button>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- Notifications -->
+
+            <div class="panel">
+
+                <h2>Notifications</h2>
+
+                <ul class="notification-list">
+
+                    <li>Seller Requests (Coming Soon)</li>
+
+                    <li>Price Alerts (Coming Soon)</li>
+
+                </ul>
 
             </div>
 
@@ -86,7 +230,14 @@
 
     </div>
 
+
+
+    <!-- ===========================
+         JAVASCRIPT
+    ============================ -->
+
     <script src="../js/supabase.js"></script>
+
     <script src="../js/script.js"></script>
 
     <script>
@@ -95,6 +246,8 @@
             "Welcome, " + localStorage.getItem("adminName");
 
         loadDashboard();
+
+        initializeCharts();
 
     </script>
 
