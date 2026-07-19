@@ -157,3 +157,180 @@ async function logout(){
     window.location.href="../index.html";
 
 }
+// ==========================================
+// CHARTS
+// ==========================================
+
+let userGrowthChart;
+let marketActivityChart;
+let priceComplianceChart;
+
+function initializeCharts() {
+
+    // =============================
+    // USER GROWTH
+    // =============================
+
+    const growthCtx = document.getElementById("userGrowthChart");
+
+    if (growthCtx) {
+
+        userGrowthChart = new Chart(growthCtx, {
+
+            type: "line",
+
+            data: {
+
+                labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+
+                datasets: [{
+
+                    label: "New Users",
+
+                    data: [3, 5, 8, 6, 10, 12, 9],
+
+                    borderColor: "#7A1F1F",
+
+                    backgroundColor: "rgba(122,31,31,0.15)",
+
+                    fill: true,
+
+                    tension: 0.4
+
+                }]
+
+            },
+
+            options: {
+
+                responsive: true,
+
+                maintainAspectRatio: false,
+
+                plugins: {
+
+                    legend: {
+
+                        display: false
+
+                    }
+
+                }
+
+            }
+
+        });
+
+    }
+
+
+
+    // =============================
+    // MARKET ACTIVITY
+    // =============================
+
+    const marketCtx = document.getElementById("marketActivityChart");
+
+    if (marketCtx) {
+
+        marketActivityChart = new Chart(marketCtx, {
+
+            type: "bar",
+
+            data: {
+
+                labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+
+                datasets: [{
+
+                    label: "Orders",
+
+                    data: [15, 21, 17, 24, 31, 18, 12],
+
+                    backgroundColor: "#7A1F1F",
+
+                    borderRadius: 8
+
+                }]
+
+            },
+
+            options: {
+
+                responsive: true,
+
+                maintainAspectRatio: false,
+
+                plugins: {
+
+                    legend: {
+
+                        display: false
+
+                    }
+
+                }
+
+            }
+
+        });
+
+    }
+
+
+
+    // =============================
+    // PRICE COMPLIANCE
+    // =============================
+
+    const priceCtx = document.getElementById("priceComplianceChart");
+
+    if (priceCtx) {
+
+        priceComplianceChart = new Chart(priceCtx, {
+
+            type: "doughnut",
+
+            data: {
+
+                labels: [
+
+                    "Within Range",
+
+                    "Above Range",
+
+                    "Below Range"
+
+                ],
+
+                datasets: [{
+
+                    data: [70, 20, 10],
+
+                    backgroundColor: [
+
+                        "#4CAF50",
+
+                        "#FFC107",
+
+                        "#F44336"
+
+                    ]
+
+                }]
+
+            },
+
+            options: {
+
+                responsive: true,
+
+                maintainAspectRatio: false
+
+            }
+
+        });
+
+    }
+
+}
