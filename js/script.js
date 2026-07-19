@@ -16,8 +16,8 @@ async function login() {
 
     const { data, error } = await db.auth.signInWithPassword({
 
-        email,
-        password
+        email: email,
+        password: password
 
     });
 
@@ -33,29 +33,22 @@ async function login() {
     const { data: profile, error: profileError } = await db
 
         .from("profiles")
-
         .select("full_name, role")
-
         .eq("id", user.id)
-
         .single();
 
     if (profileError) {
 
         alert(profileError.message);
-
         await db.auth.signOut();
-
         return;
 
     }
 
     if (profile.role !== "admin") {
 
-        alert("Access denied.");
-
+        alert("Access Denied.");
         await db.auth.signOut();
-
         return;
 
     }
@@ -69,94 +62,120 @@ async function login() {
 
 
 // ==========================================
-// DASHBOARD
-// ==========================================
-
-async function loadDashboard() {
-
-    const { data: sessionData } = await db.auth.getUser();
-
-    if (!sessionData.user) {
-
-        window.location.href = "../index.html";
-
-        return;
-
-    }
-
-    const { data: profile } = await db
-
-        .from("profiles")
-
-        .select("role")
-
-        .eq("id", sessionData.user.id)
-
-        .single();
-
-    if (!profile || profile.role !== "admin") {
-
-        await db.auth.signOut();
-
-        window.location.href = "../index.html";
-
-        return;
-
-    }
-
-    // CUSTOMER COUNT
-
-    const { count: customerCount } = await db
-
-        .from("profiles")
-
-        .select("*", {
-
-            count: "exact",
-            head: true
-
-        })
-
-        .eq("role", "customer");
-
-
-    // SELLER COUNT
-
-    const { count: sellerCount } = await db
-
-        .from("profiles")
-
-        .select("*", {
-
-            count: "exact",
-            head: true
-
-        })
-
-        .eq("role", "seller");
-
-
-    document.getElementById("customerCount").textContent = customerCount;
-
-    document.getElementById("sellerCount").textContent = sellerCount;
-
-}
-
-
-
-// ==========================================
 // LOGOUT
 // ==========================================
 
-async function logout(){
+async function logout() {
 
     await db.auth.signOut();
 
     localStorage.removeItem("adminName");
 
-    window.location.href="../index.html";
+    window.location.href = "../index.html";
 
 }
+
+
+
+// ==========================================
+// LOAD DASHBOARD
+// ==========================================
+
+async function loadDashboard() {
+
+    const welcome = document.getElementById("welcome");
+
+    if (welcome) {
+
+        welcome.textContent =
+            "Welcome, " + (localStorage.getItem("adminName") || "Admin");
+
+    }
+
+    await loadCounts();
+
+}
+
+
+
+// ==========================================
+// LOAD COUNTS
+// ==========================================
+
+async function loadCounts() {
+
+    // Customers
+
+    const { count: customerCount } = await db
+
+        .from("profiles")
+        .select("*", { count: "exact", head: true })
+        .eq("role", "customer");
+
+    document.getElementById("customerCount").textContent = customerCount ?? 0;
+
+
+
+    // Sellers
+
+    const { count: sellerCount } = await db
+
+        .from("profiles")
+        .select("*", { count: "exact", head: true })
+        .eq("role", "seller");
+
+    document.getElementById("sellerCount").textContent = sellerCount ?? 0;
+
+
+
+    // Active Customers
+    // (Temporary)
+
+    document.getElementById("activeCustomerCount").textContent = 0;
+
+
+
+    // Active Sellers
+    // (Temporary)
+
+    document.getElementById("activeSellerCount").textContent = 0;
+
+}
+
+
+
+// ==========================================
+// SIDEBAR
+// ==========================================
+
+function toggleSidebar() {
+
+    const sidebar = document.getElementById("sidebar");
+
+    const content = document.getElementById("content");
+
+    sidebar.classList.toggle("collapsed");
+
+    if (sidebar.classList.contains("collapsed")) {
+
+        content.classList.remove("expanded-content");
+
+        content.classList.add("collapsed-content");
+
+    }
+
+    else {
+
+        content.classList.remove("collapsed-content");
+
+        content.classList.add("expanded-content");
+
+    }
+
+}
+
+
+
 // ==========================================
 // CHARTS
 // ==========================================
@@ -167,9 +186,9 @@ let priceComplianceChart;
 
 function initializeCharts() {
 
-    // =============================
+    // ======================================
     // USER GROWTH
-    // =============================
+    // ======================================
 
     const growthCtx = document.getElementById("userGrowthChart");
 
@@ -187,15 +206,15 @@ function initializeCharts() {
 
                     label: "New Users",
 
-                    data: [3, 5, 8, 6, 10, 12, 9],
+                    data: [3, 6, 8, 7, 10, 12, 9],
 
                     borderColor: "#7A1F1F",
 
-                    backgroundColor: "rgba(122,31,31,0.15)",
+                    backgroundColor: "rgba(122,31,31,.15)",
 
                     fill: true,
 
-                    tension: 0.4
+                    tension: .4
 
                 }]
 
@@ -225,9 +244,9 @@ function initializeCharts() {
 
 
 
-    // =============================
+    // ======================================
     // MARKET ACTIVITY
-    // =============================
+    // ======================================
 
     const marketCtx = document.getElementById("marketActivityChart");
 
@@ -245,7 +264,7 @@ function initializeCharts() {
 
                     label: "Orders",
 
-                    data: [15, 21, 17, 24, 31, 18, 12],
+                    data: [15, 20, 18, 24, 29, 16, 12],
 
                     backgroundColor: "#7A1F1F",
 
@@ -279,9 +298,9 @@ function initializeCharts() {
 
 
 
-    // =============================
+    // ======================================
     // PRICE COMPLIANCE
-    // =============================
+    // ======================================
 
     const priceCtx = document.getElementById("priceComplianceChart");
 
@@ -297,9 +316,9 @@ function initializeCharts() {
 
                     "Within Range",
 
-                    "Above Range",
+                    "Above",
 
-                    "Below Range"
+                    "Below"
 
                 ],
 
