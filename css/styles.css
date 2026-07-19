@@ -120,8 +120,10 @@ body{
 .content{
     margin-left:240px;
     padding:25px;
-    height:100vh;
-    overflow:hidden;
+    min-height:100vh;
+    overflow-y:auto;
+    overflow-x:hidden;
+    transition:.3s ease;
 }
 
 /* ==========================================
@@ -452,13 +454,11 @@ body{
 }
 
 .content.collapsed-content{
-
     margin-left:70px;
-
+    min-height:100vh;
 }
 
 .content.expanded-content{
-
     margin-left:240px;
-
+    min-height:100vh;
 }
