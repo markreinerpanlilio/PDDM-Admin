@@ -24,22 +24,54 @@
          SIDEBAR
     ============================ -->
 
-    <div class="sidebar">
-
-        <h2>PDDM ADMIN</h2>
-
+    <div class="sidebar collapsed" id="sidebar">
+    
+        <div class="sidebar-header">
+    
+            <button class="menu-btn" onclick="toggleSidebar()">
+                ☰
+            </button>
+    
+            <h2 class="sidebar-title">PDDM ADMIN</h2>
+    
+        </div>
+    
         <ul>
-
-            <li class="active">Dashboard</li>
-
-            <li>Requests</li>
-
-            <li>Market Price</li>
-
-            <li onclick="logout()">Logout</li>
-
+    
+            <li class="active">
+    
+                <span class="icon">🏠</span>
+    
+                <span class="text">Dashboard</span>
+    
+            </li>
+    
+            <li>
+    
+                <span class="icon">📄</span>
+    
+                <span class="text">Requests</span>
+    
+            </li>
+    
+            <li>
+    
+                <span class="icon">💰</span>
+    
+                <span class="text">Market Price</span>
+    
+            </li>
+    
+            <li onclick="logout()">
+    
+                <span class="icon">🚪</span>
+    
+                <span class="text">Logout</span>
+    
+            </li>
+    
         </ul>
-
+    
     </div>
 
 
@@ -48,7 +80,7 @@
          CONTENT
     ============================ -->
 
-    <div class="content">
+      <div class="content collapsed-content" id="content">
 
         <!-- Header -->
 
