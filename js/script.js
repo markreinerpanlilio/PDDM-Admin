@@ -94,6 +94,8 @@ async function loadDashboard() {
 
     await loadCounts();
 
+    initializeCharts();
+
 }
 
 
@@ -104,7 +106,9 @@ async function loadDashboard() {
 
 async function loadCounts() {
 
-    // Customers
+    // ===========================
+    // CUSTOMERS
+    // ===========================
 
     const { count: customerCount } = await db
 
@@ -112,11 +116,14 @@ async function loadCounts() {
         .select("*", { count: "exact", head: true })
         .eq("role", "customer");
 
-    document.getElementById("customerCount").textContent = customerCount ?? 0;
+    document.getElementById("customerCount").textContent =
+        customerCount ?? 0;
 
 
 
-    // Sellers
+    // ===========================
+    // SELLERS
+    // ===========================
 
     const { count: sellerCount } = await db
 
@@ -124,21 +131,26 @@ async function loadCounts() {
         .select("*", { count: "exact", head: true })
         .eq("role", "seller");
 
-    document.getElementById("sellerCount").textContent = sellerCount ?? 0;
+    document.getElementById("sellerCount").textContent =
+        sellerCount ?? 0;
 
 
 
-    // Active Customers
-    // (Temporary)
+    // ===========================
+    // ACTIVE CUSTOMERS
+    // Temporary
+    // ===========================
 
-    document.getElementById("activeCustomerCount").textContent = 0;
+    document.getElementById("activeCustomerCount").textContent = 18;
 
 
 
-    // Active Sellers
-    // (Temporary)
+    // ===========================
+    // ACTIVE SELLERS
+    // Temporary
+    // ===========================
 
-    document.getElementById("activeSellerCount").textContent = 0;
+    document.getElementById("activeSellerCount").textContent = 7;
 
 }
 
@@ -159,7 +171,6 @@ function toggleSidebar() {
     if (sidebar.classList.contains("collapsed")) {
 
         content.classList.remove("expanded-content");
-
         content.classList.add("collapsed-content");
 
     }
@@ -167,7 +178,6 @@ function toggleSidebar() {
     else {
 
         content.classList.remove("collapsed-content");
-
         content.classList.add("expanded-content");
 
     }
@@ -186,6 +196,14 @@ let priceComplianceChart;
 
 function initializeCharts() {
 
+    // Prevent duplicate charts
+
+    if (userGrowthChart) userGrowthChart.destroy();
+    if (marketActivityChart) marketActivityChart.destroy();
+    if (priceComplianceChart) priceComplianceChart.destroy();
+
+
+
     // ======================================
     // USER GROWTH
     // ======================================
@@ -200,13 +218,33 @@ function initializeCharts() {
 
             data: {
 
-                labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+                labels: [
+
+                    "Mon",
+                    "Tue",
+                    "Wed",
+                    "Thu",
+                    "Fri",
+                    "Sat",
+                    "Sun"
+
+                ],
 
                 datasets: [{
 
                     label: "New Users",
 
-                    data: [3, 6, 8, 7, 10, 12, 9],
+                    data: [
+
+                        3,
+                        6,
+                        8,
+                        7,
+                        10,
+                        12,
+                        9
+
+                    ],
 
                     borderColor: "#7A1F1F",
 
@@ -258,13 +296,33 @@ function initializeCharts() {
 
             data: {
 
-                labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+                labels: [
+
+                    "Mon",
+                    "Tue",
+                    "Wed",
+                    "Thu",
+                    "Fri",
+                    "Sat",
+                    "Sun"
+
+                ],
 
                 datasets: [{
 
                     label: "Orders",
 
-                    data: [15, 20, 18, 24, 29, 16, 12],
+                    data: [
+
+                        15,
+                        20,
+                        18,
+                        24,
+                        29,
+                        16,
+                        12
+
+                    ],
 
                     backgroundColor: "#7A1F1F",
 
@@ -315,23 +373,25 @@ function initializeCharts() {
                 labels: [
 
                     "Within Range",
-
-                    "Above",
-
-                    "Below"
+                    "Above Range",
+                    "Below Range"
 
                 ],
 
                 datasets: [{
 
-                    data: [70, 20, 10],
+                    data: [
+
+                        70,
+                        20,
+                        10
+
+                    ],
 
                     backgroundColor: [
 
                         "#4CAF50",
-
                         "#FFC107",
-
                         "#F44336"
 
                     ]
