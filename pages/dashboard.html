@@ -1,288 +1,92 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>PDDM Admin Dashboard</title>
-
     <link rel="stylesheet" href="../css/styles.css">
-
-    <!-- Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 </head>
-
 <body>
-
-    <!-- ===========================
-         SIDEBAR
-    ============================ -->
-
     <div class="sidebar collapsed" id="sidebar">
-    
         <div class="sidebar-header">
-    
-            <button class="menu-btn" onclick="toggleSidebar()">
-                ☰
-            </button>
-    
+            <button class="menu-btn" onclick="toggleSidebar()">☰</button>
             <h2 class="sidebar-title">PDDM ADMIN</h2>
-    
         </div>
-    
         <ul>
-    
-            <li class="active">
-    
-                <span class="icon">🏠</span>
-    
-                <span class="text">Dashboard</span>
-    
-            </li>
-    
-            <li>
-    
-                <span class="icon">📄</span>
-    
-                <span class="text">Requests</span>
-    
-            </li>
-    
-            <li>
-    
-                <span class="icon">💰</span>
-    
-                <span class="text">Market Price</span>
-    
-            </li>
-    
-            <li onclick="logout()">
-    
-                <span class="icon">🚪</span>
-    
-                <span class="text">Logout</span>
-    
-            </li>
-    
+            <li class="active"><span class="icon">🏠</span><span class="text">Dashboard</span></li>
+            <li><span class="icon">📄</span><span class="text">Requests</span></li>
+            <li><span class="icon">💰</span><span class="text">Market Price</span></li>
+            <li onclick="logout()"><span class="icon">🚪</span><span class="text">Logout</span></li>
         </ul>
-    
     </div>
 
-
-
-    <!-- ===========================
-         CONTENT
-    ============================ -->
-
-      <div class="content collapsed-content" id="content">
-
-        <!-- Header -->
-
+    <div class="content collapsed-content" id="content">
         <div class="dashboard-header">
-
             <div>
-
                 <h1>Dashboard</h1>
-
                 <h3 id="welcome"></h3>
-
             </div>
-
             <div class="header-actions">
-
                 <select id="dateFilter">
-
                     <option value="today">Today</option>
-
                     <option value="week">This Week</option>
-
                     <option value="month">This Month</option>
-
                     <option value="year">This Year</option>
-
                 </select>
-
-                <button class="refresh-btn" onclick="loadDashboard()">
-
-                    Refresh
-
-                </button>
-
+                <button class="refresh-btn" onclick="loadDashboard()">Refresh</button>
             </div>
-
         </div>
-
-
-
-        <!-- Analytics Cards -->
 
         <div class="cards">
-
-            <div class="card">
-
-                <h2>Customers</h2>
-
-                <h1 id="customerCount">0</h1>
-
-            </div>
-
-            <div class="card">
-
-                <h2>Sellers</h2>
-
-                <h1 id="sellerCount">0</h1>
-
-            </div>
-
-            <div class="card">
-
-                <h2>Active Customers</h2>
-
-                <h1 id="activeCustomerCount">0</h1>
-
-            </div>
-
-            <div class="card">
-
-                <h2>Active Sellers</h2>
-
-                <h1 id="activeSellerCount">0</h1>
-
-            </div>
-
+            <div class="card"><h2>Customers</h2><h1 id="customerCount">0</h1></div>
+            <div class="card"><h2>Sellers</h2><h1 id="sellerCount">0</h1></div>
+            <div class="card"><h2>Active Customers</h2><h1 id="activeCustomerCount">0</h1></div>
+            <div class="card"><h2>Active Sellers</h2><h1 id="activeSellerCount">0</h1></div>
         </div>
-
-
-
-        <!-- Row 1 -->
 
         <div class="dashboard-grid">
-
-            <!-- User Growth -->
-
             <div class="panel large-panel">
-
                 <h2>User Growth</h2>
-
-                <div class="chart-container">
-
-                    <canvas id="userGrowthChart"></canvas>
-
-                </div>
-
+                <div class="chart-container"><canvas id="userGrowthChart"></canvas></div>
             </div>
-
-
-
-            <!-- Price Compliance -->
-
             <div class="panel">
-
                 <h2>Price Compliance</h2>
-
-                <div class="chart-container">
-
-                    <canvas id="priceComplianceChart"></canvas>
-
-                </div>
-
+                <div class="chart-container"><canvas id="priceComplianceChart"></canvas></div>
             </div>
-
         </div>
-
-
-
-        <!-- Row 2 -->
 
         <div class="panel full-panel">
-
             <h2>Market Activity</h2>
-
-            <div class="chart-container large-chart">
-
-                <canvas id="marketActivityChart"></canvas>
-
-            </div>
-
+            <div class="chart-container large-chart"><canvas id="marketActivityChart"></canvas></div>
         </div>
-
-
-
-        <!-- Row 3 -->
 
         <div class="dashboard-grid">
-
-            <!-- Quick Actions -->
-
             <div class="panel">
-
                 <h2>Quick Actions</h2>
-
                 <div class="quick-actions">
-
                     <button>View Requests</button>
-
                     <button>Market Price</button>
-
-                    <button onclick="loadDashboard()">
-
-                        Refresh Dashboard
-
-                    </button>
-
+                    <button onclick="loadDashboard()">Refresh Dashboard</button>
                 </div>
-
             </div>
-
-
-
-            <!-- Notifications -->
-
             <div class="panel">
-
                 <h2>Notifications</h2>
-
                 <ul class="notification-list">
-
                     <li>Seller Requests (Coming Soon)</li>
-
                     <li>Price Alerts (Coming Soon)</li>
-
                 </ul>
-
             </div>
-
         </div>
-
     </div>
 
-
-
-    <!-- ===========================
-         JAVASCRIPT
-    ============================ -->
-
     <script src="../js/supabase.js"></script>
-
     <script src="../js/script.js"></script>
-
     <script>
-
-        document.getElementById("welcome").textContent =
-            "Welcome, " + localStorage.getItem("adminName");
-
+        document.getElementById("welcome").textContent = "Welcome, " + localStorage.getItem("adminName");
         loadDashboard();
-
         initializeCharts();
-
     </script>
-
 </body>
-
 </html>
