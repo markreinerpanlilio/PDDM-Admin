@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seller Requests</title>
+
+    <link rel="stylesheet" href="../css/styles.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+
+<body>
+
+<div class="sidebar collapsed" id="sidebar">
+
+    <div class="sidebar-header">
+        <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+        <h2 class="sidebar-title">PDDM ADMIN</h2>
+    </div>
+
+    <ul>
+        <li onclick="window.location='dashboard.html'">
+            <span class="icon">🏠</span>
+            <span class="text">Dashboard</span>
+        </li>
+
+        <li class="active">
+            <span class="icon">📄</span>
+            <span class="text">Requests</span>
+        </li>
+
+        <li>
+            <span class="icon">💰</span>
+            <span class="text">Market Price</span>
+        </li>
+
+        <li onclick="logout()">
+            <span class="icon">🚪</span>
+            <span class="text">Logout</span>
+        </li>
+    </ul>
+
+</div>
+
+
+
+<div class="content collapsed-content" id="content">
+
+    <div class="dashboard-header">
+
+        <div>
+            <h1>Seller Applications</h1>
+            <h3 id="pendingCount">Loading...</h3>
+        </div>
+
+        <input
+            type="text"
+            id="searchRequest"
+            placeholder="Search applicant..."
+            onkeyup="searchRequests()">
+
+    </div>
+
+
+
+    <div class="panel">
+
+        <table class="request-table">
+
+            <thead>
+
+                <tr>
+
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Registered</th>
+                    <th>Action</th>
+
+                </tr>
+
+            </thead>
+
+            <tbody id="requestTable">
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+
+
+<script src="../js/supabase.js"></script>
+<script src="../js/script.js"></script>
+<script src="../js/request.js"></script>
+
+<script>
+
+loadRequests();
+
+</script>
+
+</body>
+</html>
