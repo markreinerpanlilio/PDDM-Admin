@@ -54,26 +54,28 @@ async function addAuditLog(action, module, description) {
 
     const { data:{ user } } = await db.auth.getUser();
 
-    const { data: admin } = await db
+    console.log("Auth User:", user);
+
+    const { data: admin, error } = await db
         .from("profiles")
-        .select("email,role")
+        .select("id,email,role")
         .eq("id", user.id)
         .single();
 
-    const { error } = await db
-        .from("audit_logs")
-        .insert([{
-            user_id: user.id,
-            user: `${admin.email} (${admin.role})`,
-            action,
-            module,
-            description
-        }]);
+    console.log("Profile:", admin);
+    console.log("Error:", error);
 
-    if(error) console.error(error);
+    if (!admin) return;
+
+    await db.from("audit_logs").insert([{
+        user_id: user.id,
+        user: `${admin.email} (${admin.role})`,
+        action,
+        module,
+        description
+    }]);
 
 }
-
 async function approveSeller(id) {
 
     const { data: seller } = await db
