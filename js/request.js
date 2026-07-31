@@ -54,19 +54,19 @@ async function addAuditLog(action, module, description) {
 
     const admin = localStorage.getItem("adminName") || "Unknown Admin";
 
-    const { data, error } = await db
+    const { data: { user } } = await db.auth.getUser();
+
+    const { error } = await db
         .from("audit_logs")
         .insert([{
-            user_name: admin,
-            role: "admin",
+            user_id: user.id,
+            user: `${admin} (Admin)`,
             action,
             module,
             description
-        }])
-        .select();
+        }]);
 
-    console.log(data);
-    console.log(error);
+    if (error) console.error(error);
 
 }
 
