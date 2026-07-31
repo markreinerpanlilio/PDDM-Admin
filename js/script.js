@@ -26,7 +26,7 @@ async function login() {
 
     const { data: profile, error: profileError } = await db
         .from("profiles")
-        .select("full_name, role")
+        .select("full_name,email,role")
         .eq("id", user.id)
         .single();
 
@@ -43,13 +43,59 @@ async function login() {
     }
 
     localStorage.setItem("adminName", profile.full_name);
+    await addAuditLog(
+    "Login",
+    "Authentication",
+    `${profile.email} logged in.`
+);
     window.location.href = "pages/dashboard.html";
 }
 
 async function logout() {
+
+    const { data:{ user } } = await db.auth.getUser();
+
+    if(user){
+
+        const { data: admin } = await db
+            .from("profiles")
+            .select("email")
+            .eq("id", user.id)
+            .single();
+
+        await addAuditLog(
+            "Logout",
+            "Authentication",
+            `${admin.email} logged out.`
+        );
+
+    }
+
     await db.auth.signOut();
+
     localStorage.removeItem("adminName");
-    window.location.href = "../index.html";
+
+    window.location.href="../index.html";
+
+}
+
+async function addAuditLog(action, module, description) {
+
+    const { data:{ user } } = await db.auth.getUser();
+
+    const { data: admin } = await db
+        .from("profiles")
+        .select("email")
+        .eq("id", user.id)
+        .single();
+
+    await db.from("audit_logs").insert([{
+        user_id: user.id,
+        user: `Admin(${admin.email})`,
+        action,
+        module,
+        description
+    }]);
 }
 
 // Dashboard
