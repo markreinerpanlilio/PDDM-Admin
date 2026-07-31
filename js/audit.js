@@ -25,7 +25,7 @@ async function loadAuditLogs() {
         body.innerHTML += `
             <tr>
                 <td>${new Date(log.created_at).toLocaleString()}</td>
-                <td>${log.user}</etd>
+                <td>${log.user}</td>
                 <td>${log.action}</td>
                 <td>${log.module}</td>
                 <td>${log.description}</td>
