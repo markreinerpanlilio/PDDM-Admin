@@ -1,21 +1,106 @@
-<div class="panel full-panel">
-    <h2>Audit Trail</h2>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDDM Audit Trail</title>
 
-    <table class="audit-table">
-        <thead>
-            <tr>
-                <th>Time</th>
-                <th>User</th>
-                <th>Action</th>
-                <th>Module</th>
-                <th>Description</th>
-            </tr>
-        </thead>
+    <link rel="stylesheet" href="../css/styles.css">
 
-        <tbody id="auditTableBody">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
 
-        </tbody>
-    </table>
+<body>
+
+<div class="sidebar collapsed" id="sidebar">
+
+    <div class="sidebar-header">
+        <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+        <h2 class="sidebar-title">PDDM ADMIN</h2>
+    </div>
+
+    <ul>
+        <li onclick="window.location='dashboard.html'">
+            <span class="icon">🏠</span>
+            <span class="text">Dashboard</span>
+        </li>
+
+        <li onclick="window.location='requests.html'">
+            <span class="icon">📄</span>
+            <span class="text">Requests</span>
+        </li>
+
+        <li>
+            <span class="icon">💰</span>
+            <span class="text">Market Price</span>
+        </li>
+
+        <li class="active">
+            <span class="icon">📜</span>
+            <span class="text">Audit Trail</span>
+        </li>
+
+        <li onclick="logout()">
+            <span class="icon">🚪</span>
+            <span class="text">Logout</span>
+        </li>
+
+    </ul>
+
 </div>
 
+<div class="content collapsed-content" id="content">
+
+    <div class="dashboard-header">
+
+        <div>
+            <h1>Audit Trail</h1>
+            <h3>System activity logs</h3>
+        </div>
+
+        <button class="refresh-btn" onclick="loadAuditLogs()">
+            Refresh
+        </button>
+
+    </div>
+
+    <div class="panel full-panel">
+
+        <table class="audit-table">
+
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>User</th>
+                    <th>Action</th>
+                    <th>Module</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+
+            <tbody id="auditTableBody">
+
+                <tr>
+                    <td colspan="5" style="text-align:center">
+                        Loading...
+                    </td>
+                </tr>
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+<script src="../js/supabase.js"></script>
+<script src="../js/script.js"></script>
 <script src="../js/audit.js"></script>
+
+<script>
+loadAuditLogs();
+</script>
+
+</body>
+</html>
