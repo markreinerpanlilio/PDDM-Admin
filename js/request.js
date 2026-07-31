@@ -100,7 +100,7 @@ async function approveSeller(id) {
     await addAuditLog(
     "Approve Seller",
     "Seller Requests",
-    `${seller.full_name} (${seller.email}) was approved as seller.`
+    `${seller.email} was approved as seller.`
 );
 
 }
@@ -130,7 +130,7 @@ async function rejectSeller(id) {
     await addAuditLog(
     "Reject Seller",
     "Seller Requests",
-    `${seller.full_name} (${seller.email}) was rejected.`
+    `${seller.email} was rejected.`
 );
 
 }
