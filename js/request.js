@@ -50,8 +50,28 @@ async function loadRequests() {
 
 }
 
+async function addAuditLog(action, module, description) {
+
+    const admin = localStorage.getItem("adminName") || "Unknown Admin";
+
+    await db.from("audit_logs").insert([{
+        user_name: admin,
+        role: "admin",
+        action,
+        module,
+        description
+    }]);
+
+}
+
 async function approveSeller(id) {
 
+    const { data: seller } = await db
+        .from("profiles")
+        .select("full_name,email")
+        .eq("id", id)
+        .single();
+    
     const { error } = await db
         .from("profiles")
         .update({
@@ -67,11 +87,22 @@ async function approveSeller(id) {
 
     document.getElementById(id).remove();
     updatePending();
+    await addAuditLog(
+    "Approve Seller",
+    "Seller Requests",
+    `${seller.full_name} (${seller.email}) was approved as seller.`
+);
 
 }
 
 async function rejectSeller(id) {
 
+    const { data: seller } = await db
+        .from("profiles")
+        .select("full_name,email")
+        .eq("id", id)
+        .single();
+    
     const { error } = await db
         .from("profiles")
         .update({
@@ -86,6 +117,11 @@ async function rejectSeller(id) {
 
     document.getElementById(id).remove();
     updatePending();
+    await addAuditLog(
+    "Reject Seller",
+    "Seller Requests",
+    `${seller.full_name} (${seller.email}) was rejected.`
+);
 
 }
 
