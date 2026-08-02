@@ -4,57 +4,136 @@ async function loadMarketPrices() {
 
     table.innerHTML = "<tr><td colspan='6'>Loading...</td></tr>";
 
-    const { data, error } = await db
+    // Existing pricing
+    const { data: prices, error: priceError } = await db
         .from("market_prices")
-        .select("*")
-        .order("product_name", { ascending: true });
+        .select("*");
 
-    if (error) {
-        console.error(error);
-        table.innerHTML = "<tr><td colspan='6'>Failed to load data.</td></tr>";
+    if (priceError) {
+        console.error(priceError);
         return;
     }
+
+    // Products uploaded by sellers
+    const { data: products, error: productError } = await db
+        .from("products")
+        .select("name, category, variant, unit");
+
+    if (productError) {
+        console.error(productError);
+        return;
+    }
+
+    // Remove duplicate products
+    const uniqueProducts = [];
+
+    products.forEach(product => {
+
+        const exists = uniqueProducts.find(p =>
+            p.name === product.name &&
+            (p.variant || "") === (product.variant || "")
+        );
+
+        if (!exists) {
+            uniqueProducts.push(product);
+        }
+
+    });
 
     table.innerHTML = "";
 
-    if (!data.length) {
-        table.innerHTML = "<tr><td colspan='6'>No products found.</td></tr>";
-        return;
+    uniqueProducts
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .forEach(product => {
+
+            const existingPrice = prices.find(price =>
+                price.product_name === product.name &&
+                (price.variant || "") === (product.variant || "")
+            );
+
+            if (existingPrice) {
+
+                table.innerHTML += `
+                <tr>
+
+                    <td>${existingPrice.product_name}</td>
+
+                    <td>${existingPrice.variant || "-"}</td>
+
+                    <td>${existingPrice.unit || "-"}</td>
+
+                    <td>₱${Number(existingPrice.srp).toFixed(2)}</td>
+
+                    <td>${
+                        existingPrice.pricing_rule === "maximum_only"
+                            ? "Maximum Only"
+                            : "Min & Max"
+                    }</td>
+
+                    <td>
+
+                        <button
+                            class="approve-btn"
+                            onclick="editMarketPrice('${existingPrice.id}')">
+
+                            Edit
+
+                        </button>
+
+                    </td>
+
+                </tr>
+                `;
+
+            } else {
+
+                table.innerHTML += `
+                <tr>
+
+                    <td>${product.name}</td>
+
+                    <td>${product.variant || "-"}</td>
+
+                    <td>${product.unit || "-"}</td>
+
+                    <td>-</td>
+
+                    <td>-</td>
+
+                    <td>
+
+                        <button
+                            class="approve-btn"
+                            onclick="addPricing(
+                                '${product.name}',
+                                '${product.category}',
+                                '${product.variant || ""}',
+                                '${product.unit || ""}'
+                            )">
+
+                            Add Pricing
+
+                        </button>
+
+                    </td>
+
+                </tr>
+                `;
+
+            }
+
+        });
+
+    if (!uniqueProducts.length) {
+        table.innerHTML =
+            "<tr><td colspan='6'>No products found.</td></tr>";
     }
 
-    data.forEach(product => {
+}
 
-        table.innerHTML += `
-            <tr>
+function addPricing(name, category, variant, unit){
 
-                <td>${product.product_name}</td>
-
-                <td>${product.variant || "-"}</td>
-
-                <td>${product.unit}</td>
-
-                <td>₱${Number(product.srp).toFixed(2)}</td>
-
-                <td>${product.pricing_rule === "maximum_only"
-                    ? "Maximum Only"
-                    : "Min & Max"}</td>
-
-                <td>
-
-                    <button
-                        class="approve-btn"
-                        onclick="editMarketPrice('${product.id}')">
-
-                        Edit
-
-                    </button>
-
-                </td>
-
-            </tr>
-        `;
-
-    });
+    alert(name);
 
 }
 
