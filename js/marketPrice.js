@@ -133,7 +133,20 @@ async function loadMarketPrices() {
 
 function addPricing(name, category, variant, unit){
 
-    alert(name);
+    document.getElementById("modalProduct").value = name;
+    document.getElementById("modalVariant").value = variant || "-";
+    document.getElementById("modalUnit").value = unit || "-";
+
+    document.getElementById("modalSRP").value = "";
+    document.getElementById("modalRule").value = "maximum_only";
+
+    document.getElementById("pricingModal").style.display = "flex";
+
+}
+
+function closeModal(){
+
+    document.getElementById("pricingModal").style.display = "none";
 
 }
 
