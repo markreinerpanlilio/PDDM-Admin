@@ -101,7 +101,52 @@
     </div>
 
 </div>
+    
+<div id="pricingModal" class="modal">
 
+    <div class="modal-content">
+
+        <h2>Add Market Pricing</h2>
+
+        <input type="hidden" id="modalProductId">
+
+        <label>Product</label>
+        <input type="text" id="modalProduct" readonly>
+
+        <label>Variant</label>
+        <input type="text" id="modalVariant" readonly>
+
+        <label>Unit</label>
+        <input type="text" id="modalUnit" readonly>
+
+        <label>Pricing Rule</label>
+
+        <select id="modalRule">
+
+            <option value="maximum_only">Maximum Only</option>
+            <option value="min_max">Minimum & Maximum</option>
+
+        </select>
+
+        <label>SRP</label>
+        <input type="number" id="modalSRP">
+
+        <div class="modal-buttons">
+
+            <button class="approve-btn" onclick="savePricing()">
+                Save
+            </button>
+
+            <button class="reject-btn" onclick="closeModal()">
+                Cancel
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+    
 <script src="../js/supabase.js"></script>
 <script src="../js/script.js"></script>
 <script src="../js/marketPrice.js"></script>
