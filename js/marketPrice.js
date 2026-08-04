@@ -1,5 +1,7 @@
 const table = document.getElementById("marketPriceTable");
 
+let selectedProduct = null;
+
 async function loadMarketPrices() {
 
     table.innerHTML = "<tr><td colspan='6'>Loading...</td></tr>";
@@ -133,20 +135,79 @@ async function loadMarketPrices() {
 
 function addPricing(name, category, variant, unit){
 
+    selectedProduct = {
+        name,
+        category,
+        variant,
+        unit
+    };
+
     document.getElementById("modalProduct").value = name;
     document.getElementById("modalVariant").value = variant || "-";
     document.getElementById("modalUnit").value = unit || "-";
 
-    document.getElementById("modalSRP").value = "";
     document.getElementById("modalRule").value = "maximum_only";
+    document.getElementById("modalSRP").value = "";
 
     document.getElementById("pricingModal").style.display = "flex";
 
 }
 
-function closeModal(){
+async function savePricing(){
 
-    document.getElementById("pricingModal").style.display = "none";
+    if(!selectedProduct){
+        return;
+    }
+
+    const pricingRule =
+        document.getElementById("modalRule").value;
+
+    const srp =
+        Number(document.getElementById("modalSRP").value);
+
+    if(!srp){
+
+        alert("Please enter the SRP.");
+
+        return;
+
+    }
+
+    const { error } = await db
+        .from("market_prices")
+        .insert([
+
+            {
+
+                product_name: selectedProduct.name,
+
+                category: selectedProduct.category,
+
+                variant: selectedProduct.variant || null,
+
+                unit: selectedProduct.unit || null,
+
+                pricing_rule: pricingRule,
+
+                srp: srp
+
+            }
+
+        ]);
+
+    if(error){
+
+        console.error(error);
+
+        alert(error.message);
+
+        return;
+
+    }
+
+    closeModal();
+
+    loadMarketPrices();
 
 }
 
