@@ -55,15 +55,16 @@ async function loadMarketPrices() {
 
             if (existingPrice) {
 
-                const size =
-                    ["Meat","Fish","Rice","Vegetables"].includes(product.category)
-                        ? "Per kg"
-                        : existingPrice.variant;
+                const size = isPerKg
+                    ? "Per kg"
+                    : existingPrice.variant;
                 
-                const price =
-                    ["Meat","Fish","Rice","Vegetables"].includes(product.category)
-                        ? `Max: ₱${Number(existingPrice.srp).toFixed(2)}`
-                        : `₱${Number(existingPrice.min_price).toFixed(2)} - ₱${Number(existingPrice.max_price).toFixed(2)}`;
+                const isPerKg =
+                    ["Meat", "Fish", "Rice", "Vegetables"].includes(existingPrice.category);
+                
+                const price = isPerKg
+                    ? `Max: ₱${Number(existingPrice.max_price).toFixed(2)}`
+                    : `₱${Number(existingPrice.min_price).toFixed(2)} - ₱${Number(existingPrice.max_price).toFixed(2)}`;
                 
                 table.innerHTML += `
                 <tr>
