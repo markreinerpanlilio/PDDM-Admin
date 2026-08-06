@@ -136,71 +136,78 @@ async function loadMarketPrices() {
 
 }
 
-function addPricing(name, category, variant, unit){
+function addPricing(product){
 
-    selectedProduct = {
-        name,
-        category,
-        variant,
-        unit
-    };
+    selectedProduct = product;
 
-    document.getElementById("modalProduct").value = name;
-    document.getElementById("modalVariant").value = variant || "-";
-    document.getElementById("modalUnit").value = unit || "-";
+    document.getElementById("modalTitle").innerText =
+        "Set Product Price";
 
-    document.getElementById("modalRule").value = "maximum_only";
-    document.getElementById("modalSRP").value = "";
+    document.getElementById("modalProduct").value =
+        product.product_name;
 
-    document.getElementById("pricingModal").style.display = "flex";
+    document.getElementById("modalCategory").value =
+        product.category;
+
+    const isPerKg =
+        ["Meat","Fish","Rice","Vegetables"]
+            .includes(product.category);
+
+    if(isPerKg){
+
+        document.getElementById("packageSection").style.display="none";
+        document.getElementById("minSection").style.display="none";
+
+        document.getElementById("maxLabel").innerText =
+            "Maximum Price Per Kg";
+
+    }else{
+
+        document.getElementById("packageSection").style.display="block";
+        document.getElementById("minSection").style.display="block";
+
+        document.getElementById("modalVariant").value =
+            product.variant;
+
+        document.getElementById("maxLabel").innerText =
+            "Maximum Price";
+
+    }
+
+    document.getElementById("modalMinPrice").value="";
+    document.getElementById("modalMaxPrice").value="";
+
+    document.getElementById("pricingModal").style.display="flex";
 
 }
 
 async function savePricing(){
 
-    if(!selectedProduct){
-        return;
-    }
+    const isPerKg =
+        ["Meat","Fish","Rice","Vegetables"]
+            .includes(selectedProduct.category);
 
-    const pricingRule =
-        document.getElementById("modalRule").value;
+    const payload={
 
-    const srp =
-        Number(document.getElementById("modalSRP").value);
+        product_name:selectedProduct.product_name,
 
-    if(!srp){
+        category:selectedProduct.category,
 
-        alert("Please enter the SRP.");
+        variant:isPerKg?null:selectedProduct.variant,
 
-        return;
+        min_price:isPerKg
+            ? null
+            : Number(document.getElementById("modalMinPrice").value),
 
-    }
+        max_price:Number(document.getElementById("modalMaxPrice").value)
 
-    const { error } = await db
+    };
+
+    const {error}=await db
         .from("market_prices")
-        .insert([
-
-            {
-
-                product_name: selectedProduct.name,
-
-                category: selectedProduct.category,
-
-                variant: selectedProduct.variant || null,
-
-                unit: selectedProduct.unit || null,
-
-                pricing_rule: pricingRule,
-
-                srp: srp
-
-            }
-
-        ]);
+        .insert([payload]);
 
     if(error){
-
-        console.error(error);
 
         alert(error.message);
 
