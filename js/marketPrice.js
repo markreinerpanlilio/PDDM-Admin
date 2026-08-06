@@ -55,35 +55,37 @@ async function loadMarketPrices() {
 
             if (existingPrice) {
 
+                const size =
+                    ["Meat","Fish","Rice","Vegetables"].includes(product.category)
+                        ? "Per kg"
+                        : existingPrice.variant;
+                
+                const price =
+                    ["Meat","Fish","Rice","Vegetables"].includes(product.category)
+                        ? `Max: ₱${Number(existingPrice.srp).toFixed(2)}`
+                        : `₱${Number(existingPrice.min_price).toFixed(2)} - ₱${Number(existingPrice.max_price).toFixed(2)}`;
+                
                 table.innerHTML += `
                 <tr>
-
+                
                     <td>${existingPrice.product_name}</td>
-
-                    <td>${existingPrice.variant || "-"}</td>
-
-                    <td>${existingPrice.unit || "-"}</td>
-
-                    <td>₱${Number(existingPrice.srp).toFixed(2)}</td>
-
-                    <td>${
-                        existingPrice.pricing_rule === "maximum_only"
-                            ? "Maximum Only"
-                            : "Min & Max"
-                    }</td>
-
+                
+                    <td>${size}</td>
+                
+                    <td>${price}</td>
+                
                     <td>
-
+                
                         <button
                             class="approve-btn"
                             onclick="editMarketPrice('${existingPrice.id}')">
-
+                
                             Edit
-
+                
                         </button>
-
+                
                     </td>
-
+                
                 </tr>
                 `;
 
