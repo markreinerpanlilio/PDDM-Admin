@@ -96,12 +96,12 @@ async function loadMarketPrices() {
 
                     <td>${product.name}</td>
 
-                    <td>${product.variant || "-"}</td>
-
-                    <td>${product.unit || "-"}</td>
-
-                    <td>-</td>
-
+                    <td>${
+                        ["Meat","Fish","Rice","Vegetables"].includes(product.category)
+                            ? "Per kg"
+                            : (product.variant || "-")
+                    }</td>
+                    
                     <td>-</td>
 
                     <td>
