@@ -1,224 +1,94 @@
+let marketPriceData = [];
+
 const table = document.getElementById("marketPriceTable");
 
-let selectedProduct = null;
-
 async function loadMarketPrices() {
-
     table.innerHTML = "<tr><td colspan='6'>Loading...</td></tr>";
 
-    // Existing pricing
-    const { data: prices, error: priceError } = await db
+    const { data, error } = await db
         .from("market_prices")
-        .select("*");
+        .select("*")
+        .order("product_name", { ascending: true });
 
-    if (priceError) {
-        console.error(priceError);
+    if (error) {
+        console.error(error);
+        table.innerHTML = "<tr><td colspan='6'>Failed to load data.</td></tr>";
         return;
     }
 
-    // Products uploaded by sellers
-    const { data: products, error: productError } = await db
-        .from("products")
-        .select("name, category, variant, unit");
-
-    if (productError) {
-        console.error(productError);
-        return;
-    }
-
-    // Remove duplicate products
-    const uniqueProducts = [];
-
-    products.forEach(product => {
-
-        const exists = uniqueProducts.find(p =>
-            p.name === product.name &&
-            (p.variant || "") === (product.variant || "")
-        );
-
-        if (!exists) {
-            uniqueProducts.push(product);
-        }
-
-    });
+    marketPriceData = data || [];
 
     table.innerHTML = "";
 
-    uniqueProducts
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .forEach(product => {
-
-            const existingPrice = prices.find(price =>
-                price.product_name === product.name &&
-                (price.variant || "") === (product.variant || "")
-            );
-
-            if (existingPrice) {
-
-                const size = isPerKg
-                    ? "Per kg"
-                    : existingPrice.variant;
-                
-                const isPerKg =
-                    ["Meat", "Fish", "Rice", "Vegetables"].includes(existingPrice.category);
-                
-                const price = isPerKg
-                    ? `Max: ₱${Number(existingPrice.max_price).toFixed(2)}`
-                    : `₱${Number(existingPrice.min_price).toFixed(2)} - ₱${Number(existingPrice.max_price).toFixed(2)}`;
-                
-                table.innerHTML += `
-                <tr>
-                
-                    <td>${existingPrice.product_name}</td>
-                
-                    <td>${size}</td>
-                
-                    <td>${price}</td>
-                
-                    <td>
-                
-                        <button
-                            class="approve-btn"
-                            onclick="editMarketPrice('${existingPrice.id}')">
-                
-                            Edit
-                
-                        </button>
-                
-                    </td>
-                
-                </tr>
-                `;
-
-            } else {
-
-                table.innerHTML += `
-                <tr>
-
-                    <td>${product.name}</td>
-
-                    <td>${
-                        ["Meat","Fish","Rice","Vegetables"].includes(product.category)
-                            ? "Per kg"
-                            : (product.variant || "-")
-                    }</td>
-                    
-                    <td>-</td>
-
-                    <td>
-
-                        <button
-                            class="approve-btn"
-                            onclick="addPricing(
-                                '${product.name}',
-                                '${product.category}',
-                                '${product.variant || ""}',
-                                '${product.unit || ""}'
-                            )">
-
-                            Add Pricing
-
-                        </button>
-
-                    </td>
-
-                </tr>
-                `;
-
-            }
-
-        });
-
-    if (!uniqueProducts.length) {
-        table.innerHTML =
-            "<tr><td colspan='6'>No products found.</td></tr>";
-    }
-
-}
-
-function addPricing(product){
-
-    selectedProduct = product;
-
-    document.getElementById("modalTitle").innerText =
-        "Set Product Price";
-
-    document.getElementById("modalProduct").value =
-        product.product_name;
-
-    document.getElementById("modalCategory").value =
-        product.category;
-
-    const isPerKg =
-        ["Meat","Fish","Rice","Vegetables"]
-            .includes(product.category);
-
-    if(isPerKg){
-
-        document.getElementById("packageSection").style.display="none";
-        document.getElementById("minSection").style.display="none";
-
-        document.getElementById("maxLabel").innerText =
-            "Maximum Price Per Kg";
-
-    }else{
-
-        document.getElementById("packageSection").style.display="block";
-        document.getElementById("minSection").style.display="block";
-
-        document.getElementById("modalVariant").value =
-            product.variant;
-
-        document.getElementById("maxLabel").innerText =
-            "Maximum Price";
-
-    }
-
-    document.getElementById("modalMinPrice").value="";
-    document.getElementById("modalMaxPrice").value="";
-
-    document.getElementById("pricingModal").style.display="flex";
-
-}
-
-async function savePricing(){
-
-    const isPerKg =
-        ["Meat","Fish","Rice","Vegetables"]
-            .includes(selectedProduct.category);
-
-    const payload={
-
-        product_name:selectedProduct.product_name,
-
-        category:selectedProduct.category,
-
-        variant:isPerKg?null:selectedProduct.variant,
-
-        min_price:isPerKg
-            ? null
-            : Number(document.getElementById("modalMinPrice").value),
-
-        max_price:Number(document.getElementById("modalMaxPrice").value)
-
-    };
-
-    const {error}=await db
-        .from("market_prices")
-        .insert([payload]);
-
-    if(error){
-
-        alert(error.message);
-
+    if (marketPriceData.length === 0) {
+        table.innerHTML = "<tr><td colspan='6'>No products found.</td></tr>";
         return;
-
     }
 
-    closeModal();
+    marketPriceData.forEach(product => {
 
-    loadMarketPrices();
+        const isPerKg = product.pricing_type === "per_kg";
 
+        const hasPricing = isPerKg
+            ? product.max_price !== null
+            : product.min_price !== null && product.max_price !== null;
+
+        let priceDisplay = "-";
+
+        if (isPerKg && product.max_price !== null) {
+
+            priceDisplay =
+                `₱${Number(product.max_price).toFixed(2)}`;
+
+        } else if (
+            !isPerKg &&
+            product.min_price !== null &&
+            product.max_price !== null
+        ) {
+
+            priceDisplay =
+                `₱${Number(product.min_price).toFixed(2)} - ₱${Number(product.max_price).toFixed(2)}`;
+
+        }
+
+        table.innerHTML += `
+            <tr>
+
+                <td>${product.product_name}</td>
+
+                <td>
+                    ${isPerKg ? "Per kg" : "Fixed Size"}
+                </td>
+
+                <td>
+                    ${product.size || "-"}
+                </td>
+
+                <td>
+                    ${priceDisplay}
+                </td>
+
+                <td>
+                    ${hasPricing ? "Priced" : "No Pricing"}
+                </td>
+
+                <td>
+
+                    <button
+                        class="approve-btn"
+                        onclick="openPricingModal('${product.id}')">
+
+                        ${hasPricing
+                            ? "Edit Pricing"
+                            : "Add Pricing"}
+
+                    </button>
+
+                </td>
+
+            </tr>
+        `;
+    });
 }
 
 function searchMarketPrice() {
@@ -236,19 +106,24 @@ function searchMarketPrice() {
                 : "none";
 
     });
+}
+
+function openPricingModal(id) {
+
+    const product = marketPriceData.find(
+        item => item.id === id
+    );
+
+    if (!product) {
+        console.error("Product not found:", id);
+        return;
+    }
+
+    console.log("Selected product:", product);
 
 }
 
-function openAddModal(){
-
-    alert("Add Product - Coming Soon");
-
-}
-
-function editMarketPrice(id){
-
-    alert("Edit Product - Coming Soon");
-
-}
-
-document.addEventListener("DOMContentLoaded", loadMarketPrices);
+document.addEventListener(
+    "DOMContentLoaded",
+    loadMarketPrices
+);
