@@ -3,7 +3,7 @@ let marketPriceData = [];
 const table = document.getElementById("marketPriceTable");
 
 async function loadMarketPrices() {
-    table.innerHTML = "<tr><td colspan='6'>Loading...</td></tr>";
+    table.innerHTML = "<tr><td colspan='5'>Loading...</td></tr>";
 
     const { data, error } = await db
         .from("market_prices")
@@ -13,7 +13,7 @@ async function loadMarketPrices() {
     if (error) {
         console.error(error);
         table.innerHTML =
-            "<tr><td colspan='6'>Failed to load data.</td></tr>";
+            "<tr><td colspan='5'>Failed to load data.</td></tr>";
         return;
     }
 
@@ -25,13 +25,14 @@ async function loadMarketPrices() {
 
     if (marketPriceData.length === 0) {
         table.innerHTML =
-            "<tr><td colspan='6'>No products found.</td></tr>";
+            "<tr><td colspan='5'>No products found.</td></tr>";
         return;
     }
 
     marketPriceData.forEach(product => {
 
-        const isPerKg = product.pricing_type === "per_kg";
+        const isPerKg =
+            product.pricing_type === "per_kg";
 
         const hasPricing = isPerKg
             ? product.max_price !== null
@@ -58,22 +59,20 @@ async function loadMarketPrices() {
         table.innerHTML += `
             <tr>
 
-                <td>${product.product_name || "-"}</td>
+                <td>
+                    ${product.product_name || "-"}
+                </td>
 
                 <td>
                     ${isPerKg ? "Per kg" : "Fixed Size"}
                 </td>
 
                 <td>
-                    ${isPerKg ? "Per kg" : (product.size || "-")}
+                    ${isPerKg ? "—" : (product.size || "-")}
                 </td>
 
                 <td>
                     ${priceDisplay}
-                </td>
-
-                <td>
-                    ${hasPricing ? "Priced" : "No Pricing"}
                 </td>
 
                 <td>
@@ -411,7 +410,10 @@ async function savePricing(id) {
         return;
     }
 
-    let updateData = {};
+
+    /* ------------------------------
+       PER KG
+    ------------------------------ */
 
     if (pricingType === "per_kg") {
 
@@ -425,7 +427,30 @@ async function savePricing(id) {
             return;
         }
 
-        updateData = {
+
+        // Check duplicate product name
+        const normalizedName =
+            productName.toLowerCase();
+
+        const duplicate =
+            marketPriceData.find(item =>
+                item.id !== id &&
+                item.product_name &&
+                item.product_name.trim().toLowerCase() ===
+                    normalizedName
+            );
+
+        if (duplicate) {
+
+            alert(
+                `${productName} already exists in the pricing list.`
+            );
+
+            return;
+        }
+
+
+        const updateData = {
 
             product_name: productName,
 
@@ -439,57 +464,120 @@ async function savePricing(id) {
 
         };
 
-    } else {
 
-        const size =
-            document
-                .getElementById("modalSize")
-                .value
-                .trim();
+        const { error } = await db
+            .from("market_prices")
+            .update(updateData)
+            .eq("id", id);
 
-        const minPrice =
-            document
-                .getElementById("modalMinPrice")
-                .value;
+        if (error) {
 
-        const maxPrice =
-            document
-                .getElementById("modalMaxPrice")
-                .value;
+            console.error(error);
 
-        if (!size) {
-            alert("Please enter the product size.");
-            return;
-        }
-
-        if (!minPrice || !maxPrice) {
             alert(
-                "Please enter both minimum and maximum prices."
+                "Failed to save pricing: " +
+                error.message
             );
+
             return;
         }
 
-        if (Number(minPrice) > Number(maxPrice)) {
-            alert(
-                "Minimum price cannot be higher than maximum price."
-            );
-            return;
-        }
+        alert("Pricing saved successfully.");
 
-        updateData = {
+        closePricingModal();
 
-            product_name: productName,
+        await loadMarketPrices();
 
-            pricing_type: "fixed_size",
-
-            size: size,
-
-            min_price: Number(minPrice),
-
-            max_price: Number(maxPrice)
-
-        };
+        return;
     }
+
+
+    /* ------------------------------
+       FIXED SIZE
+    ------------------------------ */
+
+    const size =
+        document
+            .getElementById("modalSize")
+            .value
+            .trim();
+
+    const minPrice =
+        document
+            .getElementById("modalMinPrice")
+            .value;
+
+    const maxPrice =
+        document
+            .getElementById("modalMaxPrice")
+            .value;
+
+    if (!size) {
+        alert("Please enter the product size.");
+        return;
+    }
+
+    if (!minPrice || !maxPrice) {
+
+        alert(
+            "Please enter both minimum and maximum prices."
+        );
+
+        return;
+    }
+
+    if (Number(minPrice) > Number(maxPrice)) {
+
+        alert(
+            "Minimum price cannot be higher than maximum price."
+        );
+
+        return;
+    }
+
+
+    // Check duplicate name + size
+    const normalizedName =
+        productName.toLowerCase();
+
+    const normalizedSize =
+        size.toLowerCase();
+
+    const duplicate =
+        marketPriceData.find(item =>
+            item.id !== id &&
+            item.product_name &&
+            item.product_name.trim().toLowerCase() ===
+                normalizedName &&
+            item.size &&
+            item.size.trim().toLowerCase() ===
+                normalizedSize
+        );
+
+    if (duplicate) {
+
+        alert(
+            `${productName} with size ${size} already exists in the pricing list.`
+        );
+
+        return;
+    }
+
+
+    const updateData = {
+
+        product_name: productName,
+
+        pricing_type: "fixed_size",
+
+        size: size,
+
+        min_price: Number(minPrice),
+
+        max_price: Number(maxPrice)
+
+    };
+
 
     const { error } = await db
         .from("market_prices")
