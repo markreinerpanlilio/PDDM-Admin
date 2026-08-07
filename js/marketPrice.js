@@ -283,7 +283,7 @@ function updatePricingFields(
 
             <input
                 type="text"
-                value="Per kg"
+                value="--"
                 disabled
                 style="
                     width:100%;
