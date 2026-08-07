@@ -56,7 +56,7 @@ async function loadMarketPrices() {
         table.innerHTML += `
             <tr>
 
-                <td>${product.product_name}</td>
+                <td>${product.product_name || "-"}</td>
 
                 <td>
                     ${isPerKg ? "Per kg" : "Fixed Size"}
@@ -125,8 +125,6 @@ function openPricingModal(id) {
 
     console.log("Selected product:", product);
 
-    const isPerKg = product.pricing_type === "per_kg";
-
     const oldModal = document.getElementById("pricingModal");
 
     if (oldModal) {
@@ -148,6 +146,8 @@ function openPricingModal(id) {
     modal.style.alignItems = "center";
     modal.style.zIndex = "9999";
 
+    const isPerKg = product.pricing_type === "per_kg";
+
     modal.innerHTML = `
         <div style="
             background:white;
@@ -164,12 +164,13 @@ function openPricingModal(id) {
                     : "Set Product Price"}
             </h2>
 
-            <label>Product</label>
+            <label>Product Name</label>
 
             <input
                 type="text"
+                id="modalProductName"
                 value="${product.product_name || ""}"
-                disabled
+                placeholder="Enter product name"
                 style="
                     width:100%;
                     margin:8px 0 15px;
@@ -180,10 +181,9 @@ function openPricingModal(id) {
 
             <label>Type</label>
 
-            <input
-                type="text"
-                value="${isPerKg ? "Per kg" : "Fixed Size"}"
-                disabled
+            <select
+                id="modalPricingType"
+                onchange="updatePricingFields()"
                 style="
                     width:100%;
                     margin:8px 0 15px;
@@ -192,96 +192,29 @@ function openPricingModal(id) {
                 "
             >
 
-            ${
-                isPerKg
-                ? `
-                    <label>Size</label>
+                <option
+                    value="per_kg"
+                    ${isPerKg ? "selected" : ""}
+                >
+                    Per kg
+                </option>
 
-                    <input
-                        type="text"
-                        value="Per kg"
-                        disabled
-                        style="
-                            width:100%;
-                            margin:8px 0 15px;
-                            padding:10px;
-                            box-sizing:border-box;
-                        "
-                    >
+                <option
+                    value="fixed_size"
+                    ${!isPerKg ? "selected" : ""}
+                >
+                    Fixed Size
+                </option>
 
-                    <label>Maximum Price</label>
+            </select>
 
-                    <input
-                        type="number"
-                        id="modalMaxPrice"
-                        value="${product.max_price ?? ""}"
-                        placeholder="Enter maximum price"
-                        min="0"
-                        step="0.01"
-                        style="
-                            width:100%;
-                            margin:8px 0 20px;
-                            padding:10px;
-                            box-sizing:border-box;
-                        "
-                    >
-                `
-                : `
-                    <label>Size</label>
-
-                    <input
-                        type="text"
-                        id="modalSize"
-                        value="${product.size || ""}"
-                        placeholder="Example: 35g, 100ml, Small"
-                        style="
-                            width:100%;
-                            margin:8px 0 15px;
-                            padding:10px;
-                            box-sizing:border-box;
-                        "
-                    >
-
-                    <label>Minimum Price</label>
-
-                    <input
-                        type="number"
-                        id="modalMinPrice"
-                        value="${product.min_price ?? ""}"
-                        placeholder="Enter minimum price"
-                        min="0"
-                        step="0.01"
-                        style="
-                            width:100%;
-                            margin:8px 0 15px;
-                            padding:10px;
-                            box-sizing:border-box;
-                        "
-                    >
-
-                    <label>Maximum Price</label>
-
-                    <input
-                        type="number"
-                        id="modalMaxPrice"
-                        value="${product.max_price ?? ""}"
-                        placeholder="Enter maximum price"
-                        min="0"
-                        step="0.01"
-                        style="
-                            width:100%;
-                            margin:8px 0 20px;
-                            padding:10px;
-                            box-sizing:border-box;
-                        "
-                    >
-                `
-            }
+            <div id="pricingFields"></div>
 
             <div style="
                 display:flex;
                 justify-content:flex-end;
                 gap:10px;
+                margin-top:20px;
             ">
 
                 <button
@@ -310,12 +243,134 @@ function openPricingModal(id) {
     `;
 
     document.body.appendChild(modal);
+
+    updatePricingFields(
+        product.size || "",
+        product.min_price,
+        product.max_price
+    );
+}
+
+
+function updatePricingFields(
+    currentSize = "",
+    currentMinPrice = null,
+    currentMaxPrice = null
+) {
+
+    const typeElement =
+        document.getElementById("modalPricingType");
+
+    const fields =
+        document.getElementById("pricingFields");
+
+    if (!typeElement || !fields) {
+        return;
+    }
+
+    const isPerKg =
+        typeElement.value === "per_kg";
+
+    if (isPerKg) {
+
+        fields.innerHTML = `
+
+            <label>Size</label>
+
+            <input
+                type="text"
+                value="Per kg"
+                disabled
+                style="
+                    width:100%;
+                    margin:8px 0 15px;
+                    padding:10px;
+                    box-sizing:border-box;
+                    background:#eee;
+                "
+            >
+
+            <label>Maximum Price</label>
+
+            <input
+                type="number"
+                id="modalMaxPrice"
+                value="${currentMaxPrice ?? ""}"
+                placeholder="Enter maximum price"
+                min="0"
+                step="0.01"
+                style="
+                    width:100%;
+                    margin:8px 0 15px;
+                    padding:10px;
+                    box-sizing:border-box;
+                "
+            >
+
+        `;
+
+    } else {
+
+        fields.innerHTML = `
+
+            <label>Size</label>
+
+            <input
+                type="text"
+                id="modalSize"
+                value="${currentSize || ""}"
+                placeholder="Example: 35g, 100ml, Small"
+                style="
+                    width:100%;
+                    margin:8px 0 15px;
+                    padding:10px;
+                    box-sizing:border-box;
+                "
+            >
+
+            <label>Minimum Price</label>
+
+            <input
+                type="number"
+                id="modalMinPrice"
+                value="${currentMinPrice ?? ""}"
+                placeholder="Enter minimum price"
+                min="0"
+                step="0.01"
+                style="
+                    width:100%;
+                    margin:8px 0 15px;
+                    padding:10px;
+                    box-sizing:border-box;
+                "
+            >
+
+            <label>Maximum Price</label>
+
+            <input
+                type="number"
+                id="modalMaxPrice"
+                value="${currentMaxPrice ?? ""}"
+                placeholder="Enter maximum price"
+                min="0"
+                step="0.01"
+                style="
+                    width:100%;
+                    margin:8px 0 15px;
+                    padding:10px;
+                    box-sizing:border-box;
+                "
+            >
+
+        `;
+    }
 }
 
 
 function closePricingModal() {
 
-    const modal = document.getElementById("pricingModal");
+    const modal =
+        document.getElementById("pricingModal");
 
     if (modal) {
         modal.remove();
@@ -334,14 +389,30 @@ async function savePricing(id) {
         return;
     }
 
-    const isPerKg = product.pricing_type === "per_kg";
+    const productName =
+        document
+            .getElementById("modalProductName")
+            .value
+            .trim();
+
+    const pricingType =
+        document
+            .getElementById("modalPricingType")
+            .value;
+
+    if (!productName) {
+        alert("Please enter the product name.");
+        return;
+    }
 
     let updateData = {};
 
-    if (isPerKg) {
+    if (pricingType === "per_kg") {
 
         const maxPrice =
-            document.getElementById("modalMaxPrice").value;
+            document
+                .getElementById("modalMaxPrice")
+                .value;
 
         if (!maxPrice) {
             alert("Please enter the maximum price.");
@@ -349,19 +420,30 @@ async function savePricing(id) {
         }
 
         updateData = {
+            product_name: productName,
+            pricing_type: "per_kg",
+            size: null,
+            min_price: null,
             max_price: Number(maxPrice)
         };
 
     } else {
 
         const size =
-            document.getElementById("modalSize").value.trim();
+            document
+                .getElementById("modalSize")
+                .value
+                .trim();
 
         const minPrice =
-            document.getElementById("modalMinPrice").value;
+            document
+                .getElementById("modalMinPrice")
+                .value;
 
         const maxPrice =
-            document.getElementById("modalMaxPrice").value;
+            document
+                .getElementById("modalMaxPrice")
+                .value;
 
         if (!size) {
             alert("Please enter the product size.");
@@ -369,16 +451,22 @@ async function savePricing(id) {
         }
 
         if (!minPrice || !maxPrice) {
-            alert("Please enter both minimum and maximum prices.");
+            alert(
+                "Please enter both minimum and maximum prices."
+            );
             return;
         }
 
         if (Number(minPrice) > Number(maxPrice)) {
-            alert("Minimum price cannot be higher than maximum price.");
+            alert(
+                "Minimum price cannot be higher than maximum price."
+            );
             return;
         }
 
         updateData = {
+            product_name: productName,
+            pricing_type: "fixed_size",
             size: size,
             min_price: Number(minPrice),
             max_price: Number(maxPrice)
@@ -396,7 +484,7 @@ async function savePricing(id) {
         return;
     }
 
-    alert("Pricing saved successfully.");
+    alert("Market price updated successfully.");
 
     closePricingModal();
 
