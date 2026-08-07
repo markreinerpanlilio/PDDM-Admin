@@ -82,8 +82,8 @@ async function loadMarketPrices() {
                         onclick="openPricingModal('${product.id}')">
 
                         ${hasPricing
-                            ? "Edit Pricing"
-                            : "Add Pricing"}
+                            ? "Edit"
+                            : "Add pricing"}
 
                     </button>
 
