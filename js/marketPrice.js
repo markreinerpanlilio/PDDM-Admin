@@ -17,7 +17,7 @@ async function loadMarketPrices() {
     }
 
     marketPriceData = data || [];
-
+    console.log("Market price data:", marketPriceData);
     table.innerHTML = "";
 
     if (marketPriceData.length === 0) {
