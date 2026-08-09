@@ -30,7 +30,12 @@ body{background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
 ::-webkit-scrollbar{width:8px;height:8px}
 ::-webkit-scrollbar-thumb{background:#D8D8DE;border-radius:8px}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-button{font-family:inherit}
+button{
+  font-family:inherit;border-radius:var(--radius-sm);font-weight:700;cursor:pointer;
+  border:none;transition:background var(--ease),color var(--ease),border-color var(--ease),transform var(--ease);
+}
+button:hover{transform:translateY(-1px)}
+button:active{transform:translateY(0)}
 
 /* Login */
 .login-page{
@@ -93,10 +98,7 @@ button{font-family:inherit}
 .header-actions{display:flex;gap:10px}
 .header-actions select{padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);
   background:var(--surface);cursor:pointer;font-size:14px}
-.refresh-btn{
-  background:var(--accent);color:#1A1A1A;font-weight:700;border:none;padding:10px 20px;
-  border-radius:var(--radius-sm);cursor:pointer;transition:background var(--ease);
-}
+.refresh-btn{background:var(--accent);color:#1A1A1A;padding:10px 20px}
 .refresh-btn:hover{background:var(--accent-dark);color:#fff}
 
 /* KPI cards */
@@ -123,10 +125,7 @@ button{font-family:inherit}
 
 /* Quick actions */
 .quick-actions{display:flex;flex-direction:column;gap:10px}
-.quick-actions button{
-  padding:12px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);
-  font-weight:600;border-radius:var(--radius-sm);cursor:pointer;transition:var(--ease);
-}
+.quick-actions button{padding:12px;border:1.5px solid var(--border);background:var(--surface);color:var(--text)}
 .quick-actions button:hover{background:var(--accent-soft);border-color:var(--accent)}
 
 /* Notifications */
@@ -154,24 +153,21 @@ button{font-family:inherit}
 
 /* Action buttons */
 .action-buttons{display:flex;justify-content:center;gap:10px}
-.action-buttons button{
-  width:36px;height:36px;border:none;border-radius:50%;color:#fff;font-size:16px;
-  cursor:pointer;transition:transform var(--ease),background var(--ease);
-}
+.action-buttons button{width:36px;height:36px;border-radius:50%;color:#fff;font-size:16px}
 .approve-btn{background:var(--success)}
 .reject-btn{background:var(--danger)}
 .approve-btn:hover{background:var(--success-dark);transform:scale(1.08)}
 .reject-btn:hover{background:var(--danger-dark);transform:scale(1.08)}
 
-/* Inline table buttons (Edit / Add pricing) */
-.edit-btn,.add-pricing-btn{
-  display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:12.5px;
-  padding:7px 16px;border-radius:999px;cursor:pointer;transition:var(--ease);line-height:1;
+/* Table/action-row buttons: Edit, Add pricing, Add Product, Save — same component, color variants only */
+.edit-btn,.add-pricing-btn,.add-product-btn,.save-btn{
+  display:inline-flex;align-items:center;justify-content:center;font-size:12.5px;
+  padding:8px 16px;border-radius:var(--radius-sm);line-height:1;border:1.5px solid var(--accent);
 }
-.edit-btn{background:transparent;color:var(--accent-dark);border:1.5px solid var(--accent)}
+.edit-btn{background:transparent;color:var(--accent-dark)}
 .edit-btn:hover{background:var(--accent-soft)}
-.add-pricing-btn{background:var(--accent);color:#1A1A1A;border:1.5px solid var(--accent)}
-.add-pricing-btn:hover{background:var(--accent-dark);color:#fff;border-color:var(--accent-dark)}
+.add-pricing-btn,.add-product-btn,.save-btn{background:var(--accent);color:#1A1A1A}
+.add-pricing-btn:hover,.add-product-btn:hover,.save-btn:hover{background:var(--accent-dark);color:#fff;border-color:var(--accent-dark)}
 
 /* Modal */
 .modal{
@@ -187,7 +183,7 @@ button{font-family:inherit}
 }
 .modal-content input:focus,.modal-content select:focus{border-color:var(--accent);outline:none}
 .modal-buttons{display:flex;justify-content:flex-end;gap:10px;margin-top:8px}
-.modal-buttons button{padding:10px 18px;border:none;border-radius:var(--radius-sm);font-weight:700;cursor:pointer}
+.modal-buttons button{padding:10px 18px}
 .modal-buttons button:first-child{background:var(--bg);color:var(--text)}
 .modal-buttons button:last-child{background:var(--accent);color:#1A1A1A}
 .modal-buttons button:last-child:hover{background:var(--accent-dark);color:#fff}
