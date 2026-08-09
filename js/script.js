@@ -116,8 +116,8 @@ async function loadCounts() {
     if ($("customerCount")) $("customerCount").textContent = customers.count ?? 0;
     if ($("sellerCount")) $("sellerCount").textContent = sellers.count ?? 0;
 
-    if ($("activeCustomerCount")) $("activeCustomerCount").textContent = 18;
-    if ($("activeSellerCount")) $("activeSellerCount").textContent = 7;
+    if ($("activeCustomerCount")) $("activeCustomerCount").textContent = 0;
+    if ($("activeSellerCount")) $("activeSellerCount").textContent = 0;
 }
 
 // Sidebar
