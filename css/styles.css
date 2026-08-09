@@ -2,9 +2,9 @@
 
 /* Tokens */
 :root{
-  --bg:#F6F6F8;
+  --bg:#ECEDF1;
   --surface:#FFFFFF;
-  --border:#E8E8EC;
+  --border:#E2E3E8;
   --text:#15171C;
   --text-muted:#75778A;
 
@@ -63,7 +63,7 @@ button{font-family:inherit}
 /* Sidebar */
 .sidebar{
   position:fixed;left:0;top:0;width:250px;height:100vh;background:var(--surface);
-  border-right:1px solid var(--border);transition:width var(--ease);z-index:10;
+  box-shadow:2px 0 12px rgba(16,24,40,.05);transition:width var(--ease);z-index:10;
 }
 .sidebar.collapsed{width:76px}
 .sidebar-header{display:flex;align-items:center;gap:14px;padding:22px 20px;border-bottom:1px solid var(--border)}
@@ -164,10 +164,14 @@ button{font-family:inherit}
 .reject-btn:hover{background:var(--danger-dark);transform:scale(1.08)}
 
 /* Inline table buttons (Edit / Add pricing) */
-.request-table a,.request-table button.link-btn{
-  background:var(--accent-soft);color:#8A6300;font-weight:700;font-size:13px;
-  padding:6px 12px;border-radius:8px;border:none;cursor:pointer;
+.edit-btn,.add-pricing-btn{
+  display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:12.5px;
+  padding:7px 16px;border-radius:999px;cursor:pointer;transition:var(--ease);line-height:1;
 }
+.edit-btn{background:transparent;color:var(--accent-dark);border:1.5px solid var(--accent)}
+.edit-btn:hover{background:var(--accent-soft)}
+.add-pricing-btn{background:var(--accent);color:#1A1A1A;border:1.5px solid var(--accent)}
+.add-pricing-btn:hover{background:var(--accent-dark);color:#fff;border-color:var(--accent-dark)}
 
 /* Modal */
 .modal{
