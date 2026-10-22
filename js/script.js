@@ -1,4 +1,3 @@
-```javascript
 const $ = (id) => document.getElementById(id);
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -374,4 +373,3 @@ function loadPriceComplianceChart() {
 document.addEventListener("DOMContentLoaded", () => {
     $("dateFilter")?.addEventListener("change", initializeCharts);
 });
-```
