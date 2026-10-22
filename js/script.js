@@ -1,11 +1,6 @@
 const $ = (id) => document.getElementById(id);
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-const db = supabase.createClient(
-    window.SUPABASE_URL,
-    window.SUPABASE_ANON_KEY
-);
-
 let userGrowthChart = null;
 let marketActivityChart = null;
 let priceComplianceChart = null;
