@@ -1,5 +1,11 @@
+```javascript
 const $ = (id) => document.getElementById(id);
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+const db = supabase.createClient(
+    window.SUPABASE_URL,
+    window.SUPABASE_ANON_KEY
+);
 
 let userGrowthChart = null;
 let marketActivityChart = null;
@@ -43,20 +49,20 @@ async function login() {
     }
 
     localStorage.setItem("adminName", profile.full_name);
+
     await addAuditLog(
-    "Login",
-    "Authentication",
-    `${profile.email} logged in.`
-);
+        "Login",
+        "Authentication",
+        `${profile.email} logged in.`
+    );
+
     window.location.href = "pages/dashboard.html";
 }
 
 async function logout() {
+    const { data: { user } } = await db.auth.getUser();
 
-    const { data:{ user } } = await db.auth.getUser();
-
-    if(user){
-
+    if (user) {
         const { data: admin } = await db
             .from("profiles")
             .select("email")
@@ -66,22 +72,20 @@ async function logout() {
         await addAuditLog(
             "Logout",
             "Authentication",
-            `${admin.email} logged out.`
+            `${admin?.email || user.email} logged out.`
         );
-
     }
 
     await db.auth.signOut();
-
     localStorage.removeItem("adminName");
 
-    window.location.href="../index.html";
-
+    window.location.href = "../index.html";
 }
 
 async function addAuditLog(action, module, description) {
+    const { data: { user } } = await db.auth.getUser();
 
-    const { data:{ user } } = await db.auth.getUser();
+    if (!user) return;
 
     const { data: admin } = await db
         .from("profiles")
@@ -89,19 +93,22 @@ async function addAuditLog(action, module, description) {
         .eq("id", user.id)
         .single();
 
-    await db.from("audit_logs").insert([{
+    const { error } = await db.from("audit_logs").insert([{
         user_id: user.id,
-        user: `Admin(${admin.email})`,
+        user: `Admin(${admin?.email || user.email})`,
         action,
         module,
         description
     }]);
+
+    if (error) console.error("Audit log error:", error.message);
 }
 
 // Dashboard
 async function loadDashboard() {
     if ($("welcome")) {
-        $("welcome").textContent = `Welcome, ${localStorage.getItem("adminName") || "Admin"}`;
+        $("welcome").textContent =
+            `Welcome, ${localStorage.getItem("adminName") || "Admin"}`;
     }
 
     await loadCounts();
@@ -109,9 +116,16 @@ async function loadDashboard() {
 
 async function loadCounts() {
     const [customers, sellers] = await Promise.all([
-        db.from("profiles").select("id", { count: "exact", head: true }).eq("role", "customer"),
-        db.from("profiles").select("id", { count: "exact", head: true }).eq("role", "seller")
+        db.from("profiles")
+            .select("id", { count: "exact", head: true })
+            .eq("role", "customer"),
+        db.from("profiles")
+            .select("id", { count: "exact", head: true })
+            .eq("role", "seller")
     ]);
+
+    if (customers.error) console.error(customers.error.message);
+    if (sellers.error) console.error(sellers.error.message);
 
     if ($("customerCount")) $("customerCount").textContent = customers.count ?? 0;
     if ($("sellerCount")) $("sellerCount").textContent = sellers.count ?? 0;
@@ -124,11 +138,18 @@ async function loadCounts() {
 function toggleSidebar() {
     const sidebar = $("sidebar");
     const content = $("content");
+
     if (!sidebar || !content) return;
 
     sidebar.classList.toggle("collapsed");
-    content.classList.toggle("collapsed-content", sidebar.classList.contains("collapsed"));
-    content.classList.toggle("expanded-content", !sidebar.classList.contains("collapsed"));
+    content.classList.toggle(
+        "collapsed-content",
+        sidebar.classList.contains("collapsed")
+    );
+    content.classList.toggle(
+        "expanded-content",
+        !sidebar.classList.contains("collapsed")
+    );
 }
 
 // Filters
@@ -164,27 +185,50 @@ function getRange(filter) {
 
 function makeLabels(range) {
     if (range.type === "hour") {
-        return Array.from({ length: 24 }, (_, h) => `${h % 12 || 12}${h < 12 ? "AM" : "PM"}`);
+        return Array.from(
+            { length: 24 },
+            (_, h) => `${h % 12 || 12}${h < 12 ? "AM" : "PM"}`
+        );
     }
 
     if (range.type === "day") {
         const labels = [];
-        for (let i = 0; i < 7 || i < 30; i++) {
+        const totalDays = Math.floor(
+            (new Date(range.end).setHours(0, 0, 0, 0) -
+            range.start.getTime()) / DAY_MS
+        ) + 1;
+
+        for (let i = 0; i < totalDays; i++) {
             const d = new Date(range.start);
             d.setDate(d.getDate() + i);
-            if (range.start.getTime() + i * DAY_MS <= range.end.getTime()) {
-                labels.push(d.toLocaleDateString(undefined, { month: "short", day: "numeric" }));
-            }
+            labels.push(
+                d.toLocaleDateString(undefined, {
+                    month: "short",
+                    day: "numeric"
+                })
+            );
         }
+
         return labels;
     }
 
-    return ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+    ];
 }
 
 function bucketIndex(date, range) {
     if (range.type === "hour") return date.getHours();
-    if (range.type === "day") return Math.floor((date.setHours(0, 0, 0, 0) - range.start.getTime()) / DAY_MS);
+
+    if (range.type === "day") {
+        const day = new Date(date);
+        day.setHours(0, 0, 0, 0);
+        return Math.floor(
+            (day.getTime() - range.start.getTime()) / DAY_MS
+        );
+    }
+
     return date.getMonth();
 }
 
@@ -197,9 +241,13 @@ function buildCounts(rows, range, labelCount, field = "created_at") {
 
     rows.forEach((row) => {
         if (!row[field]) return;
-        const d = new Date(row[field]);
-        const idx = bucketIndex(d, range);
-        if (idx >= 0 && idx < counts.length) counts[idx]++;
+
+        const date = new Date(row[field]);
+        const index = bucketIndex(date, range);
+
+        if (index >= 0 && index < counts.length) {
+            counts[index]++;
+        }
     });
 
     return counts;
@@ -210,6 +258,7 @@ function drawChart(existingChart, canvasId, config) {
     if (!canvas) return existingChart;
 
     if (existingChart) existingChart.destroy();
+
     return new Chart(canvas, config);
 }
 
@@ -222,6 +271,7 @@ async function initializeCharts() {
 
 async function loadUserGrowthChart() {
     const range = getRange(getFilter());
+
     const { data, error } = await db
         .from("profiles")
         .select("created_at")
@@ -253,13 +303,16 @@ async function loadUserGrowthChart() {
             responsive: true,
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
-            scales: { x: { ticks: { maxRotation: 0, autoSkip: true } } }
+            scales: {
+                x: { ticks: { maxRotation: 0, autoSkip: true } }
+            }
         }
     });
 }
 
 async function loadMarketActivityChart() {
     const range = getRange(getFilter());
+
     const { data, error } = await db
         .from("orders")
         .select("created_at")
@@ -289,29 +342,36 @@ async function loadMarketActivityChart() {
             responsive: true,
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
-            scales: { x: { ticks: { maxRotation: 0, autoSkip: true } } }
+            scales: {
+                x: { ticks: { maxRotation: 0, autoSkip: true } }
+            }
         }
     });
 }
 
 function loadPriceComplianceChart() {
-    priceComplianceChart = drawChart(priceComplianceChart, "priceComplianceChart", {
-        type: "doughnut",
-        data: {
-            labels: ["Within Range", "Above Range", "Below Range"],
-            datasets: [{
-                data: [70, 20, 10],
-                backgroundColor: ["#4CAF50", "#FFC107", "#F44336"]
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false
+    priceComplianceChart = drawChart(
+        priceComplianceChart,
+        "priceComplianceChart",
+        {
+            type: "doughnut",
+            data: {
+                labels: ["Within Range", "Above Range", "Below Range"],
+                datasets: [{
+                    data: [70, 20, 10],
+                    backgroundColor: ["#4CAF50", "#FFC107", "#F44336"]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
         }
-    });
+    );
 }
 
 // Events
 document.addEventListener("DOMContentLoaded", () => {
     $("dateFilter")?.addEventListener("change", initializeCharts);
 });
+```
