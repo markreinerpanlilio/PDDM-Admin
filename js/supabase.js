@@ -1,7 +1,7 @@
-const SUPABASE_URL = env.spbs_url;
-const SUPABASE_ANON_KEY = env.spbs_key;
+const SUPABASE_URL = window.SUPABASE_URL;
+const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY;
 
 const db = supabase.createClient(
-    SUPABASE_URL,
-    SUPABASE_ANON_KEY
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY
 );
