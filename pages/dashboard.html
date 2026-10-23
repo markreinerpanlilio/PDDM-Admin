@@ -7,387 +7,339 @@
     <link rel="stylesheet" href="../css/styles.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
     <style>
-        * { box-sizing: border-box; }
-
-        .content {
-            min-height: 100vh;
-            padding: 26px;
+        .dashboard-top-layout{
+            display:grid;
+            grid-template-columns:minmax(0,2fr) minmax(0,3fr);
+            gap:20px;
+            align-items:stretch;
+            margin-bottom:24px;
         }
-
-        .dashboard-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 18px;
-            margin-bottom: 24px;
+        .dashboard-summary-grid{
+            display:grid;
+            grid-template-columns:repeat(2,minmax(0,1fr));
+            grid-template-rows:repeat(2,minmax(130px,1fr));
+            gap:20px;
+            min-width:0;
         }
-
-        .dashboard-header h1 {
-            margin: 0;
-            font-size: 27px;
+        .dashboard-summary-grid .card{
+            min-width:0;
+            min-height:130px;
+            margin:0;
         }
-
-        .dashboard-header h3 {
-            margin: 5px 0 0;
-            font-size: 13px;
-            font-weight: 400;
-            opacity: .7;
+        .dashboard-notifications{
+            min-width:0;
+            min-height:280px;
+            height:100%;
+            box-sizing:border-box;
+            display:flex;
+            flex-direction:column;
         }
-
-        .header-actions {
-            display: flex;
-            align-items: center;
-            gap: 10px;
+        .dashboard-notifications-header{
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            gap:12px;
+            flex-wrap:wrap;
+            margin-bottom:12px;
         }
-
-        .header-actions select,
-        .refresh-btn {
-            min-height: 39px;
-            padding: 0 13px;
-            border: 1px solid var(--border-color, #ddd);
-            border-radius: 8px;
-            background: var(--card-background, #fff);
-            color: inherit;
-            font: inherit;
-            font-size: 13px;
-            cursor: pointer;
+        .dashboard-notifications-header h2{margin:0}
+        .notification-count{
+            padding:6px 12px;
+            border-radius:20px;
+            background:var(--accent-soft);
+            color:var(--accent-dark);
+            font-size:12px;
+            font-weight:700;
+            white-space:nowrap;
         }
-
-        .refresh-btn {
-            background: var(--primary-color, #333);
-            color: #fff;
-            border-color: transparent;
+        .dashboard-notification-list{
+            list-style:none;
+            padding:0;
+            margin:0;
+            overflow-y:auto;
+            flex:1;
         }
-
-        .dashboard-status {
-            margin: -10px 0 14px;
-            font-size: 12px;
-            opacity: .7;
+        .dashboard-notification-list li{
+            display:flex;
+            align-items:flex-start;
+            gap:12px;
+            padding:15px 4px;
+            border-bottom:1px solid var(--border);
         }
-
-        .dashboard-status:empty { display: none; }
-
-        .overview-layout {
-            display: grid;
-            grid-template-columns: minmax(0, 4fr) minmax(270px, 2fr);
-            gap: 18px;
-            margin-bottom: 20px;
-            align-items: stretch;
+        .dashboard-notification-list li:last-child{border-bottom:none}
+        .notification-dot{
+            width:10px;
+            height:10px;
+            min-width:10px;
+            margin-top:5px;
+            border-radius:50%;
+            background:var(--accent);
         }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            grid-template-rows: repeat(2, minmax(115px, 1fr));
-            gap: 14px;
-            min-width: 0;
+        .notification-details{min-width:0;flex:1}
+        .notification-title{
+            font-size:13px;
+            font-weight:700;
+            color:var(--text);
+            overflow-wrap:anywhere;
         }
-
-        .stat-card,
-        .notification-card,
-        .panel {
-            min-width: 0;
-            padding: 20px;
-            border-radius: 13px;
-            background: var(--card-background, #fff);
-            border: 1px solid var(--border-color, #e8e8e8);
-            box-shadow: 0 3px 14px rgba(0, 0, 0, .035);
+        .notification-message{
+            font-size:12px;
+            color:var(--text-muted);
+            margin-top:5px;
+            overflow-wrap:anywhere;
         }
-
-        .stat-card {
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            min-height: 115px;
+        .notification-time{
+            font-size:11px;
+            color:var(--text-muted);
+            margin-top:6px;
         }
-
-        .stat-label {
-            font-size: 12px;
-            opacity: .72;
-            font-weight: 600;
+        .notification-empty{
+            padding:30px 10px;
+            text-align:center;
+            color:var(--text-muted);
+            font-size:13px;
         }
-
-        .stat-value {
-            margin-top: 15px;
-            font-size: 29px;
-            line-height: 1.1;
-            font-weight: 700;
-            overflow-wrap: anywhere;
+        .dashboard-notification-list li.unread{background:var(--accent-soft)}
+        @media(max-width:1200px){
+            .dashboard-top-layout{grid-template-columns:minmax(0,1fr) minmax(0,1.3fr)}
+            .dashboard-summary-grid{gap:12px;grid-template-rows:repeat(2,minmax(120px,1fr))}
         }
-
-        .notification-card {
-            display: flex;
-            flex-direction: column;
-            min-height: 244px;
-        }
-
-        .notification-heading,
-        .panel-heading {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            margin-bottom: 15px;
-        }
-
-        .notification-heading h2,
-        .panel-heading h2 {
-            margin: 0;
-            font-size: 15px;
-            font-weight: 700;
-        }
-
-        .unread-badge {
-            flex-shrink: 0;
-            padding: 4px 9px;
-            border-radius: 20px;
-            background: var(--primary-color, #333);
-            color: #fff;
-            font-size: 11px;
-            font-weight: 700;
-        }
-
-        .notification-list {
-            display: flex;
-            flex-direction: column;
-            gap: 0;
-            margin: 0;
-            padding: 0;
-            list-style: none;
-        }
-
-        .notification-item {
-            padding: 11px 0;
-            border-bottom: 1px solid var(--border-color, #eee);
-        }
-
-        .notification-item:last-child {
-            border-bottom: 0;
-        }
-
-        .notification-title {
-            margin: 0 0 4px;
-            font-size: 12px;
-            font-weight: 700;
-            overflow-wrap: anywhere;
-        }
-
-        .notification-message {
-            margin: 0;
-            font-size: 11px;
-            line-height: 1.5;
-            opacity: .75;
-            overflow-wrap: anywhere;
-        }
-
-        .notification-time {
-            display: block;
-            margin-top: 5px;
-            font-size: 10px;
-            opacity: .6;
-        }
-
-        .notification-empty {
-            display: flex;
-            flex: 1;
-            align-items: center;
-            justify-content: center;
-            min-height: 120px;
-            text-align: center;
-            font-size: 12px;
-            opacity: .65;
-        }
-
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
-            gap: 18px;
-            margin-bottom: 20px;
-        }
-
-        .panel { padding: 21px; }
-
-        .panel-tag {
-            font-size: 11px;
-            opacity: .65;
-            white-space: nowrap;
-        }
-
-        .chart-container {
-            position: relative;
-            width: 100%;
-            height: 270px;
-        }
-
-        .full-panel { margin-bottom: 20px; }
-        .full-panel .chart-container { height: 290px; }
-
-        .chart-note {
-            margin-top: 10px;
-            font-size: 11px;
-            line-height: 1.5;
-            opacity: .7;
-        }
-
-        @media (max-width: 1050px) {
-            .overview-layout {
-                grid-template-columns: minmax(0, 1fr);
+        @media(max-width:768px){
+            .dashboard-top-layout{grid-template-columns:1fr}
+            .dashboard-summary-grid{grid-template-rows:repeat(2,minmax(120px,1fr))}
+            .dashboard-notifications{min-height:280px}
+            .sidebar.mobile-open{
+                display:block;
+                position:fixed;
+                inset:0 auto 0 0;
+                width:250px;
+                z-index:1000;
             }
-
-            .stats-grid {
-                grid-template-columns: repeat(4, minmax(0, 1fr));
-                grid-template-rows: auto;
-            }
-
-            .stat-card { min-height: 120px; }
-            .notification-card { min-height: 200px; }
         }
-
-        @media (max-width: 800px) {
-            .dashboard-grid { grid-template-columns: minmax(0, 1fr); }
-            .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-            .content { padding: 18px; }
-        }
-
-        @media (max-width: 520px) {
-            .dashboard-header {
-                align-items: flex-start;
-                flex-direction: column;
-            }
-
-            .header-actions { width: 100%; }
-            .header-actions select { flex: 1; min-width: 0; }
-            .stats-grid { gap: 10px; }
-            .stat-card { padding: 15px; }
-            .stat-value { font-size: 25px; }
-            .panel, .notification-card { padding: 16px; }
-            .chart-container, .full-panel .chart-container { height: 240px; }
+        @media(max-width:420px){
+            .dashboard-summary-grid{gap:10px}
+            .dashboard-summary-grid .card{padding:14px}
+            .dashboard-summary-grid .card h2{font-size:14px}
         }
     </style>
 </head>
 <body>
-    <aside class="sidebar collapsed" id="sidebar">
+    <div class="sidebar collapsed" id="sidebar">
         <div class="sidebar-header">
-            <button class="menu-btn" onclick="toggleSidebar()" aria-label="Toggle sidebar">☰</button>
+            <button class="menu-btn" id="menuBtn" type="button" onclick="toggleSidebar()" aria-label="Toggle sidebar">☰</button>
             <h2 class="sidebar-title">PDDM ADMIN</h2>
         </div>
         <ul>
-            <li class="active">
-                <span class="icon">🏠</span><span class="text">Dashboard</span>
-            </li>
-            <li onclick="window.location='requests.html'">
-                <span class="icon">📄</span><span class="text">Requests</span>
-            </li>
-            <li onclick="window.location='marketPrice.html'">
-                <span class="icon">💰</span><span class="text">Market Price</span>
-            </li>
-            <li onclick="window.location='audit.html'">
-                <span class="icon">📜</span><span class="text">Audit Trail</span>
-            </li>
-            <li onclick="logout()">
-                <span class="icon">🚪</span><span class="text">Logout</span>
-            </li>
+            <li class="active"><span class="icon">🏠</span><span class="text">Dashboard</span></li>
+            <li onclick="window.location='requests.html'"><span class="icon">📄</span><span class="text">Requests</span></li>
+            <li onclick="window.location='marketPrice.html'"><span class="icon">💰</span><span class="text">Market Price</span></li>
+            <li onclick="window.location='audit.html'"><span class="icon">📜</span><span class="text">Audit Trail</span></li>
+            <li onclick="logout()"><span class="icon">🚪</span><span class="text">Logout</span></li>
         </ul>
-    </aside>
+    </div>
 
-    <main class="content collapsed-content" id="content">
-        <header class="dashboard-header">
+    <div class="content collapsed-content" id="content">
+        <div class="dashboard-header">
             <div>
                 <h1>Dashboard</h1>
-                <h3 id="welcome">Welcome back</h3>
+                <h3 id="welcome"></h3>
             </div>
             <div class="header-actions">
-                <select id="dateFilter" aria-label="Date range">
+                <select id="dateFilter">
                     <option value="today">Today</option>
-                    <option value="week" selected>Last 7 days</option>
-                    <option value="month">Last 30 days</option>
-                    <option value="year">This year</option>
+                    <option value="week">This Week</option>
+                    <option value="month">This Month</option>
+                    <option value="year">This Year</option>
                 </select>
-                <button class="refresh-btn" id="refreshDashboard" onclick="loadDashboard()">Refresh</button>
+                <button class="refresh-btn" type="button" onclick="refreshDashboard()">Refresh</button>
             </div>
-        </header>
+        </div>
 
-        <div class="dashboard-status" id="dashboardStatus" role="status"></div>
-
-        <section class="overview-layout">
-            <div class="stats-grid">
-                <article class="stat-card">
-                    <span class="stat-label">Customers</span>
-                    <strong class="stat-value" id="customerCount">—</strong>
-                </article>
-                <article class="stat-card">
-                    <span class="stat-label">Sellers</span>
-                    <strong class="stat-value" id="sellerCount">—</strong>
-                </article>
-                <article class="stat-card">
-                    <span class="stat-label">Active Customers</span>
-                    <strong class="stat-value" id="activeCustomerCount">—</strong>
-                </article>
-                <article class="stat-card">
-                    <span class="stat-label">Active Sellers</span>
-                    <strong class="stat-value" id="activeSellerCount">—</strong>
-                </article>
-            </div>
-
-            <article class="notification-card">
-                <div class="notification-heading">
-                    <h2>Notifications</h2>
-                    <span class="unread-badge" id="notificationCount">0 unread</span>
+        <div class="dashboard-top-layout">
+            <div class="dashboard-summary-grid">
+                <div class="card">
+                    <h2>Customers</h2>
+                    <h1 id="customerCount">0</h1>
                 </div>
-                <ul class="notification-list" id="notificationList">
+                <div class="card">
+                    <h2>Sellers</h2>
+                    <h1 id="sellerCount">0</h1>
+                </div>
+                <div class="card">
+                    <h2>Active Customers</h2>
+                    <h1 id="activeCustomerCount">0</h1>
+                </div>
+                <div class="card">
+                    <h2>Active Sellers</h2>
+                    <h1 id="activeSellerCount">0</h1>
+                </div>
+            </div>
+
+            <div class="panel dashboard-notifications">
+                <div class="dashboard-notifications-header">
+                    <h2>Notifications</h2>
+                    <span class="notification-count" id="unreadNotificationCount">Unread: 0</span>
+                </div>
+                <ul class="dashboard-notification-list" id="dashboardNotificationList">
                     <li class="notification-empty">Loading notifications...</li>
                 </ul>
-            </article>
-        </section>
-
-        <section class="dashboard-grid">
-            <article class="panel">
-                <div class="panel-heading">
-                    <h2>User Growth</h2>
-                    <span class="panel-tag" id="growthRangeLabel">Last 7 days</span>
-                </div>
-                <div class="chart-container">
-                    <canvas id="userGrowthChart"></canvas>
-                </div>
-            </article>
-
-            <article class="panel">
-                <div class="panel-heading">
-                    <h2>Price Compliance</h2>
-                    <span class="panel-tag">Product prices</span>
-                </div>
-                <div class="chart-container">
-                    <canvas id="priceComplianceChart"></canvas>
-                </div>
-                <div class="chart-note" id="complianceNote"></div>
-            </article>
-        </section>
-
-        <section class="panel full-panel">
-            <div class="panel-heading">
-                <h2>Order Activity</h2>
-                <span class="panel-tag" id="orderRangeLabel">Last 7 days</span>
             </div>
-            <div class="chart-container">
-                <canvas id="marketActivityChart"></canvas>
+        </div>
+
+        <div class="dashboard-grid">
+            <div class="panel large-panel">
+                <h2>User Growth</h2>
+                <div class="chart-container"><canvas id="userGrowthChart"></canvas></div>
             </div>
-        </section>
-    </main>
+            <div class="panel">
+                <h2>Price Compliance</h2>
+                <div class="chart-container"><canvas id="priceComplianceChart"></canvas></div>
+            </div>
+        </div>
+
+        <div class="panel full-panel">
+            <h2>Market Activity</h2>
+            <div class="chart-container large-chart"><canvas id="marketActivityChart"></canvas></div>
+        </div>
+    </div>
 
     <script src="../js/supabase.js"></script>
     <script src="../js/script.js"></script>
     <script>
-        document.addEventListener("DOMContentLoaded", () => {
-            const name = localStorage.getItem("adminName");
-            document.getElementById("welcome").textContent =
-                name ? `Welcome back, ${name}` : "Overview";
+        const sidebar=document.getElementById("sidebar");
+        const content=document.getElementById("content");
+        const notificationList=document.getElementById("dashboardNotificationList");
+        const unreadCount=document.getElementById("unreadNotificationCount");
 
-            document.getElementById("dateFilter").addEventListener("change", loadDashboard);
+        window.toggleSidebar=function(){
+            if(window.innerWidth<=768){
+                sidebar.classList.toggle("mobile-open");
+                return;
+            }
 
-            loadDashboard();
-            setupDashboardRealtime();
+            const collapsed=sidebar.classList.toggle("collapsed");
+            content.classList.toggle("collapsed-content",collapsed);
+            content.classList.toggle("expanded-content",!collapsed);
+        };
+
+        window.refreshDashboard=async function(){
+            if(typeof window.loadDashboard==="function"){
+                await window.loadDashboard();
+            }
+            await loadDashboardNotifications();
+        };
+
+        function escapeHTML(value){
+            return String(value??"").replace(/[&<>"']/g,char=>({
+                "&":"&amp;",
+                "<":"&lt;",
+                ">":"&gt;",
+                '"':"&quot;",
+                "'":"&#39;"
+            })[char]);
+        }
+
+        function formatNotificationTime(value){
+            if(!value)return "";
+            const date=new Date(value);
+            if(Number.isNaN(date.getTime()))return "";
+            return date.toLocaleString([],{
+                month:"short",
+                day:"numeric",
+                hour:"numeric",
+                minute:"2-digit"
+            });
+        }
+
+        async function loadDashboardNotifications(){
+            if(typeof db==="undefined"){
+                notificationList.innerHTML='<li class="notification-empty">Unable to connect to notifications.</li>';
+                return;
+            }
+
+            try{
+                const {data:{user},error:userError}=await db.auth.getUser();
+
+                if(userError)throw userError;
+
+                if(!user){
+                    unreadCount.textContent="Unread: 0";
+                    notificationList.innerHTML='<li class="notification-empty">Sign in to view your notifications.</li>';
+                    return;
+                }
+
+                const [unreadResult,recentResult]=await Promise.all([
+                    db.from("notifications")
+                        .select("id",{count:"exact",head:true})
+                        .eq("user_id",user.id)
+                        .eq("is_read",false),
+                    db.from("notifications")
+                        .select("id,title,message,is_read,created_at")
+                        .eq("user_id",user.id)
+                        .order("created_at",{ascending:false})
+                        .limit(6)
+                ]);
+
+                if(unreadResult.error)throw unreadResult.error;
+                if(recentResult.error)throw recentResult.error;
+
+                unreadCount.textContent="Unread: "+(unreadResult.count||0);
+
+                const notifications=recentResult.data||[];
+
+                if(!notifications.length){
+                    notificationList.innerHTML='<li class="notification-empty">You have no notifications yet.</li>';
+                    return;
+                }
+
+                notificationList.innerHTML=notifications.map(item=>`
+                    <li class="${item.is_read?"":"unread"}">
+                        <span class="notification-dot"></span>
+                        <div class="notification-details">
+                            <div class="notification-title">${escapeHTML(item.title||"Notification")}</div>
+                            <div class="notification-message">${escapeHTML(item.message||"")}</div>
+                            <div class="notification-time">${escapeHTML(formatNotificationTime(item.created_at))}</div>
+                        </div>
+                    </li>
+                `).join("");
+            }catch(error){
+                console.error("Dashboard notifications error:",error.message);
+                notificationList.innerHTML='<li class="notification-empty">Could not load notifications. Check your connection and permissions.</li>';
+            }
+        }
+
+        document.getElementById("welcome").textContent=
+            "Welcome, "+(localStorage.getItem("adminName")||"Admin");
+
+        if(typeof window.loadDashboard==="function")window.loadDashboard();
+        if(typeof window.initializeCharts==="function")window.initializeCharts();
+
+        loadDashboardNotifications();
+
+        document.getElementById("dateFilter").addEventListener("change",()=>{
+            if(typeof window.loadDashboard==="function")window.loadDashboard();
+        });
+
+        if(typeof db!=="undefined"){
+            db.auth.getUser().then(({data:{user}})=>{
+                if(!user)return;
+                db.channel("admin-dashboard-notifications")
+                    .on("postgres_changes",{
+                        event:"*",
+                        schema:"public",
+                        table:"notifications",
+                        filter:"user_id=eq."+user.id
+                    },loadDashboardNotifications)
+                    .subscribe();
+            }).catch(error=>console.error("Notification subscription error:",error.message));
+        }
+
+        document.addEventListener("click",event=>{
+            if(window.innerWidth<=768&&sidebar.classList.contains("mobile-open")&&
+                !sidebar.contains(event.target)&&!event.target.closest("#menuBtn")){
+                sidebar.classList.remove("mobile-open");
+            }
         });
     </script>
 </body>
