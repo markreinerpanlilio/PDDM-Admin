@@ -1,155 +1,36 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDDM Admin Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PPDM Admin</title>
 
-    <link rel="stylesheet" href="../css/styles.css">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-    <div class="sidebar collapsed" id="sidebar">
-        <div class="sidebar-header">
-            <button class="menu-btn" onclick="toggleSidebar()">☰</button>
-            <h2 class="sidebar-title">PDDM ADMIN</h2>
-        </div>
+    <div class="login-page">
+        <div class="login-card">
+            <h1>PPDM ADMIN</h1>
+            <p>Administrator Login</p>
 
-        <ul>
-            <li class="active">
-                <span class="icon">🏠</span>
-                <span class="text">Dashboard</span>
-            </li>
-            <li onclick="window.location='requests.html'">
-                <span class="icon">📄</span>
-                <span class="text">Requests</span>
-            </li>
-            <li onclick="window.location='marketPrice.html'">
-                <span class="icon">💰</span>
-                <span class="text">Market Price</span>
-            </li>
-            <li onclick="window.location='audit.html'">
-                <span class="icon">📜</span>
-                <span class="text">Audit Trail</span>
-            </li>
-            <li onclick="logout()">
-                <span class="icon">🚪</span>
-                <span class="text">Logout</span>
-            </li>
-        </ul>
-    </div>
+            <input
+                id="email"
+                type="email"
+                placeholder="Email"
+                autocomplete="username"
+            >
 
-    <div class="content collapsed-content" id="content">
-        <div class="dashboard-header">
-            <div>
-                <h1>Dashboard</h1>
-                <h3 id="welcome"></h3>
-            </div>
+            <input
+                id="password"
+                type="password"
+                placeholder="Password"
+                autocomplete="current-password"
+            >
 
-            <div class="header-actions">
-                <select id="dateFilter" aria-label="Analytics date range">
-                    <option value="today">Today</option>
-                    <option value="week">Last 7 Days</option>
-                    <option value="month">Last 30 Days</option>
-                    <option value="year">This Year</option>
-                </select>
-
-                <button class="refresh-btn" onclick="loadDashboard()">
-                    Refresh
-                </button>
-            </div>
-        </div>
-
-        <p id="dashboardStatus" role="status" aria-live="polite"></p>
-
-        <div class="cards">
-            <div class="card">
-                <h2>Customers</h2>
-                <h1 id="customerCount">—</h1>
-            </div>
-
-            <div class="card">
-                <h2>Sellers</h2>
-                <h1 id="sellerCount">—</h1>
-            </div>
-
-            <div class="card">
-                <h2>Active Customers</h2>
-                <h1 id="activeCustomerCount">—</h1>
-            </div>
-
-            <div class="card">
-                <h2>Active Sellers</h2>
-                <h1 id="activeSellerCount">—</h1>
-            </div>
-        </div>
-
-        <div class="dashboard-grid">
-            <div class="panel large-panel">
-                <h2>User Growth</h2>
-                <p>New account registrations by date</p>
-                <div class="chart-container">
-                    <canvas id="userGrowthChart"></canvas>
-                </div>
-            </div>
-
-            <div class="panel">
-                <h2>Price Compliance</h2>
-                <p id="priceComplianceNote">
-                    Comparing product prices with matching market-price ranges.
-                </p>
-                <div class="chart-container">
-                    <canvas id="priceComplianceChart"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <div class="panel full-panel">
-            <h2>Order Activity</h2>
-            <p>Actual orders grouped by their current status</p>
-            <div class="chart-container large-chart">
-                <canvas id="marketActivityChart"></canvas>
-            </div>
-        </div>
-
-        <div class="dashboard-grid">
-            <div class="panel">
-                <h2>Quick Actions</h2>
-                <div class="quick-actions">
-                    <button onclick="window.location='requests.html'">
-                        View Requests
-                    </button>
-
-                    <button onclick="window.location='marketPrice.html'">
-                        Market Price
-                    </button>
-
-                    <button onclick="loadDashboard()">
-                        Refresh Dashboard
-                    </button>
-                </div>
-            </div>
-
-            <div class="panel">
-                <h2>Notifications</h2>
-                <ul class="notification-list">
-                    <li>Seller Requests (Coming Soon)</li>
-                    <li>Price Alerts (Coming Soon)</li>
-                </ul>
-            </div>
+            <button onclick="login()">Login</button>
         </div>
     </div>
 
-    <script src="../js/supabase.js"></script>
-    <script src="../js/script.js"></script>
-
-    <script>
-        document.addEventListener("DOMContentLoaded", () => {
-            loadDashboard();
-            setupDashboardRealtime();
-        });
-    </script>
+    <script src="js/script.js"></script>
 </body>
 </html>
