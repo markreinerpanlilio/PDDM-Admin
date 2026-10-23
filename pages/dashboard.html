@@ -1,153 +1,521 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDDM Admin Dashboard</title>
+    <title>PDDM Admin | Dashboard</title>
 
     <link rel="stylesheet" href="../css/styles.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        :root {
+            --page-bg: #f5f6fa;
+            --card-bg: #ffffff;
+            --text-main: #202436;
+            --text-muted: #858b9e;
+            --border: #eceef4;
+            --primary: #6658e8;
+            --shadow: 0 5px 24px rgba(30, 35, 70, 0.045);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--page-bg);
+            color: var(--text-main);
+        }
+
+        .content {
+            padding: 28px;
+            min-height: 100vh;
+        }
+
+        .dashboard-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            margin-bottom: 26px;
+        }
+
+        .dashboard-header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 750;
+            letter-spacing: -0.8px;
+        }
+
+        .dashboard-header h3 {
+            margin: 5px 0 0;
+            color: var(--text-muted);
+            font-size: 13px;
+            font-weight: 400;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-actions select,
+        .refresh-btn {
+            height: 40px;
+            border: 1px solid var(--border);
+            border-radius: 11px;
+            background: white;
+            color: var(--text-main);
+            padding: 0 13px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .refresh-btn {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+            font-weight: 600;
+            padding: 0 17px;
+            transition: opacity 0.2s, transform 0.2s;
+        }
+
+        .refresh-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .dashboard-status {
+            min-height: 0;
+            margin: -12px 0 16px;
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .dashboard-status:empty {
+            display: none;
+        }
+
+        /* Five equal-sized summary cards */
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 16px;
+            margin-bottom: 22px;
+        }
+
+        .metric-card {
+            position: relative;
+            min-width: 0;
+            min-height: 140px;
+            padding: 20px;
+            overflow: hidden;
+            background: var(--card-bg);
+            border: 1px solid rgba(232, 234, 243, 0.9);
+            border-radius: 17px;
+            box-shadow: var(--shadow);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 28px rgba(30, 35, 70, 0.08);
+        }
+
+        .metric-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .metric-label {
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1.4;
+        }
+
+        .metric-icon {
+            display: grid;
+            place-items: center;
+            flex-shrink: 0;
+            width: 36px;
+            height: 36px;
+            border-radius: 11px;
+            font-size: 17px;
+        }
+
+        .icon-purple { background: #eeebff; color: #6658e8; }
+        .icon-blue   { background: #e7f2ff; color: #3984e8; }
+        .icon-green  { background: #e3f8ed; color: #1caa69; }
+        .icon-orange { background: #fff0df; color: #e58b2b; }
+        .icon-pink   { background: #ffe8f0; color: #dc5784; }
+
+        .metric-value {
+            margin-top: 17px;
+            font-size: clamp(25px, 2vw, 32px);
+            line-height: 1;
+            font-weight: 750;
+            letter-spacing: -1px;
+            overflow-wrap: anywhere;
+        }
+
+        .metric-foot {
+            margin-top: 9px;
+            color: var(--text-muted);
+            font-size: 11px;
+        }
+
+        /* Chart layout */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.55fr) minmax(280px, 1fr);
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .panel {
+            min-width: 0;
+            padding: 22px;
+            background: var(--card-bg);
+            border: 1px solid rgba(232, 234, 243, 0.9);
+            border-radius: 17px;
+            box-shadow: var(--shadow);
+        }
+
+        .panel-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .panel-heading h2 {
+            margin: 0;
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: -0.2px;
+        }
+
+        .panel-tag {
+            padding: 6px 9px;
+            border-radius: 8px;
+            background: #f4f3ff;
+            color: var(--primary);
+            font-size: 11px;
+            white-space: nowrap;
+        }
+
+        .chart-container {
+            position: relative;
+            width: 100%;
+            height: 280px;
+        }
+
+        .full-panel {
+            margin-bottom: 20px;
+        }
+
+        .full-panel .chart-container {
+            height: 300px;
+        }
+
+        .chart-note {
+            margin-top: 12px;
+            color: var(--text-muted);
+            font-size: 11px;
+            line-height: 1.5;
+        }
+
+        .quick-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .quick-actions button {
+            padding: 11px 15px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: white;
+            color: var(--text-main);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .quick-actions button:hover {
+            background: #f4f3ff;
+        }
+
+        .dashboard-footer {
+            padding: 8px 0 4px;
+            color: var(--text-muted);
+            font-size: 11px;
+            text-align: right;
+        }
+
+        /* Sidebar adjustments */
+        .sidebar {
+            box-shadow: 5px 0 25px rgba(30, 35, 70, 0.025);
+        }
+
+        @media (max-width: 1250px) {
+            .cards {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+
+            .metric-card {
+                min-height: 130px;
+            }
+        }
+
+        @media (max-width: 900px) {
+            .content {
+                padding: 20px;
+            }
+
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .chart-container {
+                height: 260px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .content {
+                padding: 15px;
+            }
+
+            .dashboard-header {
+                align-items: flex-start;
+                flex-direction: column;
+                margin-bottom: 20px;
+            }
+
+            .dashboard-header h1 {
+                font-size: 24px;
+            }
+
+            .header-actions {
+                width: 100%;
+            }
+
+            .header-actions select {
+                flex: 1;
+                min-width: 0;
+            }
+
+            .cards {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 12px;
+            }
+
+            .metric-card {
+                padding: 15px;
+                min-height: 125px;
+                border-radius: 14px;
+            }
+
+            .metric-label {
+                font-size: 11px;
+            }
+
+            .metric-icon {
+                width: 31px;
+                height: 31px;
+                font-size: 15px;
+            }
+
+            .metric-value {
+                margin-top: 15px;
+                font-size: 26px;
+            }
+
+            .panel {
+                padding: 17px;
+                border-radius: 14px;
+            }
+
+            .chart-container,
+            .full-panel .chart-container {
+                height: 245px;
+            }
+        }
+    </style>
 </head>
+
 <body>
-    <div class="sidebar collapsed" id="sidebar">
+    <aside class="sidebar collapsed" id="sidebar">
         <div class="sidebar-header">
-            <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+            <button class="menu-btn" onclick="toggleSidebar()" aria-label="Toggle menu">☰</button>
             <h2 class="sidebar-title">PDDM ADMIN</h2>
         </div>
 
         <ul>
             <li class="active">
-                <span class="icon">🏠</span>
+                <span class="icon">▦</span>
                 <span class="text">Dashboard</span>
             </li>
             <li onclick="window.location='requests.html'">
-                <span class="icon">📄</span>
+                <span class="icon">▤</span>
                 <span class="text">Requests</span>
             </li>
             <li onclick="window.location='marketPrice.html'">
-                <span class="icon">💰</span>
+                <span class="icon">₱</span>
                 <span class="text">Market Price</span>
             </li>
             <li onclick="window.location='audit.html'">
-                <span class="icon">📜</span>
+                <span class="icon">◷</span>
                 <span class="text">Audit Trail</span>
             </li>
             <li onclick="logout()">
-                <span class="icon">🚪</span>
+                <span class="icon">↪</span>
                 <span class="text">Logout</span>
             </li>
         </ul>
-    </div>
+    </aside>
 
-    <div class="content collapsed-content" id="content">
-        <div class="dashboard-header">
+    <main class="content collapsed-content" id="content">
+        <header class="dashboard-header">
             <div>
                 <h1>Dashboard</h1>
-                <h3 id="welcome"></h3>
+                <h3 id="welcome">Welcome back</h3>
             </div>
 
             <div class="header-actions">
-                <select id="dateFilter" aria-label="Analytics date range">
+                <select id="dateFilter" aria-label="Select date range">
                     <option value="today">Today</option>
-                    <option value="week">Last 7 Days</option>
-                    <option value="month">Last 30 Days</option>
-                    <option value="year">This Year</option>
+                    <option value="week" selected>Last 7 days</option>
+                    <option value="month">Last 30 days</option>
+                    <option value="year">This year</option>
                 </select>
 
-                <button class="refresh-btn" onclick="loadDashboard()">
-                    Refresh
+                <button class="refresh-btn" id="refreshDashboard" onclick="loadDashboard()">
+                    ↻ Refresh
                 </button>
             </div>
-        </div>
+        </header>
 
-        <p id="dashboardStatus" role="status" aria-live="polite"></p>
+        <div class="dashboard-status" id="dashboardStatus" role="status"></div>
 
-        <div class="cards">
-            <div class="card">
-                <h2>Customers</h2>
-                <h1 id="customerCount">—</h1>
-            </div>
+        <section class="cards" aria-label="Dashboard statistics">
+            <article class="metric-card">
+                <div class="metric-top">
+                    <span class="metric-label">Customers</span>
+                    <span class="metric-icon icon-purple">♙</span>
+                </div>
+                <div class="metric-value" id="customerCount">—</div>
+                <div class="metric-foot">Registered accounts</div>
+            </article>
 
-            <div class="card">
-                <h2>Sellers</h2>
-                <h1 id="sellerCount">—</h1>
-            </div>
+            <article class="metric-card">
+                <div class="metric-top">
+                    <span class="metric-label">Sellers</span>
+                    <span class="metric-icon icon-blue">▣</span>
+                </div>
+                <div class="metric-value" id="sellerCount">—</div>
+                <div class="metric-foot">Registered accounts</div>
+            </article>
 
-            <div class="card">
-                <h2>Active Customers</h2>
-                <h1 id="activeCustomerCount">—</h1>
-            </div>
+            <article class="metric-card">
+                <div class="metric-top">
+                    <span class="metric-label">Active Customers</span>
+                    <span class="metric-icon icon-green">↗</span>
+                </div>
+                <div class="metric-value" id="activeCustomerCount">—</div>
+                <div class="metric-foot">Customers with orders</div>
+            </article>
 
-            <div class="card">
-                <h2>Active Sellers</h2>
-                <h1 id="activeSellerCount">—</h1>
-            </div>
-        </div>
+            <article class="metric-card">
+                <div class="metric-top">
+                    <span class="metric-label">Active Sellers</span>
+                    <span class="metric-icon icon-orange">⌂</span>
+                </div>
+                <div class="metric-value" id="activeSellerCount">—</div>
+                <div class="metric-foot">Sellers with order items</div>
+            </article>
 
-        <div class="dashboard-grid">
-            <div class="panel large-panel">
-                <h2>User Growth</h2>
-                <p>New account registrations by date</p>
+            <article class="metric-card">
+                <div class="metric-top">
+                    <span class="metric-label">Notifications</span>
+                    <span class="metric-icon icon-pink">♧</span>
+                </div>
+                <div class="metric-value" id="notificationCount">—</div>
+                <div class="metric-foot">Unread notifications</div>
+            </article>
+        </section>
+
+        <section class="dashboard-grid">
+            <article class="panel">
+                <div class="panel-heading">
+                    <h2>User Growth</h2>
+                    <span class="panel-tag" id="growthRangeLabel">Last 7 days</span>
+                </div>
                 <div class="chart-container">
                     <canvas id="userGrowthChart"></canvas>
                 </div>
-            </div>
+            </article>
 
-            <div class="panel">
-                <h2>Price Compliance</h2>
-                <p id="priceComplianceNote">
-                    Comparing product prices with matching market-price ranges.
-                </p>
+            <article class="panel">
+                <div class="panel-heading">
+                    <h2>Price Compliance</h2>
+                    <span class="panel-tag">Product prices</span>
+                </div>
                 <div class="chart-container">
                     <canvas id="priceComplianceChart"></canvas>
                 </div>
-            </div>
-        </div>
+                <div class="chart-note" id="complianceNote"></div>
+            </article>
+        </section>
 
-        <div class="panel full-panel">
-            <h2>Order Activity</h2>
-            <p>Actual orders grouped by their current status</p>
-            <div class="chart-container large-chart">
+        <section class="panel full-panel">
+            <div class="panel-heading">
+                <h2>Order Activity</h2>
+                <span class="panel-tag" id="orderRangeLabel">Last 7 days</span>
+            </div>
+            <div class="chart-container">
                 <canvas id="marketActivityChart"></canvas>
             </div>
-        </div>
+        </section>
 
-        <div class="dashboard-grid">
-            <div class="panel">
+        <section class="panel">
+            <div class="panel-heading">
                 <h2>Quick Actions</h2>
-                <div class="quick-actions">
-                    <button onclick="window.location='requests.html'">
-                        View Requests
-                    </button>
-
-                    <button onclick="window.location='marketPrice.html'">
-                        Market Price
-                    </button>
-
-                    <button onclick="loadDashboard()">
-                        Refresh Dashboard
-                    </button>
-                </div>
             </div>
-
-            <div class="panel">
-                <h2>Notifications</h2>
-                <ul class="notification-list">
-                    <li>Seller Requests (Coming Soon)</li>
-                    <li>Price Alerts (Coming Soon)</li>
-                </ul>
+            <div class="quick-actions">
+                <button onclick="window.location='requests.html'">View Requests ↗</button>
+                <button onclick="window.location='marketPrice.html'">Market Prices ↗</button>
+                <button onclick="window.location='audit.html'">Audit Trail ↗</button>
             </div>
-        </div>
-    </div>
+        </section>
+
+        <footer class="dashboard-footer">PDDM Admin Dashboard</footer>
+    </main>
 
     <script src="../js/supabase.js"></script>
     <script src="../js/script.js"></script>
-
     <script>
         document.addEventListener("DOMContentLoaded", () => {
+            const adminName = localStorage.getItem("adminName");
+            document.getElementById("welcome").textContent =
+                adminName ? `Welcome back, ${adminName}` : "Overview";
+
             loadDashboard();
             setupDashboardRealtime();
+
+            document.getElementById("dateFilter").addEventListener("change", () => {
+                loadDashboard();
+            });
         });
     </script>
 </body>
