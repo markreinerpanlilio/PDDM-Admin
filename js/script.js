@@ -1,129 +1,180 @@
-const $ = (id) => document.getElementById(id);
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 let userGrowthChart = null;
-let marketActivityChart = null;
 let priceComplianceChart = null;
-let dashboardRealtimeChannel = null;
-let dashboardRefreshTimer = null;
+let marketActivityChart = null;
+let dashboardChannel = null;
 let dashboardLoading = false;
+let refreshRequested = false;
 
-// AUTHENTICATION
-
-async function login() {
-    const email = $("email")?.value.trim();
-    const password = $("password")?.value.trim();
-
-    if (!email || !password) {
-        alert("Please enter your email and password.");
-        return;
+function getDatabase() {
+    if (typeof db !== "undefined" && db) {
+        return db;
     }
 
-    const { data, error } = await db.auth.signInWithPassword({
-        email,
-        password
-    });
+    throw new Error(
+        "Supabase client was not found. Check js/supabase.js and its script order."
+    );
+}
 
-    if (error) {
-        alert(error.message);
-        return;
+function setDashboardStatus(message, isError = false) {
+    const element = document.getElementById("dashboardStatus");
+
+    if (!element) return;
+
+    element.textContent = message || "";
+    element.style.color = isError ? "#d64545" : "#858b9e";
+}
+
+function formatNumber(value) {
+    return Number(value || 0).toLocaleString();
+}
+
+function getSelectedRange() {
+    const filter = document.getElementById("dateFilter")?.value || "week";
+    const now = new Date();
+
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+
+    if (filter === "today") {
+        // Keep today's data in the selected range.
+    } else if (filter === "week") {
+        start.setDate(start.getDate() - 6);
+    } else if (filter === "month") {
+        start.setDate(start.getDate() - 29);
+    } else if (filter === "year") {
+        start.setMonth(0, 1);
     }
 
-    const user = data.user;
+    return {
+        filter,
+        start,
+        end: now,
+        startISO: start.toISOString(),
+        endISO: now.toISOString()
+    };
+}
 
-    const { data: profile, error: profileError } = await db
-        .from("profiles")
-        .select("full_name,email,role")
-        .eq("id", user.id)
-        .single();
+function getRangeLabel() {
+    const labels = {
+        today: "Today",
+        week: "Last 7 days",
+        month: "Last 30 days",
+        year: "This year"
+    };
 
-    if (profileError) {
-        alert(profileError.message);
-        await db.auth.signOut();
-        return;
+    return labels[
+        document.getElementById("dateFilter")?.value || "week"
+    ] || "Last 7 days";
+}
+
+function createDateKey(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+}
+
+function createDailyLabels(startDate, endDate) {
+    const labels = [];
+    const cursor = new Date(startDate);
+    const lastDate = new Date(endDate);
+
+    cursor.setHours(0, 0, 0, 0);
+    lastDate.setHours(0, 0, 0, 0);
+
+    while (cursor <= lastDate) {
+        labels.push({
+            key: createDateKey(cursor),
+            label: cursor.toLocaleDateString("en-PH", {
+                month: "short",
+                day: "numeric"
+            })
+        });
+
+        cursor.setDate(cursor.getDate() + 1);
     }
 
-    if (profile.role !== "admin") {
-        alert("Access Denied.");
-        await db.auth.signOut();
-        return;
-    }
+    return labels;
+}
 
-    localStorage.setItem("adminName", profile.full_name || "Admin");
-
-    await addAuditLog(
-        "Login",
-        "Authentication",
-        `${profile.email} logged in.`
+function countByDay(rows, dateField, labels) {
+    const counts = Object.fromEntries(
+        labels.map(item => [item.key, 0])
     );
 
-    window.location.href = "pages/dashboard.html";
+    (rows || []).forEach(row => {
+        if (!row[dateField]) return;
+
+        const date = new Date(row[dateField]);
+
+        if (Number.isNaN(date.getTime())) return;
+
+        const key = createDateKey(date);
+
+        if (Object.prototype.hasOwnProperty.call(counts, key)) {
+            counts[key]++;
+        }
+    });
+
+    return labels.map(item => counts[item.key] || 0);
 }
 
-async function logout() {
-    const { data: { user } } = await db.auth.getUser();
-
-    if (user) {
-        const { data: admin } = await db
-            .from("profiles")
-            .select("email")
-            .eq("id", user.id)
-            .single();
-
-        await addAuditLog(
-            "Logout",
-            "Authentication",
-            `${admin?.email || user.email} logged out.`
-        );
-    }
-
-    await db.auth.signOut();
-    localStorage.removeItem("adminName");
-
-    window.location.href = "../index.html";
+function destroyChart(chart) {
+    if (chart) chart.destroy();
 }
 
-async function addAuditLog(action, module, description) {
-    const { data: { user } } = await db.auth.getUser();
-
-    if (!user) return;
-
-    const { data: admin } = await db
-        .from("profiles")
-        .select("email")
-        .eq("id", user.id)
-        .single();
-
-    const { error } = await db.from("audit_logs").insert([{
-        user_id: user.id,
-        user: `Admin(${admin?.email || user.email})`,
-        action,
-        module,
-        description
-    }]);
-
-    if (error) {
-        console.error("Audit log error:", error.message);
-    }
+function chartDefaults() {
+    return {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: {
+            duration: 350
+        },
+        plugins: {
+            legend: {
+                labels: {
+                    usePointStyle: true,
+                    pointStyle: "circle",
+                    boxWidth: 8,
+                    padding: 16,
+                    color: "#858b9e",
+                    font: {
+                        size: 11
+                    }
+                }
+            },
+            tooltip: {
+                backgroundColor: "#202436",
+                padding: 11,
+                cornerRadius: 8,
+                titleFont: {
+                    size: 12
+                },
+                bodyFont: {
+                    size: 12
+                }
+            }
+        }
+    };
 }
-
-// DASHBOARD
 
 async function loadDashboard() {
-    if (dashboardLoading) return;
+    if (dashboardLoading) {
+        refreshRequested = true;
+        return;
+    }
 
     dashboardLoading = true;
 
-    const status = $("dashboardStatus");
+    const refreshButton = document.getElementById("refreshDashboard");
 
-    if ($("welcome")) {
-        $("welcome").textContent =
-            `Welcome, ${localStorage.getItem("adminName") || "Admin"}`;
+    if (refreshButton) {
+        refreshButton.disabled = true;
+        refreshButton.textContent = "Loading...";
     }
 
-    if (status) {
-        status.textContent = "Loading dashboard data...";
-    }
+    setDashboardStatus("");
 
     try {
         await Promise.all([
@@ -133,342 +184,306 @@ async function loadDashboard() {
             loadPriceComplianceChart()
         ]);
 
-        if (status) {
-            status.textContent =
-                `Last updated: ${new Date().toLocaleTimeString()}`;
-        }
+        setDashboardStatus(
+            `Updated ${new Date().toLocaleTimeString("en-PH", {
+                hour: "numeric",
+                minute: "2-digit"
+            })}`
+        );
     } catch (error) {
         console.error("Dashboard loading error:", error);
-
-        if (status) {
-            status.textContent =
-                "Some dashboard data could not be loaded. Check the console and database permissions.";
-        }
+        setDashboardStatus(
+            error.message || "Unable to load dashboard data.",
+            true
+        );
     } finally {
         dashboardLoading = false;
-    }
-}
 
-function getFilter() {
-    return $("dateFilter")?.value || "today";
-}
+        if (refreshButton) {
+            refreshButton.disabled = false;
+            refreshButton.textContent = "↻ Refresh";
+        }
 
-function getRange(filter = getFilter()) {
-    const now = new Date();
-    const start = new Date(now);
-
-    if (filter === "today") {
-        start.setHours(0, 0, 0, 0);
-    } else if (filter === "week") {
-        start.setDate(start.getDate() - 6);
-        start.setHours(0, 0, 0, 0);
-    } else if (filter === "month") {
-        start.setDate(start.getDate() - 29);
-        start.setHours(0, 0, 0, 0);
-    } else {
-        start.setMonth(0, 1);
-        start.setHours(0, 0, 0, 0);
-    }
-
-    return { start, end: now };
-}
-
-function makeDailyLabels(range) {
-    const labels = [];
-    const dates = [];
-
-    const current = new Date(range.start);
-    current.setHours(0, 0, 0, 0);
-
-    const last = new Date(range.end);
-    last.setHours(0, 0, 0, 0);
-
-    while (current <= last) {
-        const date = new Date(current);
-
-        dates.push(date);
-        labels.push(date.toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric"
-        }));
-
-        current.setDate(current.getDate() + 1);
-    }
-
-    return { labels, dates };
-}
-
-function dateKey(date) {
-    const d = new Date(date);
-
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-
-    return `${year}-${month}-${day}`;
-}
-
-function countRowsByDay(rows, dates, field = "created_at") {
-    const counts = new Map(
-        dates.map(date => [dateKey(date), 0])
-    );
-
-    for (const row of rows || []) {
-        if (!row[field]) continue;
-
-        const key = dateKey(row[field]);
-
-        if (counts.has(key)) {
-            counts.set(key, counts.get(key) + 1);
+        if (refreshRequested) {
+            refreshRequested = false;
+            loadDashboard();
         }
     }
-
-    return dates.map(date => counts.get(dateKey(date)) || 0);
 }
-
-function drawChart(existingChart, canvasId, config) {
-    const canvas = $(canvasId);
-
-    if (!canvas) return existingChart;
-
-    if (existingChart) {
-        existingChart.destroy();
-    }
-
-    return new Chart(canvas, config);
-}
-
-function getChartOptions() {
-    return {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                position: "bottom"
-            }
-        }
-    };
-}
-
-// USER COUNTS AND ACTIVITY
 
 async function loadCounts() {
-    const range = getRange();
+    const client = getDatabase();
+    const range = getSelectedRange();
 
-    const [customersResult, sellersResult, ordersResult, itemsResult] =
-        await Promise.all([
-            db.from("profiles")
-                .select("id", { count: "exact", head: true })
-                .eq("role", "customer"),
+    const [
+        customersResult,
+        sellersResult,
+        ordersResult,
+        itemsResult,
+        notificationsResult
+    ] = await Promise.all([
+        client
+            .from("profiles")
+            .select("id", { count: "exact", head: true })
+            .eq("role", "customer"),
 
-            db.from("profiles")
-                .select("id", { count: "exact", head: true })
-                .eq("role", "seller"),
+        client
+            .from("profiles")
+            .select("id", { count: "exact", head: true })
+            .eq("role", "seller"),
 
-            db.from("orders")
-                .select("user_id")
-                .gte("created_at", range.start.toISOString())
-                .lte("created_at", range.end.toISOString()),
+        client
+            .from("orders")
+            .select("user_id")
+            .gte("created_at", range.startISO)
+            .lte("created_at", range.endISO)
+            .not("user_id", "is", null),
 
-            db.from("order_items")
-                .select("seller_id")
-                .gte("created_at", range.start.toISOString())
-                .lte("created_at", range.end.toISOString())
-        ]);
+        client
+            .from("order_items")
+            .select("seller_id")
+            .gte("created_at", range.startISO)
+            .lte("created_at", range.endISO)
+            .not("seller_id", "is", null),
 
-    const errors = [
-        customersResult.error,
-        sellersResult.error,
-        ordersResult.error,
-        itemsResult.error
-    ].filter(Boolean);
+        client
+            .from("notifications")
+            .select("id", { count: "exact", head: true })
+            .eq("is_read", false)
+    ]);
 
-    if (errors.length) {
-        errors.forEach(error => console.error(error.message));
-        throw new Error("Unable to load customer and seller counts.");
-    }
+    const results = [
+        customersResult,
+        sellersResult,
+        ordersResult,
+        itemsResult,
+        notificationsResult
+    ];
 
-    const activeCustomerIds = new Set(
+    const failed = results.find(result => result.error);
+
+    if (failed) throw failed.error;
+
+    const activeCustomers = new Set(
         (ordersResult.data || [])
             .map(order => order.user_id)
             .filter(Boolean)
     );
 
-    const activeSellerIds = new Set(
+    const activeSellers = new Set(
         (itemsResult.data || [])
             .map(item => item.seller_id)
             .filter(Boolean)
     );
 
-    if ($("customerCount")) {
-        $("customerCount").textContent = customersResult.count ?? 0;
-    }
+    document.getElementById("customerCount").textContent =
+        formatNumber(customersResult.count);
 
-    if ($("sellerCount")) {
-        $("sellerCount").textContent = sellersResult.count ?? 0;
-    }
+    document.getElementById("sellerCount").textContent =
+        formatNumber(sellersResult.count);
 
-    if ($("activeCustomerCount")) {
-        $("activeCustomerCount").textContent = activeCustomerIds.size;
-    }
+    document.getElementById("activeCustomerCount").textContent =
+        formatNumber(activeCustomers.size);
 
-    if ($("activeSellerCount")) {
-        $("activeSellerCount").textContent = activeSellerIds.size;
-    }
+    document.getElementById("activeSellerCount").textContent =
+        formatNumber(activeSellers.size);
+
+    document.getElementById("notificationCount").textContent =
+        formatNumber(notificationsResult.count);
 }
 
-// USER GROWTH: NEW PROFILES PER DAY
-
 async function loadUserGrowthChart() {
-    const range = getRange();
+    const client = getDatabase();
+    const range = getSelectedRange();
 
-    const { data, error } = await db
+    const { data, error } = await client
         .from("profiles")
         .select("created_at")
-        .gte("created_at", range.start.toISOString())
-        .lte("created_at", range.end.toISOString())
+        .gte("created_at", range.startISO)
+        .lte("created_at", range.endISO)
         .order("created_at", { ascending: true });
 
     if (error) throw error;
 
-    const { labels, dates } = makeDailyLabels(range);
-    const values = countRowsByDay(data || [], dates);
+    const labels = createDailyLabels(range.start, range.end);
+    const values = countByDay(data, "created_at", labels);
 
-    userGrowthChart = drawChart(
-        userGrowthChart,
-        "userGrowthChart",
-        {
-            type: "line",
-            data: {
-                labels,
-                datasets: [{
-                    label: "New Users",
-                    data: values,
-                    borderColor: "#7A1F1F",
-                    backgroundColor: "rgba(122,31,31,0.15)",
-                    fill: true,
-                    tension: 0.3
-                }]
+    const canvas = document.getElementById("userGrowthChart");
+    if (!canvas) return;
+
+    destroyChart(userGrowthChart);
+
+    userGrowthChart = new Chart(canvas, {
+        type: "line",
+        data: {
+            labels: labels.map(item => item.label),
+            datasets: [{
+                label: "New users",
+                data: values,
+                borderColor: "#6658e8",
+                backgroundColor: "rgba(102, 88, 232, 0.10)",
+                fill: true,
+                tension: 0.38,
+                borderWidth: 2.5,
+                pointRadius: values.length > 14 ? 0 : 3,
+                pointHoverRadius: 5,
+                pointBackgroundColor: "#6658e8"
+            }]
+        },
+        options: {
+            ...chartDefaults(),
+            interaction: {
+                intersect: false,
+                mode: "index"
             },
-            options: {
-                ...getChartOptions(),
-                plugins: {
-                    legend: { display: false }
-                },
-                scales: {
-                    x: {
-                        ticks: {
-                            maxRotation: 0,
-                            autoSkip: true,
-                            maxTicksLimit: 12
-                        }
+            scales: {
+                x: {
+                    grid: {
+                        display: false
                     },
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            precision: 0
-                        }
+                    border: {
+                        display: false
+                    },
+                    ticks: {
+                        color: "#858b9e",
+                        maxTicksLimit: 8,
+                        maxRotation: 0
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: "#f0f1f6"
+                    },
+                    border: {
+                        display: false,
+                        dash: [4, 4]
+                    },
+                    ticks: {
+                        color: "#858b9e",
+                        precision: 0
                     }
                 }
             }
         }
-    );
+    });
+
+    const label = document.getElementById("growthRangeLabel");
+    if (label) label.textContent = getRangeLabel();
 }
 
-// ORDER ACTIVITY: ACTUAL ORDERS BY CURRENT STATUS
-
 async function loadOrderActivityChart() {
-    const range = getRange();
+    const client = getDatabase();
+    const range = getSelectedRange();
 
-    const { data, error } = await db
+    const { data, error } = await client
         .from("orders")
-        .select("status")
-        .gte("created_at", range.start.toISOString())
-        .lte("created_at", range.end.toISOString());
+        .select("status, created_at")
+        .gte("created_at", range.startISO)
+        .lte("created_at", range.endISO)
+        .order("created_at", { ascending: true });
 
     if (error) throw error;
 
     const statuses = [
-        "pending",
-        "accepted",
-        "ready",
-        "completed",
-        "cancelled"
+        "Pending",
+        "Accepted",
+        "Ready",
+        "Completed",
+        "Cancelled",
+        "Other"
     ];
 
     const counts = Object.fromEntries(
         statuses.map(status => [status, 0])
     );
 
-    let otherCount = 0;
-
-    for (const order of data || []) {
+    (data || []).forEach(order => {
         const status = String(order.status || "")
             .trim()
             .toLowerCase();
 
-        if (Object.prototype.hasOwnProperty.call(counts, status)) {
-            counts[status]++;
+        if (status === "pending") {
+            counts.Pending++;
+        } else if (status === "accepted") {
+            counts.Accepted++;
+        } else if (status === "ready") {
+            counts.Ready++;
+        } else if (status === "completed") {
+            counts.Completed++;
+        } else if (status === "cancelled" || status === "canceled") {
+            counts.Cancelled++;
         } else {
-            otherCount++;
+            counts.Other++;
         }
-    }
+    });
 
-    const labels = [
-        "Pending",
-        "Accepted",
-        "Ready",
-        "Completed",
-        "Cancelled"
-    ];
+    const canvas = document.getElementById("marketActivityChart");
+    if (!canvas) return;
 
-    const values = statuses.map(status => counts[status]);
+    destroyChart(marketActivityChart);
 
-    if (otherCount > 0) {
-        labels.push("Other");
-        values.push(otherCount);
-    }
-
-    marketActivityChart = drawChart(
-        marketActivityChart,
-        "marketActivityChart",
-        {
-            type: "bar",
-            data: {
-                labels,
-                datasets: [{
-                    label: "Orders",
-                    data: values,
-                    backgroundColor: [
-                        "#FFC107",
-                        "#7A1F1F",
-                        "#2196F3",
-                        "#4CAF50",
-                        "#F44336",
-                        "#9E9E9E"
-                    ],
-                    borderRadius: 6
-                }]
+    marketActivityChart = new Chart(canvas, {
+        type: "bar",
+        data: {
+            labels: statuses,
+            datasets: [{
+                label: "Orders",
+                data: statuses.map(status => counts[status]),
+                backgroundColor: [
+                    "#f3b64d",
+                    "#6658e8",
+                    "#3984e8",
+                    "#27b879",
+                    "#e46b79",
+                    "#a5a9b8"
+                ],
+                borderRadius: 7,
+                borderSkipped: false,
+                maxBarThickness: 46
+            }]
+        },
+        options: {
+            ...chartDefaults(),
+            plugins: {
+                ...chartDefaults().plugins,
+                legend: {
+                    display: false
+                }
             },
-            options: {
-                ...getChartOptions(),
-                plugins: {
-                    legend: { display: false }
+            scales: {
+                x: {
+                    grid: {
+                        display: false
+                    },
+                    border: {
+                        display: false
+                    },
+                    ticks: {
+                        color: "#858b9e"
+                    }
                 },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            precision: 0
-                        }
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: "#f0f1f6"
+                    },
+                    border: {
+                        display: false,
+                        dash: [4, 4]
+                    },
+                    ticks: {
+                        precision: 0,
+                        color: "#858b9e"
                     }
                 }
             }
         }
-    );
-}
+    });
 
-// PRICE COMPLIANCE: PRODUCT PRICE VS. MARKET PRICE RANGE
+    const label = document.getElementById("orderRangeLabel");
+    if (label) label.textContent = getRangeLabel();
+}
 
 function normalizeProductName(name) {
     return String(name || "")
@@ -477,8 +492,8 @@ function normalizeProductName(name) {
         .replace(/\s+/g, " ");
 }
 
-function normalizeText(value) {
-    return String(value || "")
+function normalizeCategory(category) {
+    return String(category || "")
         .trim()
         .toLowerCase();
 }
@@ -494,32 +509,37 @@ function findMarketPrice(product, marketPrices) {
 
     if (!candidates.length) return null;
 
-    // Prefer matching category and pricing type when both are provided.
-    const exactCandidates = candidates.filter(item => {
-        const categoryMatches =
-            !product.category ||
-            !item.category ||
-            normalizeText(product.category) === normalizeText(item.category);
+    // Prefer a category match when the product has a category.
+    const category = normalizeCategory(product.category);
 
-        const pricingMatches =
-            !product.pricing_type ||
-            !item.pricing_type ||
-            normalizeText(product.pricing_type) === normalizeText(item.pricing_type);
+    if (category) {
+        const categoryMatches = candidates.filter(item =>
+            normalizeCategory(item.category) === category
+        );
 
-        return categoryMatches && pricingMatches;
-    });
+        if (categoryMatches.length) {
+            return categoryMatches[0];
+        }
+    }
 
-    return exactCandidates[0] || candidates[0];
+    return candidates[0];
 }
 
 async function loadPriceComplianceChart() {
-    const [productsResult, marketPricesResult] = await Promise.all([
-        db.from("products")
-            .select("name,price,category,pricing_type,is_active")
+    const client = getDatabase();
+
+    const [
+        productsResult,
+        marketPricesResult
+    ] = await Promise.all([
+        client
+            .from("products")
+            .select("name, price, category, is_active")
             .eq("is_active", true),
 
-        db.from("market_prices")
-            .select("product_name,min_price,max_price,category,pricing_type")
+        client
+            .from("market_prices")
+            .select("product_name, category, min_price, max_price")
     ]);
 
     if (productsResult.error) throw productsResult.error;
@@ -533,121 +553,223 @@ async function loadPriceComplianceChart() {
     let belowRange = 0;
     let unmatched = 0;
 
-    for (const product of products) {
-        const price = Number(product.price);
-
-        if (!Number.isFinite(price)) {
-            unmatched++;
-            continue;
-        }
-
+    products.forEach(product => {
         const marketPrice = findMarketPrice(product, marketPrices);
 
         if (!marketPrice) {
             unmatched++;
-            continue;
+            return;
         }
 
+        const productPrice = Number(product.price);
         const minPrice = Number(marketPrice.min_price);
         const maxPrice = Number(marketPrice.max_price);
 
-        if (!Number.isFinite(minPrice) || !Number.isFinite(maxPrice)) {
+        if (
+            !Number.isFinite(productPrice) ||
+            !Number.isFinite(minPrice) ||
+            !Number.isFinite(maxPrice) ||
+            minPrice > maxPrice
+        ) {
             unmatched++;
-            continue;
+            return;
         }
 
-        if (price < minPrice) {
+        if (productPrice < minPrice) {
             belowRange++;
-        } else if (price > maxPrice) {
+        } else if (productPrice > maxPrice) {
             aboveRange++;
         } else {
             withinRange++;
         }
-    }
+    });
 
-    const matchedCount = withinRange + aboveRange + belowRange;
-    const note = $("priceComplianceNote");
+    const canvas = document.getElementById("priceComplianceChart");
+    if (!canvas) return;
 
-    if (note) {
-        note.textContent = matchedCount
-            ? `${matchedCount} active products compared with market-price ranges. ${unmatched} unmatched or incomplete records excluded.`
-            : "No active products could be matched to complete market-price ranges.";
-    }
+    destroyChart(priceComplianceChart);
 
-    priceComplianceChart = drawChart(
-        priceComplianceChart,
-        "priceComplianceChart",
-        {
-            type: "doughnut",
-            data: {
-                labels: ["Within Range", "Above Range", "Below Range"],
-                datasets: [{
-                    data: [withinRange, aboveRange, belowRange],
-                    backgroundColor: ["#4CAF50", "#FFC107", "#F44336"]
-                }]
-            },
-            options: {
-                ...getChartOptions(),
-                cutout: "60%"
+    priceComplianceChart = new Chart(canvas, {
+        type: "doughnut",
+        data: {
+            labels: [
+                "Within range",
+                "Above range",
+                "Below range"
+            ],
+            datasets: [{
+                data: [
+                    withinRange,
+                    aboveRange,
+                    belowRange
+                ],
+                backgroundColor: [
+                    "#27b879",
+                    "#e46b79",
+                    "#f3b64d"
+                ],
+                borderWidth: 0,
+                hoverOffset: 5
+            }]
+        },
+        options: {
+            ...chartDefaults(),
+            cutout: "72%",
+            plugins: {
+                ...chartDefaults().plugins,
+                legend: {
+                    position: "bottom",
+                    labels: {
+                        usePointStyle: true,
+                        pointStyle: "circle",
+                        boxWidth: 8,
+                        padding: 15,
+                        color: "#858b9e",
+                        font: {
+                            size: 10
+                        }
+                    }
+                }
             }
         }
-    );
-}
+    });
 
-// REALTIME UPDATES
+    const note = document.getElementById("complianceNote");
+
+    if (note) {
+        note.textContent =
+            `${withinRange + aboveRange + belowRange} matched products · ` +
+            `${unmatched} unmatched or invalid`;
+    }
+}
 
 function setupDashboardRealtime() {
-    if (dashboardRealtimeChannel) {
-        db.removeChannel(dashboardRealtimeChannel);
-        dashboardRealtimeChannel = null;
-    }
+    try {
+        const client = getDatabase();
 
-    const tables = [
-        "profiles",
-        "orders",
-        "order_items",
-        "products",
-        "market_prices"
-    ];
-
-    let channel = db.channel("admin-dashboard-live");
-
-    for (const table of tables) {
-        channel = channel.on(
-            "postgres_changes",
-            {
-                event: "*",
-                schema: "public",
-                table
-            },
-            () => scheduleDashboardRefresh()
-        );
-    }
-
-    dashboardRealtimeChannel = channel.subscribe((status) => {
-        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-            console.error(
-                "Dashboard Realtime subscription issue:",
-                status
-            );
+        // Prevent duplicate subscriptions when setup is called again.
+        if (dashboardChannel) {
+            client.removeChannel(dashboardChannel);
+            dashboardChannel = null;
         }
-    });
+
+        dashboardChannel = client
+            .channel("admin-dashboard-live-updates")
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "profiles"
+                },
+                scheduleDashboardRefresh
+            )
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "orders"
+                },
+                scheduleDashboardRefresh
+            )
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "order_items"
+                },
+                scheduleDashboardRefresh
+            )
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "products"
+                },
+                scheduleDashboardRefresh
+            )
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "market_prices"
+                },
+                scheduleDashboardRefresh
+            )
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "notifications"
+                },
+                scheduleDashboardRefresh
+            )
+            .subscribe(status => {
+                if (status === "CHANNEL_ERROR") {
+                    console.warn(
+                        "Dashboard realtime connection failed. Check Supabase Realtime settings."
+                    );
+                }
+            });
+    } catch (error) {
+        console.error("Realtime setup error:", error);
+    }
 }
 
-function scheduleDashboardRefresh() {
-    if (dashboardRefreshTimer) {
-        clearTimeout(dashboardRefreshTimer);
-    }
+let refreshTimeout = null;
 
-    dashboardRefreshTimer = setTimeout(() => {
+function scheduleDashboardRefresh() {
+    clearTimeout(refreshTimeout);
+
+    refreshTimeout = setTimeout(() => {
         loadDashboard();
     }, 500);
 }
 
-// EVENTS
+/* -----------------------------
+   AUTH / EXISTING UTILITIES
+----------------------------- */
 
-document.addEventListener("DOMContentLoaded", () => {
-    $("dateFilter")?.addEventListener("change", () => {
-        loadDashboard();
-    });
-});
+async function addAuditLog(action, module, description = "") {
+    try {
+        const client = getDatabase();
+        const userName = localStorage.getItem("adminName") || "Admin";
+
+        const { data: authData } = await client.auth.getUser();
+        const userId = authData?.user?.id || null;
+
+        const { error } = await client
+            .from("audit_logs")
+            .insert([{
+                user_id: userId,
+                user: userName,
+                action,
+                module,
+                description
+            }]);
+
+        if (error) {
+            console.error("Audit log error:", error.message);
+        }
+    } catch (error) {
+        console.error("Audit log error:", error.message);
+    }
+}
+
+async function logout() {
+    try {
+        if (typeof db !== "undefined" && db?.auth) {
+            await db.auth.signOut();
+        }
+    } catch (error) {
+        console.error("Logout error:", error);
+    }
+
+    localStorage.removeItem("adminName");
+    window.location.href = "../index.html";
+}
