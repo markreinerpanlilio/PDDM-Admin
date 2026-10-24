@@ -1,5 +1,6 @@
 let marketPriceData = [];
 let sellerProductData = [];
+
 const table = document.getElementById("marketPriceTable");
 const sellerTable = document.getElementById("sellerProductsTable");
 
@@ -19,10 +20,13 @@ function normalizeValue(value) {
 
 function formatPrice(value) {
     const number = Number(value);
-    return Number.isFinite(number) ? `₱${number.toLocaleString("en-PH", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    })}` : "—";
+
+    return Number.isFinite(number)
+        ? `₱${number.toLocaleString("en-PH", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        })}`
+        : "—";
 }
 
 function getProductSize(product) {
@@ -32,19 +36,30 @@ function getProductSize(product) {
         product.weight != null && product.unit
             ? `${product.weight}${product.unit}`
             : null,
-        product.weight != null ? String(product.weight) : null
+        product.weight != null
+            ? String(product.weight)
+            : null
     ];
 
-    return candidates.filter(value => value != null && String(value).trim() !== "");
+    return candidates.filter(value =>
+        value != null && String(value).trim() !== ""
+    );
 }
 
 function getProductPricingType(product) {
-    if (product.pricing_type === "per_kg") return "per_kg";
-    if (product.pricing_type === "fixed_size") return "fixed_size";
+    if (product.pricing_type === "per_kg") {
+        return "per_kg";
+    }
+
+    if (product.pricing_type === "fixed_size") {
+        return "fixed_size";
+    }
 
     const sizeValues = getProductSize(product).map(normalizeValue);
 
-    if (sizeValues.some(size => size === "kg" || size.endsWith("/kg"))) {
+    if (sizeValues.some(size =>
+        size === "kg" || size.endsWith("/kg")
+    )) {
         return "per_kg";
     }
 
@@ -53,15 +68,24 @@ function getProductPricingType(product) {
 
 function findProductBenchmark(product) {
     const productName = normalizeValue(product.name);
-    if (!productName) return null;
+
+    if (!productName) {
+        return null;
+    }
 
     const pricingType = getProductPricingType(product);
     const productCategory = normalizeValue(product.category);
-    const benchmarks = marketPriceData.filter(benchmark => {
-        if (normalizeValue(benchmark.product_name) !== productName) return false;
 
-        if (productCategory && benchmark.category &&
-            productCategory !== normalizeValue(benchmark.category)) {
+    const benchmarks = marketPriceData.filter(benchmark => {
+        if (normalizeValue(benchmark.product_name) !== productName) {
+            return false;
+        }
+
+        if (
+            productCategory &&
+            benchmark.category &&
+            productCategory !== normalizeValue(benchmark.category)
+        ) {
             return false;
         }
 
@@ -69,12 +93,16 @@ function findProductBenchmark(product) {
     });
 
     if (pricingType === "per_kg") {
-        return benchmarks.find(benchmark => benchmark.max_price != null) || null;
+        return benchmarks.find(
+            benchmark => benchmark.max_price != null
+        ) || null;
     }
 
     const productSizes = getProductSize(product).map(normalizeValue);
 
-    if (!productSizes.length) return null;
+    if (!productSizes.length) {
+        return null;
+    }
 
     return benchmarks.find(benchmark =>
         benchmark.size != null &&
@@ -88,8 +116,12 @@ function compareSellerProduct(product) {
     const benchmark = findProductBenchmark(product);
     const sellingPrice = Number(product.price);
 
-    if (product.price == null || product.price === "" ||
-        !Number.isFinite(sellingPrice) || sellingPrice < 0) {
+    if (
+        product.price == null ||
+        product.price === "" ||
+        !Number.isFinite(sellingPrice) ||
+        sellingPrice < 0
+    ) {
         return {
             ...product,
             benchmark,
@@ -112,6 +144,7 @@ function compareSellerProduct(product) {
     }
 
     const maxPrice = Number(benchmark.max_price);
+
     const minPrice = benchmark.min_price == null
         ? null
         : Number(benchmark.min_price);
@@ -164,7 +197,9 @@ function compareSellerProduct(product) {
 }
 
 function getAllowedPrice(benchmark) {
-    if (!benchmark) return "No benchmark";
+    if (!benchmark) {
+        return "No benchmark";
+    }
 
     if (benchmark.pricing_type === "per_kg") {
         return `Maximum: ${formatPrice(benchmark.max_price)}/kg`;
@@ -177,12 +212,16 @@ function getProductStatus(product) {
     switch (product.status) {
         case "overpriced":
             return `<span class="price-status overpriced">Overpriced +${formatPrice(product.overpriceAmount)}</span>`;
+
         case "underpriced":
             return `<span class="price-status underpriced">Below minimum</span>`;
+
         case "compliant":
             return `<span class="price-status compliant">Within range</span>`;
+
         case "missing":
             return `<span class="price-status no-benchmark">Missing price</span>`;
+
         default:
             return `<span class="price-status no-benchmark">No benchmark</span>`;
     }
@@ -200,7 +239,9 @@ function sortSellerProducts(products) {
     return products.sort((a, b) => {
         const statusDifference = priority[a.status] - priority[b.status];
 
-        if (statusDifference !== 0) return statusDifference;
+        if (statusDifference !== 0) {
+            return statusDifference;
+        }
 
         if (a.status === "overpriced") {
             if (b.overpricePercent !== a.overpricePercent) {
@@ -224,14 +265,20 @@ async function loadMarketPrices() {
 
     if (error) {
         console.error("Failed to load market benchmarks:", error);
+
         marketPriceData = [];
-        table.innerHTML = "<tr><td colspan='5'>Failed to load data.</td></tr>";
+
+        table.innerHTML =
+            "<tr><td colspan='5'>Failed to load data.</td></tr>";
+
         await loadSellerProducts();
         return;
     }
 
     marketPriceData = data || [];
+
     renderMarketPrices();
+
     await loadSellerProducts();
 }
 
@@ -239,24 +286,30 @@ function renderMarketPrices() {
     table.innerHTML = "";
 
     if (marketPriceData.length === 0) {
-        table.innerHTML = "<tr><td colspan='5'>No products found.</td></tr>";
+        table.innerHTML =
+            "<tr><td colspan='5'>No products found.</td></tr>";
         return;
     }
 
     marketPriceData.forEach(product => {
         const isPerKg = product.pricing_type === "per_kg";
+
         const hasPricing = isPerKg
             ? product.max_price !== null
-            : product.min_price !== null && product.max_price !== null;
+            : product.min_price !== null &&
+              product.max_price !== null;
 
         let priceDisplay = "-";
 
         if (isPerKg && product.max_price !== null) {
             priceDisplay = formatPrice(product.max_price);
-        } else if (!isPerKg &&
+        } else if (
+            !isPerKg &&
             product.min_price !== null &&
-            product.max_price !== null) {
-            priceDisplay = `${formatPrice(product.min_price)} - ${formatPrice(product.max_price)}`;
+            product.max_price !== null
+        ) {
+            priceDisplay =
+                `${formatPrice(product.min_price)} - ${formatPrice(product.max_price)}`;
         }
 
         table.innerHTML += `
@@ -266,7 +319,8 @@ function renderMarketPrices() {
                 <td>${isPerKg ? "—" : escapeHTML(product.size || "-")}</td>
                 <td>${priceDisplay}</td>
                 <td>
-                    <button class="${hasPricing ? "edit-btn" : "add-pricing-btn"}"
+                    <button
+                        class="${hasPricing ? "edit-btn" : "add-pricing-btn"}"
                         onclick="openPricingModal('${escapeHTML(product.id)}')">
                         ${hasPricing ? "Edit" : "Add pricing"}
                     </button>
@@ -283,13 +337,15 @@ function searchMarketPrice() {
     const value = input.value.toLowerCase();
 
     table.querySelectorAll("tr").forEach(row => {
-        row.style.display = row.innerText.toLowerCase().includes(value) ? "" : "none";
+        row.style.display =
+            row.innerText.toLowerCase().includes(value) ? "" : "none";
     });
 }
 
 /* Load all products listed by sellers */
 async function loadSellerProducts() {
-    sellerTable.innerHTML = "<tr><td colspan='8'>Loading seller products...</td></tr>";
+    sellerTable.innerHTML =
+        "<tr><td colspan='8'>Loading seller products...</td></tr>";
 
     const { data, error } = await db
         .from("products")
@@ -298,15 +354,19 @@ async function loadSellerProducts() {
 
     if (error) {
         console.error("Failed to load seller products:", error);
+
         sellerProductData = [];
-        sellerTable.innerHTML = "<tr><td colspan='8'>Failed to load seller products. Check Supabase permissions.</td></tr>";
+
+        sellerTable.innerHTML =
+            "<tr><td colspan='8'>Failed to load seller products. Check Supabase permissions.</td></tr>";
+
         updateSellerProductSummary([]);
         return;
     }
 
     const products = data || [];
 
-    // Use seller_name from products first, then look up profiles for missing names.
+    // Use seller_name first, then look up profiles for missing names.
     const missingSellerIds = [...new Set(
         products
             .filter(product => !product.seller_name && product.seller_id)
@@ -322,10 +382,14 @@ async function loadSellerProducts() {
             .in("id", missingSellerIds);
 
         if (sellerError) {
-            console.warn("Could not load seller profile names:", sellerError.message);
+            console.warn(
+                "Could not load seller profile names:",
+                sellerError.message
+            );
         } else {
             (sellers || []).forEach(seller => {
-                sellerNames[seller.id] = seller.full_name || seller.email || "Unknown seller";
+                sellerNames[seller.id] =
+                    seller.full_name || seller.email || "Unknown seller";
             });
         }
     }
@@ -342,15 +406,20 @@ async function loadSellerProducts() {
     });
 
     sortSellerProducts(sellerProductData);
+
     renderSellerProducts();
 }
 
 function updateSellerProductSummary(products) {
-    document.getElementById("sellerProductTotal").textContent = products.length;
+    document.getElementById("sellerProductTotal").textContent =
+        products.length;
+
     document.getElementById("overpricedProductTotal").textContent =
         products.filter(product => product.status === "overpriced").length;
+
     document.getElementById("underpricedProductTotal").textContent =
         products.filter(product => product.status === "underpriced").length;
+
     document.getElementById("unmatchedProductTotal").textContent =
         products.filter(product => product.status === "unmatched").length;
 }
@@ -359,7 +428,8 @@ function renderSellerProducts() {
     updateSellerProductSummary(sellerProductData);
 
     if (!sellerProductData.length) {
-        sellerTable.innerHTML = "<tr><td colspan='8'>No seller products found.</td></tr>";
+        sellerTable.innerHTML =
+            "<tr><td colspan='8'>No seller products found.</td></tr>";
         return;
     }
 
@@ -368,9 +438,12 @@ function renderSellerProducts() {
     sellerTable.innerHTML = sellerProductData.map(product => {
         const isOverpriced = product.status === "overpriced";
 
-        if (isOverpriced) overpriceRank++;
+        if (isOverpriced) {
+            overpriceRank++;
+        }
 
         const pricingType = getProductPricingType(product);
+
         const sizeOrType = pricingType === "per_kg"
             ? "Per kg"
             : getProductSize(product).join(" / ") || "Fixed Size";
@@ -404,9 +477,12 @@ function renderSellerProducts() {
                 <td>${escapeHTML(category)}</td>
                 <td>${escapeHTML(sizeOrType)}</td>
                 <td class="seller-price-value ${priceClass}">
-                    ${product.sellingPrice == null
-                        ? "—"
-                        : formatPrice(product.sellingPrice) + (pricingType === "per_kg" ? "/kg" : "")}
+                    ${
+                        product.sellingPrice == null
+                            ? "—"
+                            : formatPrice(product.sellingPrice) +
+                              (pricingType === "per_kg" ? "/kg" : "")
+                    }
                 </td>
                 <td>${escapeHTML(allowedPrice)}</td>
                 <td>${getProductStatus(product)}</td>
@@ -419,32 +495,80 @@ function renderSellerProducts() {
 
 function searchSellerProducts() {
     const input = document.getElementById("searchSellerProducts");
-    if (!input) return;
+
+    if (!input) {
+        return;
+    }
 
     const value = input.value.trim().toLowerCase();
 
     sellerTable.querySelectorAll("tr[data-search]").forEach(row => {
-        row.style.display = row.dataset.search.includes(value) ? "" : "none";
+        row.style.display =
+            row.dataset.search.includes(value) ? "" : "none";
     });
+}
+
+/* Toggle between market references and seller product monitoring */
+function toggleMarketPriceView() {
+    const benchmarkView = document.getElementById("marketPriceView");
+    const sellerView = document.getElementById("sellerProductsView");
+    const toggleButton = document.getElementById("toggleSellerProductsBtn");
+    const pageTitle = document.getElementById("marketPricePageTitle");
+
+    if (!benchmarkView || !sellerView || !toggleButton) {
+        return;
+    }
+
+    const isSellerView = sellerView.style.display !== "none";
+
+    if (isSellerView) {
+        sellerView.style.display = "none";
+        benchmarkView.style.display = "";
+
+        toggleButton.textContent = "View Seller Products";
+
+        if (pageTitle) {
+            pageTitle.textContent = "Market Price";
+        }
+    } else {
+        benchmarkView.style.display = "none";
+        sellerView.style.display = "";
+
+        toggleButton.textContent = "Back to Market Price";
+
+        if (pageTitle) {
+            pageTitle.textContent = "Seller Products";
+        }
+
+        loadSellerProducts();
+    }
 }
 
 /* Shared modal shell */
 function renderModal(bodyHtml) {
     const oldModal = document.getElementById("pricingModal");
-    if (oldModal) oldModal.remove();
+
+    if (oldModal) {
+        oldModal.remove();
+    }
 
     const modal = document.createElement("div");
     modal.id = "pricingModal";
     modal.className = "modal";
     modal.style.display = "flex";
     modal.innerHTML = `<div class="modal-content">${bodyHtml}</div>`;
+
     document.body.appendChild(modal);
+
     return modal;
 }
 
 function closePricingModal() {
     const modal = document.getElementById("pricingModal");
-    if (modal) modal.remove();
+
+    if (modal) {
+        modal.remove();
+    }
 }
 
 function closeModal() {
@@ -455,25 +579,40 @@ function closeModal() {
 function openAddModal() {
     renderModal(`
         <h2>Add Product</h2>
+
         <label>Product Name</label>
         <div style="position:relative">
-            <input type="text" id="modalProductName" placeholder="Enter product name" autocomplete="off"
-                oninput="showProductSuggestions()" onfocus="showProductSuggestions()">
-            <div id="productSuggestions" style="display:none;position:absolute;top:100%;left:0;width:100%;
-                background:var(--surface);border:1px solid var(--border);border-radius:0 0 8px 8px;
-                max-height:180px;overflow-y:auto;z-index:10001"></div>
+            <input
+                type="text"
+                id="modalProductName"
+                placeholder="Enter product name"
+                autocomplete="off"
+                oninput="showProductSuggestions()"
+                onfocus="showProductSuggestions()">
+
+            <div
+                id="productSuggestions"
+                style="display:none;position:absolute;top:100%;left:0;width:100%;
+                background:var(--surface);border:1px solid var(--border);
+                border-radius:0 0 8px 8px;max-height:180px;overflow-y:auto;
+                z-index:10001">
+            </div>
         </div>
+
         <label>Type</label>
         <select id="modalPricingType" onchange="updatePricingFields()">
             <option value="per_kg">Per kg</option>
             <option value="fixed_size" selected>Fixed Size</option>
         </select>
+
         <div id="pricingFields"></div>
+
         <div class="modal-buttons">
             <button onclick="closePricingModal()">Cancel</button>
             <button class="save-btn" onclick="saveNewProduct()">Save</button>
         </div>
     `);
+
     updatePricingFields();
 }
 
@@ -481,10 +620,15 @@ function getFixedSizeProductNames() {
     const names = [];
 
     marketPriceData.forEach(product => {
-        if (product.pricing_type === "fixed_size" && product.product_name) {
+        if (
+            product.pricing_type === "fixed_size" &&
+            product.product_name
+        ) {
             const name = product.product_name.trim();
 
-            if (!names.some(item => item.toLowerCase() === name.toLowerCase())) {
+            if (!names.some(item =>
+                item.toLowerCase() === name.toLowerCase()
+            )) {
                 names.push(name);
             }
         }
@@ -496,9 +640,13 @@ function getFixedSizeProductNames() {
 function showProductSuggestions() {
     const input = document.getElementById("modalProductName");
     const suggestions = document.getElementById("productSuggestions");
-    if (!input || !suggestions) return;
+
+    if (!input || !suggestions) {
+        return;
+    }
 
     const value = input.value.trim().toLowerCase();
+
     const filtered = getFixedSizeProductNames().filter(name =>
         name.toLowerCase().includes(value)
     );
@@ -512,14 +660,24 @@ function showProductSuggestions() {
 
     filtered.forEach(name => {
         const item = document.createElement("div");
+
         item.textContent = name;
-        item.style.cssText = "padding:10px;cursor:pointer;border-bottom:1px solid var(--border)";
-        item.onmouseover = () => item.style.background = "var(--bg)";
-        item.onmouseout = () => item.style.background = "var(--surface)";
+        item.style.cssText =
+            "padding:10px;cursor:pointer;border-bottom:1px solid var(--border)";
+
+        item.onmouseover = () => {
+            item.style.background = "var(--bg)";
+        };
+
+        item.onmouseout = () => {
+            item.style.background = "var(--surface)";
+        };
+
         item.onclick = () => {
             input.value = name;
             suggestions.style.display = "none";
         };
+
         suggestions.appendChild(item);
     });
 
@@ -528,71 +686,133 @@ function showProductSuggestions() {
 
 /* Edit existing product */
 function openPricingModal(id) {
-    const product = marketPriceData.find(item => String(item.id) === String(id));
-    if (!product) return console.error("Product not found:", id);
+    const product = marketPriceData.find(
+        item => String(item.id) === String(id)
+    );
+
+    if (!product) {
+        return console.error("Product not found:", id);
+    }
 
     const isPerKg = product.pricing_type === "per_kg";
-    const hasPricing = product.max_price !== null || product.min_price !== null;
+
+    const hasPricing =
+        product.max_price !== null || product.min_price !== null;
 
     renderModal(`
         <h2>${hasPricing ? "Edit Product Price" : "Set Product Price"}</h2>
+
         <label>Product Name</label>
-        <input type="text" id="modalProductName" value="${escapeHTML(product.product_name || "")}" placeholder="Enter product name">
+        <input
+            type="text"
+            id="modalProductName"
+            value="${escapeHTML(product.product_name || "")}"
+            placeholder="Enter product name">
+
         <label>Type</label>
         <select id="modalPricingType" onchange="updatePricingFields()">
             <option value="per_kg" ${isPerKg ? "selected" : ""}>Per kg</option>
             <option value="fixed_size" ${!isPerKg ? "selected" : ""}>Fixed Size</option>
         </select>
+
         <div id="pricingFields"></div>
+
         <div class="modal-buttons">
             <button onclick="closePricingModal()">Cancel</button>
-            <button class="save-btn" onclick="savePricing('${escapeHTML(product.id)}')">Save</button>
+            <button class="save-btn" onclick="savePricing('${escapeHTML(product.id)}')">
+                Save
+            </button>
         </div>
     `);
 
-    updatePricingFields(product.size || "", product.min_price, product.max_price);
+    updatePricingFields(
+        product.size || "",
+        product.min_price,
+        product.max_price
+    );
 }
 
 /* Pricing fields */
-function updatePricingFields(currentSize = "", currentMinPrice = null, currentMaxPrice = null) {
+function updatePricingFields(
+    currentSize = "",
+    currentMinPrice = null,
+    currentMaxPrice = null
+) {
     const typeElement = document.getElementById("modalPricingType");
     const fields = document.getElementById("pricingFields");
-    if (!typeElement || !fields) return;
+
+    if (!typeElement || !fields) {
+        return;
+    }
 
     const isPerKg = typeElement.value === "per_kg";
 
     if (isPerKg) {
         fields.innerHTML = `
             <label>Size</label>
-            <input type="text" value="--" disabled style="background:var(--bg)">
+            <input
+                type="text"
+                value="--"
+                disabled
+                style="background:var(--bg)">
+
             <label>Maximum Price</label>
-            <input type="number" id="modalMaxPrice" value="${currentMaxPrice ?? ""}" placeholder="Enter maximum price" min="0" step="0.01">
+            <input
+                type="number"
+                id="modalMaxPrice"
+                value="${currentMaxPrice ?? ""}"
+                placeholder="Enter maximum price"
+                min="0"
+                step="0.01">
         `;
     } else {
         fields.innerHTML = `
             <label>Size</label>
-            <input type="text" id="modalSize" value="${escapeHTML(currentSize || "")}" placeholder="Example: 35g, 100ml, Small">
+            <input
+                type="text"
+                id="modalSize"
+                value="${escapeHTML(currentSize || "")}"
+                placeholder="Example: 35g, 100ml, Small">
+
             <label>Minimum Price</label>
-            <input type="number" id="modalMinPrice" value="${currentMinPrice ?? ""}" placeholder="Enter minimum price" min="0" step="0.01">
+            <input
+                type="number"
+                id="modalMinPrice"
+                value="${currentMinPrice ?? ""}"
+                placeholder="Enter minimum price"
+                min="0"
+                step="0.01">
+
             <label>Maximum Price</label>
-            <input type="number" id="modalMaxPrice" value="${currentMaxPrice ?? ""}" placeholder="Enter maximum price" min="0" step="0.01">
+            <input
+                type="number"
+                id="modalMaxPrice"
+                value="${currentMaxPrice ?? ""}"
+                placeholder="Enter maximum price"
+                min="0"
+                step="0.01">
         `;
     }
 }
 
 /* Save new product */
 async function saveNewProduct() {
-    const productName = document.getElementById("modalProductName").value.trim();
-    const pricingType = document.getElementById("modalPricingType").value;
+    const productName =
+        document.getElementById("modalProductName").value.trim();
 
-    if (!productName) return alert("Please enter the product name.");
+    const pricingType =
+        document.getElementById("modalPricingType").value;
+
+    if (!productName) {
+        return alert("Please enter the product name.");
+    }
 
     const normalizedName = productName.toLowerCase();
 
     if (pricingType === "per_kg") {
         const maxPrice = document.getElementById("modalMaxPrice").value;
 
-        if (!maxPrice || Number(maxPrice) < 0) {
+        if (maxPrice === "" || Number(maxPrice) < 0) {
             return alert("Please enter a valid maximum price.");
         }
 
@@ -601,7 +821,9 @@ async function saveNewProduct() {
             item.product_name.trim().toLowerCase() === normalizedName
         );
 
-        if (duplicate) return alert(`${productName} already exists in the pricing list.`);
+        if (duplicate) {
+            return alert(`${productName} already exists in the pricing list.`);
+        }
 
         const { error } = await db.from("market_prices").insert([{
             product_name: productName,
@@ -626,18 +848,24 @@ async function saveNewProduct() {
     const minPrice = document.getElementById("modalMinPrice").value;
     const maxPrice = document.getElementById("modalMaxPrice").value;
 
-    if (!size) return alert("Please enter the product size.");
+    if (!size) {
+        return alert("Please enter the product size.");
+    }
+
     if (minPrice === "" || maxPrice === "") {
         return alert("Please enter both minimum and maximum prices.");
     }
+
     if (Number(minPrice) < 0 || Number(maxPrice) < 0) {
         return alert("Prices cannot be negative.");
     }
+
     if (Number(minPrice) > Number(maxPrice)) {
         return alert("Minimum price cannot be higher than maximum price.");
     }
 
     const normalizedSize = size.toLowerCase();
+
     const duplicate = marketPriceData.find(item =>
         item.product_name &&
         item.product_name.trim().toLowerCase() === normalizedName &&
@@ -646,7 +874,9 @@ async function saveNewProduct() {
     );
 
     if (duplicate) {
-        return alert(`${productName} with size ${size} already exists in the pricing list.`);
+        return alert(
+            `${productName} with size ${size} already exists in the pricing list.`
+        );
     }
 
     const { error } = await db.from("market_prices").insert([{
@@ -669,13 +899,23 @@ async function saveNewProduct() {
 
 /* Save existing product */
 async function savePricing(id) {
-    const product = marketPriceData.find(item => String(item.id) === String(id));
-    if (!product) return alert("Product not found.");
+    const product = marketPriceData.find(
+        item => String(item.id) === String(id)
+    );
 
-    const productName = document.getElementById("modalProductName").value.trim();
-    const pricingType = document.getElementById("modalPricingType").value;
+    if (!product) {
+        return alert("Product not found.");
+    }
 
-    if (!productName) return alert("Please enter the product name.");
+    const productName =
+        document.getElementById("modalProductName").value.trim();
+
+    const pricingType =
+        document.getElementById("modalPricingType").value;
+
+    if (!productName) {
+        return alert("Please enter the product name.");
+    }
 
     const normalizedName = productName.toLowerCase();
 
@@ -692,7 +932,9 @@ async function savePricing(id) {
             item.product_name.trim().toLowerCase() === normalizedName
         );
 
-        if (duplicate) return alert(`${productName} already exists in the pricing list.`);
+        if (duplicate) {
+            return alert(`${productName} already exists in the pricing list.`);
+        }
 
         const { error } = await db.from("market_prices").update({
             product_name: productName,
@@ -717,18 +959,24 @@ async function savePricing(id) {
     const minPrice = document.getElementById("modalMinPrice").value;
     const maxPrice = document.getElementById("modalMaxPrice").value;
 
-    if (!size) return alert("Please enter the product size.");
+    if (!size) {
+        return alert("Please enter the product size.");
+    }
+
     if (minPrice === "" || maxPrice === "") {
         return alert("Please enter both minimum and maximum prices.");
     }
+
     if (Number(minPrice) < 0 || Number(maxPrice) < 0) {
         return alert("Prices cannot be negative.");
     }
+
     if (Number(minPrice) > Number(maxPrice)) {
         return alert("Minimum price cannot be higher than maximum price.");
     }
 
     const normalizedSize = size.toLowerCase();
+
     const duplicate = marketPriceData.find(item =>
         String(item.id) !== String(id) &&
         item.product_name &&
@@ -738,7 +986,9 @@ async function savePricing(id) {
     );
 
     if (duplicate) {
-        return alert(`${productName} with size ${size} already exists in the pricing list.`);
+        return alert(
+            `${productName} with size ${size} already exists in the pricing list.`
+        );
     }
 
     const { error } = await db.from("market_prices").update({
@@ -759,4 +1009,12 @@ async function savePricing(id) {
     await loadMarketPrices();
 }
 
-document.addEventListener("DOMContentLoaded", loadMarketPrices);
+document.addEventListener("DOMContentLoaded", () => {
+    const sellerView = document.getElementById("sellerProductsView");
+
+    if (sellerView) {
+        sellerView.style.display = "none";
+    }
+
+    loadMarketPrices();
+});
