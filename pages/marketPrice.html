@@ -9,7 +9,6 @@
     <style>
         .seller-price-tools {
             display: flex;
-            justify-content: space-between;
             align-items: center;
             gap: 12px;
             flex-wrap: wrap;
@@ -18,6 +17,11 @@
 
         .seller-price-tools input {
             width: 300px;
+            max-width: 100%;
+        }
+
+        .seller-price-tools select {
+            min-width: 160px;
             max-width: 100%;
         }
 
@@ -134,13 +138,13 @@
         }
 
         @media (max-width: 768px) {
-            .seller-price-tools input {
+            .seller-price-tools input,
+            .seller-price-tools select {
                 width: 100%;
             }
         }
     </style>
 </head>
-
 <body>
     <div class="sidebar collapsed" id="sidebar">
         <div class="sidebar-header">
@@ -153,22 +157,18 @@
                 <span class="icon">🏠</span>
                 <span class="text">Dashboard</span>
             </li>
-
             <li onclick="window.location='requests.html'">
                 <span class="icon">📄</span>
                 <span class="text">Requests</span>
             </li>
-
             <li class="active">
                 <span class="icon">💰</span>
                 <span class="text">Market Price</span>
             </li>
-
             <li onclick="window.location='audit.html'">
                 <span class="icon">📜</span>
                 <span class="text">Audit Trail</span>
             </li>
-
             <li onclick="logout()">
                 <span class="icon">🚪</span>
                 <span class="text">Logout</span>
@@ -188,13 +188,14 @@
                 <button
                     class="approve-btn view-toggle-btn"
                     id="toggleSellerProductsBtn"
-                    onclick="toggleMarketPriceView()">
-                    View Seller Products
+                    onclick="toggleMarketPriceView()"
+                >
+                    Products
                 </button>
             </div>
         </div>
 
-        <!-- Market Price benchmark view -->
+        <!-- Market price benchmark view -->
         <section id="marketPriceView">
             <div class="panel full-panel">
                 <h2>Market Price Benchmarks</h2>
@@ -205,7 +206,8 @@
                         id="searchPrice"
                         placeholder="Search benchmark product..."
                         onkeyup="searchMarketPrice()"
-                        style="width:300px;max-width:100%;">
+                        style="width:300px;max-width:100%;"
+                    >
 
                     <button class="approve-btn" onclick="openAddModal()">
                         + Add Product
@@ -234,15 +236,10 @@
             </div>
         </section>
 
-        <!-- Seller Products view, hidden until the toggle is pressed -->
+        <!-- Seller products view -->
         <section id="sellerProductsView" style="display:none;">
             <div class="panel full-panel">
-                <h2>Seller Product Price Monitoring</h2>
-
-                <p style="color:var(--text-muted);font-size:13px;margin:8px 0 18px;">
-                    All seller-listed products are compared with matching market price benchmarks.
-                    Overpriced products appear first.
-                </p>
+                <h2>Seller Products</h2>
 
                 <div class="seller-price-summary">
                     <span>
@@ -271,11 +268,29 @@
                         type="text"
                         id="searchSellerProducts"
                         placeholder="Search seller or product..."
-                        oninput="searchSellerProducts()">
+                        oninput="searchSellerProducts()"
+                    >
 
-                    <span style="color:var(--text-muted);font-size:12px;">
-                        Overpricing priority: highest percentage above maximum first
-                    </span>
+                    <select
+                        id="sellerCategoryFilter"
+                        onchange="searchSellerProducts()"
+                        aria-label="Filter by category"
+                    >
+                        <option value="">All categories</option>
+                    </select>
+
+                    <select
+                        id="sellerStatusFilter"
+                        onchange="searchSellerProducts()"
+                        aria-label="Filter by price status"
+                    >
+                        <option value="">All statuses</option>
+                        <option value="overpriced">Overpriced</option>
+                        <option value="underpriced">Below minimum</option>
+                        <option value="compliant">Within range</option>
+                        <option value="missing">Missing price</option>
+                        <option value="unmatched">No benchmark</option>
+                    </select>
                 </div>
 
                 <div class="seller-price-table-wrap">
@@ -304,45 +319,6 @@
                 </div>
             </div>
         </section>
-    </div>
-
-    <!-- Existing modal container -->
-    <div id="pricingModal" class="modal">
-        <div class="modal-content">
-            <h2 id="modalTitle">Set Product Price</h2>
-
-            <input type="hidden" id="modalProductId">
-
-            <label>Product</label>
-            <input type="text" id="modalProduct" readonly>
-
-            <label>Category</label>
-            <input type="text" id="modalCategory" readonly>
-
-            <div id="packageSection">
-                <label>Package Size</label>
-                <input type="text" id="modalVariant" readonly>
-            </div>
-
-            <div id="minSection">
-                <label>Minimum Price</label>
-                <input
-                    type="number"
-                    id="modalMinPrice"
-                    placeholder="Enter minimum price">
-            </div>
-
-            <label id="maxLabel">Maximum Price</label>
-            <input
-                type="number"
-                id="modalMaxPrice"
-                placeholder="Enter maximum price">
-
-            <div class="modal-buttons">
-                <button class="approve-btn" onclick="savePricing()">Save</button>
-                <button class="reject-btn" onclick="closeModal()">Cancel</button>
-            </div>
-        </div>
     </div>
 
     <script src="../js/supabase.js"></script>
