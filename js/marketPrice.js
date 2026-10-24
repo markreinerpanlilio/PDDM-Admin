@@ -4,6 +4,7 @@ let sellerProductData = [];
 const table = document.getElementById("marketPriceTable");
 const sellerTable = document.getElementById("sellerProductsTable");
 
+/* Escape text before displaying database values in HTML */
 function escapeHTML(value) {
     return String(value ?? "").replace(/[&<>"']/g, char => ({
         "&": "&amp;",
@@ -15,7 +16,10 @@ function escapeHTML(value) {
 }
 
 function normalizeValue(value) {
-    return String(value ?? "").trim().toLowerCase().replace(/\s+/g, "");
+    return String(value ?? "")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, "");
 }
 
 function formatPrice(value) {
@@ -29,6 +33,7 @@ function formatPrice(value) {
         : "—";
 }
 
+/* Get possible product size values */
 function getProductSize(product) {
     const candidates = [
         product.variant,
@@ -46,6 +51,7 @@ function getProductSize(product) {
     );
 }
 
+/* Determine whether a product is priced per kilogram or by fixed size */
 function getProductPricingType(product) {
     if (product.pricing_type === "per_kg") {
         return "per_kg";
@@ -66,6 +72,7 @@ function getProductPricingType(product) {
     return "fixed_size";
 }
 
+/* Match a seller product to its market price benchmark */
 function findProductBenchmark(product) {
     const productName = normalizeValue(product.name);
 
@@ -77,7 +84,9 @@ function findProductBenchmark(product) {
     const productCategory = normalizeValue(product.category);
 
     const benchmarks = marketPriceData.filter(benchmark => {
-        if (normalizeValue(benchmark.product_name) !== productName) {
+        if (
+            normalizeValue(benchmark.product_name) !== productName
+        ) {
             return false;
         }
 
@@ -93,8 +102,8 @@ function findProductBenchmark(product) {
     });
 
     if (pricingType === "per_kg") {
-        return benchmarks.find(
-            benchmark => benchmark.max_price != null
+        return benchmarks.find(benchmark =>
+            benchmark.max_price != null
         ) || null;
     }
 
@@ -112,6 +121,7 @@ function findProductBenchmark(product) {
     ) || null;
 }
 
+/* Compare the seller's price with the benchmark */
 function compareSellerProduct(product) {
     const benchmark = findProductBenchmark(product);
     const sellingPrice = Number(product.price);
@@ -196,6 +206,7 @@ function compareSellerProduct(product) {
     };
 }
 
+/* Display the allowed price range */
 function getAllowedPrice(benchmark) {
     if (!benchmark) {
         return "No benchmark";
@@ -208,6 +219,7 @@ function getAllowedPrice(benchmark) {
     return `${formatPrice(benchmark.min_price)} – ${formatPrice(benchmark.max_price)}`;
 }
 
+/* Display the product's price status */
 function getProductStatus(product) {
     switch (product.status) {
         case "overpriced":
@@ -227,6 +239,7 @@ function getProductStatus(product) {
     }
 }
 
+/* Prioritize overpriced products */
 function sortSellerProducts(products) {
     const priority = {
         overpriced: 0,
@@ -237,7 +250,8 @@ function sortSellerProducts(products) {
     };
 
     return products.sort((a, b) => {
-        const statusDifference = priority[a.status] - priority[b.status];
+        const statusDifference =
+            priority[a.status] - priority[b.status];
 
         if (statusDifference !== 0) {
             return statusDifference;
@@ -251,10 +265,13 @@ function sortSellerProducts(products) {
             return b.overpriceAmount - a.overpriceAmount;
         }
 
-        return String(a.name || "").localeCompare(String(b.name || ""));
+        return String(a.name || "").localeCompare(
+            String(b.name || "")
+        );
     });
 }
 
+/* Load market price benchmarks */
 async function loadMarketPrices() {
     table.innerHTML = "<tr><td colspan='5'>Loading...</td></tr>";
 
@@ -278,10 +295,10 @@ async function loadMarketPrices() {
     marketPriceData = data || [];
 
     renderMarketPrices();
-
     await loadSellerProducts();
 }
 
+/* Render market price benchmark table */
 function renderMarketPrices() {
     table.innerHTML = "";
 
@@ -321,7 +338,8 @@ function renderMarketPrices() {
                 <td>
                     <button
                         class="${hasPricing ? "edit-btn" : "add-pricing-btn"}"
-                        onclick="openPricingModal('${escapeHTML(product.id)}')">
+                        onclick="openPricingModal('${escapeHTML(product.id)}')"
+                    >
                         ${hasPricing ? "Edit" : "Add pricing"}
                     </button>
                 </td>
@@ -332,13 +350,22 @@ function renderMarketPrices() {
     searchMarketPrice();
 }
 
+/* Search the benchmark table */
 function searchMarketPrice() {
     const input = document.getElementById("searchPrice");
+
+    if (!input) {
+        return;
+    }
+
     const value = input.value.toLowerCase();
 
     table.querySelectorAll("tr").forEach(row => {
-        row.style.display =
-            row.innerText.toLowerCase().includes(value) ? "" : "none";
+        row.style.display = row.innerText
+            .toLowerCase()
+            .includes(value)
+            ? ""
+            : "none";
     });
 }
 
@@ -366,14 +393,16 @@ async function loadSellerProducts() {
 
     const products = data || [];
 
-    // Use seller_name first, then look up profiles for missing names.
+    /* Find products that need seller names from profiles */
     const missingSellerIds = [...new Set(
         products
-            .filter(product => !product.seller_name && product.seller_id)
+            .filter(product =>
+                !product.seller_name && product.seller_id
+            )
             .map(product => product.seller_id)
     )];
 
-    let sellerNames = {};
+    const sellerNames = {};
 
     if (missingSellerIds.length) {
         const { data: sellers, error: sellerError } = await db
@@ -389,13 +418,16 @@ async function loadSellerProducts() {
         } else {
             (sellers || []).forEach(seller => {
                 sellerNames[seller.id] =
-                    seller.full_name || seller.email || "Unknown seller";
+                    seller.full_name ||
+                    seller.email ||
+                    "Unknown seller";
             });
         }
     }
 
     sellerProductData = products.map(product => {
-        const sellerName = product.seller_name ||
+        const sellerName =
+            product.seller_name ||
             sellerNames[product.seller_id] ||
             "Unknown seller";
 
@@ -406,26 +438,34 @@ async function loadSellerProducts() {
     });
 
     sortSellerProducts(sellerProductData);
-
     renderSellerProducts();
 }
 
+/* Update seller product summary counters */
 function updateSellerProductSummary(products) {
     document.getElementById("sellerProductTotal").textContent =
         products.length;
 
     document.getElementById("overpricedProductTotal").textContent =
-        products.filter(product => product.status === "overpriced").length;
+        products.filter(product =>
+            product.status === "overpriced"
+        ).length;
 
     document.getElementById("underpricedProductTotal").textContent =
-        products.filter(product => product.status === "underpriced").length;
+        products.filter(product =>
+            product.status === "underpriced"
+        ).length;
 
     document.getElementById("unmatchedProductTotal").textContent =
-        products.filter(product => product.status === "unmatched").length;
+        products.filter(product =>
+            product.status === "unmatched"
+        ).length;
 }
 
+/* Render all seller products */
 function renderSellerProducts() {
     updateSellerProductSummary(sellerProductData);
+    populateSellerCategoryFilter();
 
     if (!sellerProductData.length) {
         sellerTable.innerHTML =
@@ -464,13 +504,17 @@ function renderSellerProducts() {
         const category = product.category || "-";
 
         return `
-            <tr data-search="${escapeHTML([
-                product.sellerDisplayName,
-                product.name,
-                category,
-                sizeOrType,
-                product.status
-            ].join(" ").toLowerCase())}">
+            <tr
+                data-search="${escapeHTML([
+                    product.sellerDisplayName,
+                    product.name,
+                    category,
+                    sizeOrType,
+                    product.status
+                ].join(" ").toLowerCase())}"
+                data-category="${escapeHTML(category === "-" ? "" : category)}"
+                data-status="${escapeHTML(product.status)}"
+            >
                 <td>${priorityCell}</td>
                 <td>${escapeHTML(product.sellerDisplayName)}</td>
                 <td>${escapeHTML(product.name || "-")}</td>
@@ -493,53 +537,99 @@ function renderSellerProducts() {
     searchSellerProducts();
 }
 
+/* Populate category dropdown using seller product categories */
+function populateSellerCategoryFilter() {
+    const select = document.getElementById("sellerCategoryFilter");
+
+    if (!select) {
+        return;
+    }
+
+    const currentValue = select.value;
+
+    const categories = [...new Set(
+        sellerProductData
+            .map(product => String(product.category || "").trim())
+            .filter(Boolean)
+    )].sort((a, b) => a.localeCompare(b));
+
+    select.innerHTML =
+        '<option value="">All categories</option>' +
+        categories.map(category =>
+            `<option value="${escapeHTML(category)}">${escapeHTML(category)}</option>`
+        ).join("");
+
+    if (categories.includes(currentValue)) {
+        select.value = currentValue;
+    }
+}
+
+/* Search and filter seller products */
 function searchSellerProducts() {
     const input = document.getElementById("searchSellerProducts");
+    const categoryFilter =
+        document.getElementById("sellerCategoryFilter");
+    const statusFilter =
+        document.getElementById("sellerStatusFilter");
 
     if (!input) {
         return;
     }
 
     const value = input.value.trim().toLowerCase();
+    const category = categoryFilter
+        ? categoryFilter.value.toLowerCase()
+        : "";
+    const status = statusFilter
+        ? statusFilter.value
+        : "";
 
     sellerTable.querySelectorAll("tr[data-search]").forEach(row => {
+        const matchesSearch =
+            row.dataset.search.includes(value);
+
+        const matchesCategory =
+            !category ||
+            (row.dataset.category || "").toLowerCase() === category;
+
+        const matchesStatus =
+            !status || row.dataset.status === status;
+
         row.style.display =
-            row.dataset.search.includes(value) ? "" : "none";
+            matchesSearch && matchesCategory && matchesStatus
+                ? ""
+                : "none";
     });
 }
 
-/* Toggle between market references and seller product monitoring */
+/* Switch between benchmark prices and seller products */
 function toggleMarketPriceView() {
-    const benchmarkView = document.getElementById("marketPriceView");
-    const sellerView = document.getElementById("sellerProductsView");
-    const toggleButton = document.getElementById("toggleSellerProductsBtn");
-    const pageTitle = document.getElementById("marketPricePageTitle");
+    const benchmarkView =
+        document.getElementById("marketPriceView");
+    const productsView =
+        document.getElementById("sellerProductsView");
+    const toggleButton =
+        document.getElementById("toggleSellerProductsBtn");
+    const title =
+        document.getElementById("marketPricePageTitle");
 
-    if (!benchmarkView || !sellerView || !toggleButton) {
-        return;
-    }
+    const showingBenchmarks =
+        productsView.style.display === "none" ||
+        !productsView.style.display;
 
-    const isSellerView = sellerView.style.display !== "none";
+    benchmarkView.style.display =
+        showingBenchmarks ? "none" : "";
 
-    if (isSellerView) {
-        sellerView.style.display = "none";
-        benchmarkView.style.display = "";
+    productsView.style.display =
+        showingBenchmarks ? "" : "none";
 
-        toggleButton.textContent = "View Seller Products";
+    toggleButton.textContent =
+        showingBenchmarks ? "Prices" : "Products";
 
-        if (pageTitle) {
-            pageTitle.textContent = "Market Price";
-        }
-    } else {
-        benchmarkView.style.display = "none";
-        sellerView.style.display = "";
+    title.textContent =
+        showingBenchmarks ? "Seller Products" : "Market Price";
 
-        toggleButton.textContent = "Back to Market Price";
-
-        if (pageTitle) {
-            pageTitle.textContent = "Seller Products";
-        }
-
+    if (showingBenchmarks && !sellerProductData.length) {
         loadSellerProducts();
     }
 }
@@ -556,7 +646,12 @@ function renderModal(bodyHtml) {
     modal.id = "pricingModal";
     modal.className = "modal";
     modal.style.display = "flex";
-    modal.innerHTML = `<div class="modal-content">${bodyHtml}</div>`;
+
+    modal.innerHTML = `
+        <div class="modal-content">
+            ${bodyHtml}
+        </div>
+    `;
 
     document.body.appendChild(modal);
 
@@ -575,7 +670,7 @@ function closeModal() {
     closePricingModal();
 }
 
-/* Add product */
+/* Add a new benchmark product */
 function openAddModal() {
     renderModal(`
         <h2>Add Product</h2>
@@ -588,15 +683,13 @@ function openAddModal() {
                 placeholder="Enter product name"
                 autocomplete="off"
                 oninput="showProductSuggestions()"
-                onfocus="showProductSuggestions()">
+                onfocus="showProductSuggestions()"
+            >
 
             <div
                 id="productSuggestions"
-                style="display:none;position:absolute;top:100%;left:0;width:100%;
-                background:var(--surface);border:1px solid var(--border);
-                border-radius:0 0 8px 8px;max-height:180px;overflow-y:auto;
-                z-index:10001">
-            </div>
+                style="display:none;position:absolute;top:100%;left:0;width:100%;background:var(--surface);border:1px solid var(--border);border-radius:0 0 8px 8px;max-height:180px;overflow-y:auto;z-index:10001"
+            ></div>
         </div>
 
         <label>Type</label>
@@ -616,6 +709,7 @@ function openAddModal() {
     updatePricingFields();
 }
 
+/* Suggestions from existing fixed-size benchmark names */
 function getFixedSizeProductNames() {
     const names = [];
 
@@ -639,7 +733,8 @@ function getFixedSizeProductNames() {
 
 function showProductSuggestions() {
     const input = document.getElementById("modalProductName");
-    const suggestions = document.getElementById("productSuggestions");
+    const suggestions =
+        document.getElementById("productSuggestions");
 
     if (!input || !suggestions) {
         return;
@@ -684,7 +779,7 @@ function showProductSuggestions() {
     suggestions.style.display = "block";
 }
 
-/* Edit existing product */
+/* Edit an existing benchmark */
 function openPricingModal(id) {
     const product = marketPriceData.find(
         item => String(item.id) === String(id)
@@ -697,7 +792,8 @@ function openPricingModal(id) {
     const isPerKg = product.pricing_type === "per_kg";
 
     const hasPricing =
-        product.max_price !== null || product.min_price !== null;
+        product.max_price !== null ||
+        product.min_price !== null;
 
     renderModal(`
         <h2>${hasPricing ? "Edit Product Price" : "Set Product Price"}</h2>
@@ -707,7 +803,8 @@ function openPricingModal(id) {
             type="text"
             id="modalProductName"
             value="${escapeHTML(product.product_name || "")}"
-            placeholder="Enter product name">
+            placeholder="Enter product name"
+        >
 
         <label>Type</label>
         <select id="modalPricingType" onchange="updatePricingFields()">
@@ -719,9 +816,7 @@ function openPricingModal(id) {
 
         <div class="modal-buttons">
             <button onclick="closePricingModal()">Cancel</button>
-            <button class="save-btn" onclick="savePricing('${escapeHTML(product.id)}')">
-                Save
-            </button>
+            <button class="save-btn" onclick="savePricing('${escapeHTML(product.id)}')">Save</button>
         </div>
     `);
 
@@ -732,14 +827,16 @@ function openPricingModal(id) {
     );
 }
 
-/* Pricing fields */
+/* Display the correct fields for each pricing type */
 function updatePricingFields(
     currentSize = "",
     currentMinPrice = null,
     currentMaxPrice = null
 ) {
-    const typeElement = document.getElementById("modalPricingType");
-    const fields = document.getElementById("pricingFields");
+    const typeElement =
+        document.getElementById("modalPricingType");
+    const fields =
+        document.getElementById("pricingFields");
 
     if (!typeElement || !fields) {
         return;
@@ -754,7 +851,8 @@ function updatePricingFields(
                 type="text"
                 value="--"
                 disabled
-                style="background:var(--bg)">
+                style="background:var(--bg)"
+            >
 
             <label>Maximum Price</label>
             <input
@@ -763,7 +861,8 @@ function updatePricingFields(
                 value="${currentMaxPrice ?? ""}"
                 placeholder="Enter maximum price"
                 min="0"
-                step="0.01">
+                step="0.01"
+            >
         `;
     } else {
         fields.innerHTML = `
@@ -772,7 +871,8 @@ function updatePricingFields(
                 type="text"
                 id="modalSize"
                 value="${escapeHTML(currentSize || "")}"
-                placeholder="Example: 35g, 100ml, Small">
+                placeholder="Example: 35g, 100ml, Small"
+            >
 
             <label>Minimum Price</label>
             <input
@@ -781,7 +881,8 @@ function updatePricingFields(
                 value="${currentMinPrice ?? ""}"
                 placeholder="Enter minimum price"
                 min="0"
-                step="0.01">
+                step="0.01"
+            >
 
             <label>Maximum Price</label>
             <input
@@ -790,12 +891,13 @@ function updatePricingFields(
                 value="${currentMaxPrice ?? ""}"
                 placeholder="Enter maximum price"
                 min="0"
-                step="0.01">
+                step="0.01"
+            >
         `;
     }
 }
 
-/* Save new product */
+/* Save a new benchmark product */
 async function saveNewProduct() {
     const productName =
         document.getElementById("modalProductName").value.trim();
@@ -810,7 +912,8 @@ async function saveNewProduct() {
     const normalizedName = productName.toLowerCase();
 
     if (pricingType === "per_kg") {
-        const maxPrice = document.getElementById("modalMaxPrice").value;
+        const maxPrice =
+            document.getElementById("modalMaxPrice").value;
 
         if (maxPrice === "" || Number(maxPrice) < 0) {
             return alert("Please enter a valid maximum price.");
@@ -822,16 +925,20 @@ async function saveNewProduct() {
         );
 
         if (duplicate) {
-            return alert(`${productName} already exists in the pricing list.`);
+            return alert(
+                `${productName} already exists in the pricing list.`
+            );
         }
 
-        const { error } = await db.from("market_prices").insert([{
-            product_name: productName,
-            pricing_type: "per_kg",
-            size: null,
-            min_price: null,
-            max_price: Number(maxPrice)
-        }]);
+        const { error } = await db
+            .from("market_prices")
+            .insert([{
+                product_name: productName,
+                pricing_type: "per_kg",
+                size: null,
+                min_price: null,
+                max_price: Number(maxPrice)
+            }]);
 
         if (error) {
             console.error(error);
@@ -879,13 +986,15 @@ async function saveNewProduct() {
         );
     }
 
-    const { error } = await db.from("market_prices").insert([{
-        product_name: productName,
-        pricing_type: "fixed_size",
-        size,
-        min_price: Number(minPrice),
-        max_price: Number(maxPrice)
-    }]);
+    const { error } = await db
+        .from("market_prices")
+        .insert([{
+            product_name: productName,
+            pricing_type: "fixed_size",
+            size,
+            min_price: Number(minPrice),
+            max_price: Number(maxPrice)
+        }]);
 
     if (error) {
         console.error(error);
@@ -897,7 +1006,7 @@ async function saveNewProduct() {
     await loadMarketPrices();
 }
 
-/* Save existing product */
+/* Save changes to an existing benchmark */
 async function savePricing(id) {
     const product = marketPriceData.find(
         item => String(item.id) === String(id)
@@ -920,7 +1029,8 @@ async function savePricing(id) {
     const normalizedName = productName.toLowerCase();
 
     if (pricingType === "per_kg") {
-        const maxPrice = document.getElementById("modalMaxPrice").value;
+        const maxPrice =
+            document.getElementById("modalMaxPrice").value;
 
         if (maxPrice === "" || Number(maxPrice) < 0) {
             return alert("Please enter a valid maximum price.");
@@ -933,16 +1043,21 @@ async function savePricing(id) {
         );
 
         if (duplicate) {
-            return alert(`${productName} already exists in the pricing list.`);
+            return alert(
+                `${productName} already exists in the pricing list.`
+            );
         }
 
-        const { error } = await db.from("market_prices").update({
-            product_name: productName,
-            pricing_type: "per_kg",
-            size: null,
-            min_price: null,
-            max_price: Number(maxPrice)
-        }).eq("id", id);
+        const { error } = await db
+            .from("market_prices")
+            .update({
+                product_name: productName,
+                pricing_type: "per_kg",
+                size: null,
+                min_price: null,
+                max_price: Number(maxPrice)
+            })
+            .eq("id", id);
 
         if (error) {
             console.error(error);
@@ -991,13 +1106,16 @@ async function savePricing(id) {
         );
     }
 
-    const { error } = await db.from("market_prices").update({
-        product_name: productName,
-        pricing_type: "fixed_size",
-        size,
-        min_price: Number(minPrice),
-        max_price: Number(maxPrice)
-    }).eq("id", id);
+    const { error } = await db
+        .from("market_prices")
+        .update({
+            product_name: productName,
+            pricing_type: "fixed_size",
+            size,
+            min_price: Number(minPrice),
+            max_price: Number(maxPrice)
+        })
+        .eq("id", id);
 
     if (error) {
         console.error(error);
@@ -1009,12 +1127,4 @@ async function savePricing(id) {
     await loadMarketPrices();
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-    const sellerView = document.getElementById("sellerProductsView");
-
-    if (sellerView) {
-        sellerView.style.display = "none";
-    }
-
-    loadMarketPrices();
-});
+document.addEventListener("DOMContentLoaded", loadMarketPrices);
