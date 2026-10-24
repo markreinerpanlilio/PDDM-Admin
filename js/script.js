@@ -634,3 +634,81 @@ async function logout() {
     localStorage.removeItem("adminName");
     window.location.href = "../index.html";
 }
+
+/* =========================================
+   ADMIN LOGIN
+========================================= */
+
+async function login() {
+    const emailInput = document.getElementById("email");
+    const passwordInput = document.getElementById("password");
+    const button = document.querySelector(".login-card button");
+
+    const email = emailInput.value.trim();
+    const password = passwordInput.value;
+
+    if (!email || !password) {
+        alert("Please enter your email and password.");
+        return;
+    }
+
+    if (typeof db === "undefined" || !db?.auth) {
+        alert("Supabase is not initialized. Check js/supabase.js.");
+        return;
+    }
+
+    button.disabled = true;
+    button.textContent = "Logging in...";
+
+    try {
+        const { data, error } = await db.auth.signInWithPassword({
+            email,
+            password
+        });
+
+        if (error) {
+            throw error;
+        }
+
+        const user = data.user;
+
+        if (!user) {
+            throw new Error("Unable to retrieve your user account.");
+        }
+
+        const { data: profile, error: profileError } = await db
+            .from("profiles")
+            .select("full_name, role")
+            .eq("id", user.id)
+            .maybeSingle();
+
+        if (profileError) {
+            throw profileError;
+        }
+
+        if (!profile) {
+            await db.auth.signOut();
+            throw new Error("Your account profile was not found.");
+        }
+
+        if (String(profile.role || "").toLowerCase() !== "admin") {
+            await db.auth.signOut();
+            throw new Error("Access denied. Admin accounts only.");
+        }
+
+        localStorage.setItem(
+            "adminName",
+            profile.full_name || email
+        );
+
+        window.location.href = "pages/dashboard.html";
+
+    } catch (error) {
+        console.error("Login error:", error);
+        alert(error.message || "Login failed. Please try again.");
+
+    } finally {
+        button.disabled = false;
+        button.textContent = "Login";
+    }
+}
