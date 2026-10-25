@@ -7,30 +7,157 @@
     <link rel="stylesheet" href="../css/styles.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        .seller-price-tools{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}
-        .seller-price-tools input{width:300px;max-width:100%}
-        .seller-price-tools select{min-width:145px;max-width:220px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font:inherit}
-        .seller-price-table-wrap{width:100%;overflow-x:auto}
-        .seller-price-table{width:100%;border-collapse:collapse;min-width:850px}
-        .seller-price-table th,.seller-price-table td{padding:13px 12px;text-align:left;border-bottom:1px solid var(--border);font-size:13px}
-        .seller-price-table th{color:var(--text-muted);font-weight:700;white-space:nowrap}
-        .seller-price-table tr:hover{background:var(--bg)}
-        .seller-price-value{font-weight:700;white-space:nowrap}
-        .seller-price-value.overpriced{color:#DC2626}
-        .seller-price-value.underpriced{color:#B7791F}
-        .seller-price-value.compliant{color:#16803D}
-        .price-status{display:inline-block;padding:5px 9px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
-        .price-status.overpriced{color:#B91C1C;background:#FEE2E2}
-        .price-status.underpriced{color:#92400E;background:#FEF3C7}
-        .price-status.compliant{color:#166534;background:#DCFCE7}
-        .price-status.no-benchmark{color:var(--text-muted);background:var(--bg)}
-        .priority-number{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;border-radius:50%;background:#FEE2E2;color:#B91C1C;font-weight:700;font-size:12px}
-        .seller-price-summary{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
-        .seller-price-summary span{padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--text-muted)}
-        .seller-price-summary strong{color:var(--text);margin-left:4px}
-        .view-toggle-btn{white-space:nowrap}
-        .view-toggle-active{background:transparent!important;color:var(--text)!important;border:1px solid var(--border)!important}
-        @media(max-width:768px){.seller-price-tools input{width:100%}}
+        .seller-price-tools input,
+        .seller-price-tools select {
+            box-sizing: border-box;
+            font: inherit;
+        }
+
+        .seller-price-tools input {
+            width: 100%;
+            max-width: 420px;
+            padding: 10px 12px;
+            margin-bottom: 10px;
+        }
+
+        .seller-price-filters {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .seller-price-tools select {
+            min-width: 145px;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--surface);
+            color: var(--text);
+        }
+
+        .seller-price-table-wrap {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        .seller-price-table {
+            width: 100%;
+            min-width: 850px;
+            border-collapse: collapse;
+        }
+
+        .seller-price-table th,
+        .seller-price-table td {
+            padding: 13px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+        }
+
+        .seller-price-table th {
+            color: var(--text-muted);
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .seller-price-table tr:hover {
+            background: var(--bg);
+        }
+
+        .seller-price-value {
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .seller-price-value.overpriced {
+            color: #DC2626;
+        }
+
+        .seller-price-value.underpriced {
+            color: #B7791F;
+        }
+
+        .seller-price-value.compliant {
+            color: #16803D;
+        }
+
+        .price-status {
+            display: inline-block;
+            padding: 5px 9px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .price-status.overpriced {
+            color: #B91C1C;
+            background: #FEE2E2;
+        }
+
+        .price-status.underpriced {
+            color: #92400E;
+            background: #FEF3C7;
+        }
+
+        .price-status.compliant {
+            color: #166534;
+            background: #DCFCE7;
+        }
+
+        .price-status.no-benchmark {
+            color: var(--text-muted);
+            background: var(--bg);
+        }
+
+        .priority-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: #FEE2E2;
+            color: #B91C1C;
+            font-weight: 700;
+            font-size: 12px;
+        }
+
+        .seller-price-summary {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 18px;
+        }
+
+        .seller-price-summary span {
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .seller-price-summary strong {
+            color: var(--text);
+            margin-left: 4px;
+        }
+
+        .view-toggle-btn {
+            white-space: nowrap;
+        }
+
+        .view-toggle-active {
+            background: transparent !important;
+            color: var(--text) !important;
+            border: 1px solid var(--border) !important;
+        }
+
+        @media (max-width: 768px) {
+            .seller-price-tools input {
+                max-width: 100%;
+            }
+        }
     </style>
 </head>
 <body>
@@ -41,19 +168,24 @@
         </div>
         <ul>
             <li onclick="window.location='dashboard.html'">
-                <span class="icon">🏠</span><span class="text">Dashboard</span>
+                <span class="icon">🏠</span>
+                <span class="text">Dashboard</span>
             </li>
             <li onclick="window.location='requests.html'">
-                <span class="icon">📄</span><span class="text">Requests</span>
+                <span class="icon">📄</span>
+                <span class="text">Requests</span>
             </li>
             <li class="active">
-                <span class="icon">💰</span><span class="text">Market Price</span>
+                <span class="icon">💰</span>
+                <span class="text">Market Price</span>
             </li>
             <li onclick="window.location='audit.html'">
-                <span class="icon">📜</span><span class="text">Audit Trail</span>
+                <span class="icon">📜</span>
+                <span class="text">Audit Trail</span>
             </li>
             <li onclick="logout()">
-                <span class="icon">🚪</span><span class="text">Logout</span>
+                <span class="icon">🚪</span>
+                <span class="text">Logout</span>
             </li>
         </ul>
     </div>
@@ -71,7 +203,7 @@
             <div class="panel full-panel">
                 <h2>Market Price Benchmarks</h2>
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px;">
-                    <input type="text" id="searchPrice" placeholder="Search benchmark product..." onkeyup="searchMarketPrice()" style="width:300px;max-width:100%;">
+                    <input type="text" id="searchPrice" placeholder="Search benchmark product..." oninput="searchMarketPrice()" style="width:300px;max-width:100%;">
                     <button class="approve-btn" onclick="openAddModal()">+ Add Product</button>
                 </div>
 
@@ -98,7 +230,7 @@
             <div class="panel full-panel">
                 <h2>Seller Product Price Monitoring</h2>
                 <p style="color:var(--text-muted);font-size:13px;margin:8px 0 18px;">
-                    All seller-listed products are compared with matching market price benchmarks. Overpriced products appear first.
+                    Seller-listed products are compared with market benchmarks. Overpriced products appear first.
                 </p>
 
                 <div class="seller-price-summary">
@@ -108,12 +240,14 @@
                     <span>No benchmark<strong id="unmatchedProductTotal">0</strong></span>
                 </div>
 
-                <div class="seller-price-tools" style="display:block;">
-                    <input type="text" id="searchSellerProducts" placeholder="Search seller or product..." oninput="searchSellerProducts()" style="display:block;width:100%;max-width:420px;margin-bottom:10px;">
-                    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <div class="seller-price-tools">
+                    <input type="text" id="searchSellerProducts" placeholder="Search seller or product..." oninput="searchSellerProducts()">
+
+                    <div class="seller-price-filters">
                         <select id="sellerCategoryFilter" onchange="searchSellerProducts()" aria-label="Category">
                             <option value="">Category</option>
                         </select>
+
                         <select id="sellerStatusFilter" onchange="searchSellerProducts()" aria-label="Status">
                             <option value="">Status</option>
                             <option value="overpriced">Overpriced</option>
@@ -146,31 +280,6 @@
                 </div>
             </div>
         </section>
-    </div>
-
-    <div id="pricingModal" class="modal">
-        <div class="modal-content">
-            <h2 id="modalTitle">Set Product Price</h2>
-            <input type="hidden" id="modalProductId">
-            <label>Product</label>
-            <input type="text" id="modalProduct" readonly>
-            <label>Category</label>
-            <input type="text" id="modalCategory" readonly>
-            <div id="packageSection">
-                <label>Package Size</label>
-                <input type="text" id="modalVariant" readonly>
-            </div>
-            <div id="minSection">
-                <label>Minimum Price</label>
-                <input type="number" id="modalMinPrice" placeholder="Enter minimum price">
-            </div>
-            <label id="maxLabel">Maximum Price</label>
-            <input type="number" id="modalMaxPrice" placeholder="Enter maximum price">
-            <div class="modal-buttons">
-                <button class="approve-btn" onclick="savePricing()">Save</button>
-                <button class="reject-btn" onclick="closeModal()">Cancel</button>
-            </div>
-        </div>
     </div>
 
     <script src="../js/supabase.js"></script>
