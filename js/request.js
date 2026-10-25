@@ -1,3 +1,4 @@
+
 const tbody = document.getElementById("requestTable");
 const pending = document.getElementById("pendingCount");
 const permitModal = document.getElementById("permitModal");
@@ -19,7 +20,9 @@ async function loadRequests() {
     pending.textContent = "Loading...";
     tbody.innerHTML = `
         <tr>
-            <td colspan="6" class="table-message">Loading applications...</td>
+            <td colspan="6" class="request-empty-message">
+                Loading applications...
+            </td>
         </tr>`;
 
     const { data, error } = await db
@@ -31,9 +34,10 @@ async function loadRequests() {
     if (error) {
         console.error("Error loading applications:", error);
         pending.textContent = "Unable to load applications";
+
         tbody.innerHTML = `
             <tr>
-                <td colspan="6" class="table-message">
+                <td colspan="6" class="request-empty-message">
                     Failed to load applications. Please refresh the page.
                 </td>
             </tr>`;
@@ -48,12 +52,12 @@ function renderRequests() {
     pending.textContent =
         `${requests.length} Pending Application${requests.length !== 1 ? "s" : ""}`;
 
-    if (!requests.length) {
+    if (requests.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="6" class="table-message">
-                    <div class="empty-state">
-                        <span class="empty-icon">✓</span>
+                <td colspan="6" class="request-empty-message">
+                    <div class="request-empty-state">
+                        <span class="request-empty-icon">✓</span>
                         <strong>All caught up!</strong>
                         <span>There are no pending seller applications.</span>
                     </div>
@@ -64,25 +68,39 @@ function renderRequests() {
 
     tbody.innerHTML = requests.map(user => `
         <tr id="request-${escapeHTML(user.id)}">
+
             <td>
-                <div class="applicant-cell">
-                    <div class="applicant-avatar">
-                        ${escapeHTML((user.full_name || user.email || "?").trim().charAt(0).toUpperCase())}
+                <div class="request-applicant">
+                    <div class="request-avatar">
+                        ${escapeHTML(
+                            (user.full_name || user.email || "?")
+                                .trim()
+                                .charAt(0)
+                                .toUpperCase()
+                        )}
                     </div>
 
-                    <div class="applicant-details">
-                        <span class="applicant-name">
+                    <div class="request-applicant-info">
+                        <span class="request-applicant-name">
                             ${escapeHTML(user.full_name || "Unnamed Applicant")}
                         </span>
-                        <span class="applicant-subtitle">Seller applicant</span>
+                        <span class="request-applicant-label">
+                            Seller applicant
+                        </span>
                     </div>
                 </div>
             </td>
 
-            <td><span class="email-text">${escapeHTML(user.email || "-")}</span></td>
-            <td>${escapeHTML(user.phone_number || "-")}</td>
             <td>
-                <span class="date-text">
+                <span class="request-email">
+                    ${escapeHTML(user.email || "-")}
+                </span>
+            </td>
+
+            <td>${escapeHTML(user.phone_number || "-")}</td>
+
+            <td>
+                <span class="request-date">
                     ${user.created_at
                         ? escapeHTML(new Date(user.created_at).toLocaleDateString())
                         : "-"}
@@ -90,7 +108,7 @@ function renderRequests() {
             </td>
 
             <td>
-                <span class="stall-badge">
+                <span class="request-stall-badge">
                     ${user.stall_number != null
                         ? `Stall ${escapeHTML(user.stall_number)}`
                         : "Not specified"}
@@ -98,38 +116,39 @@ function renderRequests() {
             </td>
 
             <td>
-                <div class="action-buttons">
+                <div class="request-actions">
+
                     <button
                         type="button"
-                        class="view-permit-btn"
+                        class="request-view-btn"
                         data-action="view"
                         data-id="${escapeHTML(user.id)}"
                         ${user.business_permit_path ? "" : "disabled"}
                         title="${user.business_permit_path
                             ? "View permit photo"
-                            : "No permit photo uploaded"}"
-                        aria-label="View permit photo"
-                    >View permit</button>
+                            : "No permit photo uploaded"}">
+                        View permit
+                    </button>
 
                     <button
                         type="button"
-                        class="approve-btn circle-action"
+                        class="request-action-btn request-approve-btn"
                         data-action="approve"
                         data-id="${escapeHTML(user.id)}"
                         title="Approve application"
-                        aria-label="Approve application"
-                    >✓</button>
+                        aria-label="Approve application">✓</button>
 
                     <button
                         type="button"
-                        class="reject-btn circle-action"
+                        class="request-action-btn request-reject-btn"
                         data-action="reject"
                         data-id="${escapeHTML(user.id)}"
                         title="Reject application"
-                        aria-label="Reject application"
-                    >✕</button>
+                        aria-label="Reject application">✕</button>
+
                 </div>
             </td>
+
         </tr>
     `).join("");
 
@@ -138,6 +157,7 @@ function renderRequests() {
 
 tbody.addEventListener("click", event => {
     const button = event.target.closest("button[data-action]");
+
     if (!button || button.disabled) return;
 
     const { action, id } = button.dataset;
@@ -177,6 +197,7 @@ async function viewPermit(id) {
             .createSignedUrl(seller.business_permit_path, 300);
 
         if (error) throw error;
+
         if (!data?.signedUrl) {
             throw new Error("Supabase did not return a signed URL.");
         }
@@ -187,15 +208,14 @@ async function viewPermit(id) {
         };
 
         image.onerror = () => {
-            image.style.display = "block";
-            image.style.visibility = "hidden";
+            image.style.display = "none";
             loading.style.display = "block";
             loading.textContent =
-                "The image could not be displayed. Check the stored file path and file format.";
+                "Unable to display the image. Check the saved file path and file format.";
         };
 
-        image.style.visibility = "visible";
         image.src = data.signedUrl;
+
     } catch (error) {
         console.error("Error loading permit photo:", error);
         closePermitModal();
@@ -216,7 +236,6 @@ function closePermitModal() {
     image.onerror = null;
     image.removeAttribute("src");
     image.style.display = "none";
-    image.style.visibility = "visible";
 
     const loading = document.getElementById("permitLoading");
 
@@ -227,11 +246,15 @@ function closePermitModal() {
 }
 
 permitModal.addEventListener("click", event => {
-    if (event.target === permitModal) closePermitModal();
+    if (event.target === permitModal) {
+        closePermitModal();
+    }
 });
 
 document.addEventListener("keydown", event => {
-    if (event.key === "Escape") closePermitModal();
+    if (event.key === "Escape") {
+        closePermitModal();
+    }
 });
 
 async function addAuditLog(action, module, description) {
@@ -372,7 +395,10 @@ function searchRequests() {
     const value = searchInput.value.trim().toLowerCase();
 
     tbody.querySelectorAll("tr").forEach(row => {
-        if (row.querySelector(".empty-state") || row.querySelector(".table-message")) {
+        if (
+            row.querySelector(".request-empty-state") ||
+            row.querySelector(".request-empty-message")
+        ) {
             row.style.display = "";
             return;
         }
