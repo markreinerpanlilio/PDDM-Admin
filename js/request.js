@@ -21,10 +21,6 @@ function displayValue(value) {
         return "Not provided";
     }
 
-    if (typeof value === "boolean") {
-        return value ? "Yes" : "No";
-    }
-
     return String(value);
 }
 
@@ -43,6 +39,7 @@ function formatDate(value) {
 
 async function loadRequests() {
     pending.textContent = "Loading...";
+
     tbody.innerHTML = `
         <tr>
             <td colspan="6" class="request-empty-message">
@@ -188,43 +185,30 @@ function renderSellerDetails(seller) {
     const detailsContainer = document.getElementById("sellerProfileDetails");
 
     const fields = [
-        ["Full Name", "full_name"],
-        ["Email", "email"],
-        ["Phone Number", "phone_number"],
-        ["Account Role", "role"],
-        ["Seller Status", "seller_status"],
-        ["Application Status", "seller_application"],
-        ["Requested Stall", "stall_number"],
-        ["Store Description", "store_description"],
-        ["Application / Profile Created", "created_at"],
-        ["Latitude", "latitude"],
-        ["Longitude", "longitude"],
-        ["QR Code URL", "qr_url"]
+        ["Full Name", seller.full_name],
+        ["Email", seller.email],
+        ["Phone Number", seller.phone_number],
+        [
+            "Requested Stall",
+            seller.stall_number != null
+                ? `Stall ${seller.stall_number}`
+                : "Not specified"
+        ],
+        ["Profile Created", formatDate(seller.created_at)]
     ];
 
-    detailsContainer.innerHTML = fields.map(([label, key]) => {
-        if (!(key in seller)) return "";
-
-        let value = seller[key];
-
-        if (key === "created_at") {
-            value = formatDate(value);
-        } else {
-            value = displayValue(value);
-        }
-
-        return `
-            <div class="request-detail-item">
-                <span class="request-detail-label">${escapeHTML(label)}</span>
-                <span class="request-detail-value">${escapeHTML(value)}</span>
-            </div>`;
-    }).join("");
+    detailsContainer.innerHTML = fields.map(([label, value]) => `
+        <div class="request-detail-item">
+            <span class="request-detail-label">${escapeHTML(label)}</span>
+            <span class="request-detail-value">${escapeHTML(displayValue(value))}</span>
+        </div>
+    `).join("");
 
     document.getElementById("sellerDetailsTitle").textContent =
         seller.full_name || "Seller Details";
 
     document.getElementById("sellerDetailsSubtitle").textContent =
-        `Email: ${seller.email || "Not provided"} · Application pending`;
+        "Seller application details";
 }
 
 async function viewSellerDetails(id) {
@@ -239,58 +223,59 @@ async function viewSellerDetails(id) {
     renderSellerDetails(seller);
 
     const permitArea = document.getElementById("permitArea");
-    permitArea.textContent = "Checking for a submitted permit photo...";
+    permitArea.replaceChildren();
+    permitArea.textContent = "Loading permit photo...";
 
     detailsModal.style.display = "flex";
 
-    const modalApproveBtn = document.getElementById("modalApproveBtn");
-    const modalRejectBtn = document.getElementById("modalRejectBtn");
+    document.getElementById("modalApproveBtn").onclick =
+        () => approveSeller(id);
 
-    modalApproveBtn.onclick = () => approveSeller(id);
-    modalRejectBtn.onclick = () => rejectSeller(id);
+    document.getElementById("modalRejectBtn").onclick =
+        () => rejectSeller(id);
 
     if (!seller.business_permit_path) {
         permitArea.textContent =
-            "No permit file path is saved in this seller's profile.";
+            "No permit photo was submitted with this application.";
         return;
     }
 
-    permitArea.textContent = "Loading permit photo...";
-
     try {
-        const { data, error } = await db.storage
+        const path = seller.business_permit_path.trim();
+
+        const { data } = db.storage
             .from(BUCKET_NAME)
-            .createSignedUrl(seller.business_permit_path, 300);
+            .getPublicUrl(path);
 
-        if (error) throw error;
-
-        if (!data?.signedUrl) {
-            throw new Error("Supabase did not return a signed URL.");
+        if (!data?.publicUrl) {
+            throw new Error("Supabase did not return a public URL.");
         }
 
         const image = document.createElement("img");
         image.id = "permitImage";
         image.alt = "Seller's submitted business permit";
-        image.style.display = "none";
+        image.style.display = "block";
+        image.style.maxWidth = "100%";
+        image.style.height = "auto";
+        image.style.margin = "16px auto";
+        image.style.borderRadius = "8px";
 
         image.onload = () => {
             permitArea.replaceChildren(image);
-            image.style.display = "block";
         };
 
         image.onerror = () => {
             permitArea.textContent =
-                "The permit image could not be displayed. Verify the stored file path and bucket permissions.";
+                "Unable to display the permit photo. Check that the bucket is public and the file exists at the saved path.";
         };
 
-        image.src = data.signedUrl;
+        image.src = data.publicUrl;
 
     } catch (error) {
         console.error("Permit access error:", error);
 
         permitArea.textContent =
-            "Unable to load the permit. Check the Storage SELECT policy, " +
-            "the bucket name, the saved object path, and the admin's role.";
+            "Unable to load the permit photo. Check the bucket settings and file path.";
     }
 }
 
@@ -299,16 +284,23 @@ function closeSellerDetails() {
     selectedSellerId = null;
 
     const permitArea = document.getElementById("permitArea");
-    permitArea.replaceChildren();
-    permitArea.textContent = "No permit photo loaded.";
+
+    if (permitArea) {
+        permitArea.replaceChildren();
+        permitArea.textContent = "No permit photo loaded.";
+    }
 }
 
 detailsModal.addEventListener("click", event => {
-    if (event.target === detailsModal) closeSellerDetails();
+    if (event.target === detailsModal) {
+        closeSellerDetails();
+    }
 });
 
 document.addEventListener("keydown", event => {
-    if (event.key === "Escape") closeSellerDetails();
+    if (event.key === "Escape" && detailsModal.style.display === "flex") {
+        closeSellerDetails();
+    }
 });
 
 async function addAuditLog(action, module, description) {
