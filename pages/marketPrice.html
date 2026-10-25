@@ -6,33 +6,16 @@
     <title>Market Price</title>
     <link rel="stylesheet" href="../css/styles.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
     <style>
-        .seller-price-tools input,
-        .seller-price-tools select {
-            box-sizing: border-box;
-            font: inherit;
+        .seller-price-tools {
+            display: block;
+            margin-bottom: 18px;
         }
 
         .seller-price-tools input {
             width: 100%;
             max-width: 420px;
-            padding: 10px 12px;
-            margin-bottom: 10px;
-        }
-
-        .seller-price-filters {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .seller-price-tools select {
-            min-width: 145px;
-            padding: 10px 12px;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            background: var(--surface);
-            color: var(--text);
         }
 
         .seller-price-table-wrap {
@@ -42,8 +25,8 @@
 
         .seller-price-table {
             width: 100%;
-            min-width: 850px;
             border-collapse: collapse;
+            min-width: 850px;
         }
 
         .seller-price-table th,
@@ -62,6 +45,29 @@
 
         .seller-price-table tr:hover {
             background: var(--bg);
+        }
+
+        .category-header-select {
+            border: none;
+            outline: none;
+            box-shadow: none;
+            background: transparent;
+            padding: 0;
+            margin: 0;
+            color: inherit;
+            font: inherit;
+            font-weight: inherit;
+            cursor: pointer;
+            appearance: auto;
+            -webkit-appearance: auto;
+            max-width: 150px;
+        }
+
+        .category-header-select:focus,
+        .category-header-select:active {
+            border: none;
+            outline: none;
+            box-shadow: none;
         }
 
         .seller-price-value {
@@ -147,42 +153,42 @@
             white-space: nowrap;
         }
 
-        .view-toggle-active {
-            background: transparent !important;
-            color: var(--text) !important;
-            border: 1px solid var(--border) !important;
-        }
-
         @media (max-width: 768px) {
             .seller-price-tools input {
-                max-width: 100%;
+                width: 100%;
             }
         }
     </style>
 </head>
+
 <body>
     <div class="sidebar collapsed" id="sidebar">
         <div class="sidebar-header">
             <button class="menu-btn" onclick="toggleSidebar()">☰</button>
             <h2 class="sidebar-title">PDDM ADMIN</h2>
         </div>
+
         <ul>
             <li onclick="window.location='dashboard.html'">
                 <span class="icon">🏠</span>
                 <span class="text">Dashboard</span>
             </li>
+
             <li onclick="window.location='requests.html'">
                 <span class="icon">📄</span>
                 <span class="text">Requests</span>
             </li>
+
             <li class="active">
                 <span class="icon">💰</span>
                 <span class="text">Market Price</span>
             </li>
+
             <li onclick="window.location='audit.html'">
                 <span class="icon">📜</span>
                 <span class="text">Audit Trail</span>
             </li>
+
             <li onclick="logout()">
                 <span class="icon">🚪</span>
                 <span class="text">Logout</span>
@@ -193,18 +199,37 @@
     <div class="content collapsed-content" id="content">
         <div class="dashboard-header">
             <h1 id="marketPricePageTitle">Market Price</h1>
+
             <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                <button class="refresh-btn" onclick="loadMarketPrices()">Refresh</button>
-                <button class="refresh-btn view-toggle-btn" id="toggleSellerProductsBtn" onclick="toggleMarketPriceView()">Product</button>
+                <button class="refresh-btn" onclick="loadMarketPrices()">
+                    Refresh
+                </button>
+
+                <button
+                    class="refresh-btn view-toggle-btn"
+                    id="toggleSellerProductsBtn"
+                    onclick="toggleMarketPriceView()">
+                    Product
+                </button>
             </div>
         </div>
 
+        <!-- Market Price Benchmarks -->
         <section id="marketPriceView">
             <div class="panel full-panel">
                 <h2>Market Price Benchmarks</h2>
+
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px;">
-                    <input type="text" id="searchPrice" placeholder="Search benchmark product..." oninput="searchMarketPrice()" style="width:300px;max-width:100%;">
-                    <button class="approve-btn" onclick="openAddModal()">+ Add Product</button>
+                    <input
+                        type="text"
+                        id="searchPrice"
+                        placeholder="Search benchmark product..."
+                        onkeyup="searchMarketPrice()"
+                        style="width:300px;max-width:100%;">
+
+                    <button class="approve-btn" onclick="openAddModal()">
+                        + Add Product
+                    </button>
                 </div>
 
                 <div style="width:100%;overflow-x:auto;">
@@ -218,45 +243,55 @@
                                 <th>Action</th>
                             </tr>
                         </thead>
+
                         <tbody id="marketPriceTable">
-                            <tr><td colspan="5">Loading...</td></tr>
+                            <tr>
+                                <td colspan="5">Loading...</td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
             </div>
         </section>
 
+        <!-- Seller Product Monitoring -->
         <section id="sellerProductsView" style="display:none;">
             <div class="panel full-panel">
                 <h2>Seller Product Price Monitoring</h2>
+
                 <p style="color:var(--text-muted);font-size:13px;margin:8px 0 18px;">
-                    Seller-listed products are compared with market benchmarks. Overpriced products appear first.
+                    All seller-listed products are compared with matching market price benchmarks. Overpriced products appear first.
                 </p>
 
                 <div class="seller-price-summary">
-                    <span>Total products<strong id="sellerProductTotal">0</strong></span>
-                    <span>Overpriced<strong id="overpricedProductTotal" style="color:#DC2626;">0</strong></span>
-                    <span>Below minimum<strong id="underpricedProductTotal" style="color:#B7791F;">0</strong></span>
-                    <span>No benchmark<strong id="unmatchedProductTotal">0</strong></span>
+                    <span>
+                        Total products
+                        <strong id="sellerProductTotal">0</strong>
+                    </span>
+
+                    <span>
+                        Overpriced
+                        <strong id="overpricedProductTotal" style="color:#DC2626;">0</strong>
+                    </span>
+
+                    <span>
+                        Below minimum
+                        <strong id="underpricedProductTotal" style="color:#B7791F;">0</strong>
+                    </span>
+
+                    <span>
+                        No benchmark
+                        <strong id="unmatchedProductTotal">0</strong>
+                    </span>
                 </div>
 
+                <!-- Search only. Category is in the table header. -->
                 <div class="seller-price-tools">
-                    <input type="text" id="searchSellerProducts" placeholder="Search seller or product..." oninput="searchSellerProducts()">
-
-                    <div class="seller-price-filters">
-                        <select id="sellerCategoryFilter" onchange="searchSellerProducts()" aria-label="Category">
-                            <option value="">Category</option>
-                        </select>
-
-                        <select id="sellerStatusFilter" onchange="searchSellerProducts()" aria-label="Status">
-                            <option value="">Status</option>
-                            <option value="overpriced">Overpriced</option>
-                            <option value="underpriced">Below minimum</option>
-                            <option value="compliant">Within range</option>
-                            <option value="missing">Missing price</option>
-                            <option value="unmatched">No benchmark</option>
-                        </select>
-                    </div>
+                    <input
+                        type="text"
+                        id="searchSellerProducts"
+                        placeholder="Search seller or product..."
+                        oninput="searchSellerProducts()">
                 </div>
 
                 <div class="seller-price-table-wrap">
@@ -266,20 +301,78 @@
                                 <th>Priority</th>
                                 <th>Seller</th>
                                 <th>Product</th>
-                                <th>Category</th>
+
+                                <th>
+                                    <select
+                                        id="sellerCategoryFilter"
+                                        class="category-header-select"
+                                        onchange="searchSellerProducts()"
+                                        aria-label="Filter by category">
+                                        <option value="">Category</option>
+                                    </select>
+                                </th>
+
                                 <th>Size / Type</th>
                                 <th>Selling Price</th>
                                 <th>Allowed Price</th>
                                 <th>Status</th>
                             </tr>
                         </thead>
+
                         <tbody id="sellerProductsTable">
-                            <tr><td colspan="8">Seller products load when this view is opened.</td></tr>
+                            <tr>
+                                <td colspan="8">
+                                    Seller products load when this view is opened.
+                                </td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
             </div>
         </section>
+    </div>
+
+    <div id="pricingModal" class="modal">
+        <div class="modal-content">
+            <h2 id="modalTitle">Set Product Price</h2>
+
+            <input type="hidden" id="modalProductId">
+
+            <label>Product</label>
+            <input type="text" id="modalProduct" readonly>
+
+            <label>Category</label>
+            <input type="text" id="modalCategory" readonly>
+
+            <div id="packageSection">
+                <label>Package Size</label>
+                <input type="text" id="modalVariant" readonly>
+            </div>
+
+            <div id="minSection">
+                <label>Minimum Price</label>
+                <input
+                    type="number"
+                    id="modalMinPrice"
+                    placeholder="Enter minimum price">
+            </div>
+
+            <label id="maxLabel">Maximum Price</label>
+            <input
+                type="number"
+                id="modalMaxPrice"
+                placeholder="Enter maximum price">
+
+            <div class="modal-buttons">
+                <button class="approve-btn" onclick="savePricing()">
+                    Save
+                </button>
+
+                <button class="reject-btn" onclick="closeModal()">
+                    Cancel
+                </button>
+            </div>
+        </div>
     </div>
 
     <script src="../js/supabase.js"></script>
