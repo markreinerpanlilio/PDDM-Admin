@@ -4,6 +4,7 @@ let sellerProductData = [];
 const table = document.getElementById("marketPriceTable");
 const sellerTable = document.getElementById("sellerProductsTable");
 
+/* Safely display text from the database */
 function escapeHTML(value) {
     return String(value ?? "").replace(/[&<>"']/g, char => ({
         "&": "&amp;",
@@ -15,7 +16,10 @@ function escapeHTML(value) {
 }
 
 function normalizeValue(value) {
-    return String(value ?? "").trim().toLowerCase().replace(/\s+/g, "");
+    return String(value ?? "")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, "");
 }
 
 function formatPrice(value) {
@@ -36,7 +40,9 @@ function getProductSize(product) {
         product.weight != null && product.unit
             ? `${product.weight}${product.unit}`
             : null,
-        product.weight != null ? String(product.weight) : null
+        product.weight != null
+            ? String(product.weight)
+            : null
     ];
 
     return candidates.filter(
@@ -48,15 +54,16 @@ function getProductPricingType(product) {
     if (product.pricing_type === "per_kg") return "per_kg";
     if (product.pricing_type === "fixed_size") return "fixed_size";
 
-    const sizeValues = getProductSize(product).map(normalizeValue);
+    const sizes = getProductSize(product).map(normalizeValue);
 
-    if (sizeValues.some(size => size === "kg" || size.endsWith("/kg"))) {
+    if (sizes.some(size => size === "kg" || size.endsWith("/kg"))) {
         return "per_kg";
     }
 
     return "fixed_size";
 }
 
+/* Find a matching benchmark for a seller product */
 function findProductBenchmark(product) {
     const productName = normalizeValue(product.name);
 
@@ -99,6 +106,7 @@ function findProductBenchmark(product) {
     ) || null;
 }
 
+/* Compare seller price with the benchmark */
 function compareSellerProduct(product) {
     const benchmark = findProductBenchmark(product);
     const sellingPrice = Number(product.price);
@@ -211,6 +219,7 @@ function getProductStatus(product) {
     }
 }
 
+/* Put products requiring attention first */
 function sortSellerProducts(products) {
     const priority = {
         overpriced: 0,
@@ -237,59 +246,69 @@ function sortSellerProducts(products) {
     });
 }
 
+/* Load benchmark products */
 async function loadMarketPrices() {
+    if (!table || !sellerTable) {
+        console.error("Market Price table elements are missing.");
+        return;
+    }
+
     table.innerHTML = "<tr><td colspan='5'>Loading...</td></tr>";
 
-    const { data, error } = await db
-        .from("market_prices")
-        .select("*")
-        .order("product_name", { ascending: true });
+    try {
+        const { data, error } = await db
+            .from("market_prices")
+            .select("*")
+            .order("product_name", { ascending: true });
 
-    if (error) {
-        console.error("Failed to load market benchmarks:", error);
+        if (error) throw error;
 
-        marketPriceData = [];
-        table.innerHTML = "<tr><td colspan='5'>Failed to load data.</td></tr>";
+        marketPriceData = data || [];
 
+        renderMarketPrices();
         await loadSellerProducts();
-        return;
+    } catch (error) {
+        console.error("Failed to load market prices:", error);
+
+        table.innerHTML =
+            "<tr><td colspan='5'>Failed to load market prices. Check the console for details.</td></tr>";
+
+        sellerTable.innerHTML =
+            "<tr><td colspan='8'>Unable to load seller products.</td></tr>";
     }
-
-    marketPriceData = data || [];
-
-    renderMarketPrices();
-    await loadSellerProducts();
 }
 
+/* Render benchmark table */
 function renderMarketPrices() {
-    table.innerHTML = "";
+    if (!table) return;
 
     if (marketPriceData.length === 0) {
-        table.innerHTML = "<tr><td colspan='5'>No products found.</td></tr>";
+        table.innerHTML =
+            "<tr><td colspan='5'>No products found.</td></tr>";
         return;
     }
 
-    marketPriceData.forEach(product => {
+    table.innerHTML = marketPriceData.map(product => {
         const isPerKg = product.pricing_type === "per_kg";
 
         const hasPricing = isPerKg
-            ? product.max_price !== null
-            : product.min_price !== null && product.max_price !== null;
+            ? product.max_price != null
+            : product.min_price != null && product.max_price != null;
 
         let priceDisplay = "-";
 
-        if (isPerKg && product.max_price !== null) {
+        if (isPerKg && product.max_price != null) {
             priceDisplay = formatPrice(product.max_price);
         } else if (
             !isPerKg &&
-            product.min_price !== null &&
-            product.max_price !== null
+            product.min_price != null &&
+            product.max_price != null
         ) {
             priceDisplay =
                 `${formatPrice(product.min_price)} - ${formatPrice(product.max_price)}`;
         }
 
-        table.innerHTML += `
+        return `
             <tr>
                 <td>${escapeHTML(product.product_name || "-")}</td>
                 <td>${isPerKg ? "Per kg" : "Fixed Size"}</td>
@@ -304,105 +323,119 @@ function renderMarketPrices() {
                 </td>
             </tr>
         `;
-    });
+    }).join("");
 
     searchMarketPrice();
 }
 
 function searchMarketPrice() {
     const input = document.getElementById("searchPrice");
-    const value = input.value.toLowerCase();
+
+    if (!input || !table) return;
+
+    const value = input.value.trim().toLowerCase();
 
     table.querySelectorAll("tr").forEach(row => {
-        row.style.display = row.innerText.toLowerCase().includes(value)
-            ? ""
-            : "none";
+        row.style.display =
+            row.innerText.toLowerCase().includes(value) ? "" : "none";
     });
 }
 
-/* Load all products listed by sellers */
+/* Load seller products and seller names */
 async function loadSellerProducts() {
+    if (!sellerTable) return;
+
     sellerTable.innerHTML =
         "<tr><td colspan='8'>Loading seller products...</td></tr>";
 
-    const { data, error } = await db
-        .from("products")
-        .select("*")
-        .order("name", { ascending: true });
+    try {
+        const { data, error } = await db
+            .from("products")
+            .select("*")
+            .order("name", { ascending: true });
 
-    if (error) {
+        if (error) throw error;
+
+        const products = data || [];
+
+        const missingSellerIds = [...new Set(
+            products
+                .filter(product => !product.seller_name && product.seller_id)
+                .map(product => product.seller_id)
+        )];
+
+        const sellerNames = {};
+
+        if (missingSellerIds.length > 0) {
+            const { data: sellers, error: sellerError } = await db
+                .from("profiles")
+                .select("id,full_name,email")
+                .in("id", missingSellerIds);
+
+            if (sellerError) {
+                console.warn(
+                    "Could not load seller names:",
+                    sellerError.message
+                );
+            } else {
+                (sellers || []).forEach(seller => {
+                    sellerNames[seller.id] =
+                        seller.full_name || seller.email || "Unknown seller";
+                });
+            }
+        }
+
+        sellerProductData = products.map(product => {
+            const sellerName = product.seller_name ||
+                sellerNames[product.seller_id] ||
+                "Unknown seller";
+
+            return compareSellerProduct({
+                ...product,
+                sellerDisplayName: sellerName
+            });
+        });
+
+        sortSellerProducts(sellerProductData);
+        renderSellerProducts();
+    } catch (error) {
         console.error("Failed to load seller products:", error);
 
         sellerProductData = [];
 
         sellerTable.innerHTML =
-            "<tr><td colspan='8'>Failed to load seller products. Check Supabase permissions.</td></tr>";
+            "<tr><td colspan='8'>Failed to load seller products. Check the console for details.</td></tr>";
 
         updateSellerProductSummary([]);
         populateSellerCategoryFilter();
-        return;
     }
-
-    const products = data || [];
-
-    // Use seller_name first, then look up profiles for missing names.
-    const missingSellerIds = [...new Set(
-        products
-            .filter(product => !product.seller_name && product.seller_id)
-            .map(product => product.seller_id)
-    )];
-
-    let sellerNames = {};
-
-    if (missingSellerIds.length) {
-        const { data: sellers, error: sellerError } = await db
-            .from("profiles")
-            .select("id,full_name,email")
-            .in("id", missingSellerIds);
-
-        if (sellerError) {
-            console.warn(
-                "Could not load seller profile names:",
-                sellerError.message
-            );
-        } else {
-            (sellers || []).forEach(seller => {
-                sellerNames[seller.id] =
-                    seller.full_name || seller.email || "Unknown seller";
-            });
-        }
-    }
-
-    sellerProductData = products.map(product => {
-        const sellerName = product.seller_name ||
-            sellerNames[product.seller_id] ||
-            "Unknown seller";
-
-        return compareSellerProduct({
-            ...product,
-            sellerDisplayName: sellerName
-        });
-    });
-
-    sortSellerProducts(sellerProductData);
-    renderSellerProducts();
 }
 
 function updateSellerProductSummary(products) {
-    document.getElementById("sellerProductTotal").textContent =
-        products.length;
+    const total = document.getElementById("sellerProductTotal");
+    const overpriced = document.getElementById("overpricedProductTotal");
+    const underpriced = document.getElementById("underpricedProductTotal");
+    const unmatched = document.getElementById("unmatchedProductTotal");
 
-    document.getElementById("overpricedProductTotal").textContent =
-        products.filter(product => product.status === "overpriced").length;
+    if (total) total.textContent = products.length;
 
-    document.getElementById("underpricedProductTotal").textContent =
-        products.filter(product => product.status === "underpriced").length;
+    if (overpriced) {
+        overpriced.textContent =
+            products.filter(product => product.status === "overpriced").length;
+    }
 
-    document.getElementById("unmatchedProductTotal").textContent =
-        products.filter(product => product.status === "unmatched").length;
+    if (underpriced) {
+        underpriced.textContent =
+            products.filter(product => product.status === "underpriced").length;
+    }
+
+    if (unmatched) {
+        unmatched.textContent =
+            products.filter(product => product.status === "unmatched").length;
+    }
 }
 
-/* Populate the Category dropdown in the table header */
+/* Populate Category dropdown in the table header */
 function populateSellerCategoryFilter() {
     const categoryFilter =
         document.getElementById("sellerCategoryFilter");
@@ -438,11 +471,14 @@ function populateSellerCategoryFilter() {
     }
 }
 
+/* Render seller product table */
 function renderSellerProducts() {
+    if (!sellerTable) return;
+
     updateSellerProductSummary(sellerProductData);
     populateSellerCategoryFilter();
 
-    if (!sellerProductData.length) {
+    if (sellerProductData.length === 0) {
         sellerTable.innerHTML =
             "<tr><td colspan='8'>No seller products found.</td></tr>";
         return;
@@ -473,8 +509,8 @@ function renderSellerProducts() {
             ? `<span class="priority-number">${overpriceRank}</span>`
             : "—";
 
-        const allowedPrice = getAllowedPrice(product.benchmark);
         const category = product.category || "-";
+        const allowedPrice = getAllowedPrice(product.benchmark);
 
         return `
             <tr data-search="${escapeHTML([
@@ -513,6 +549,7 @@ function searchSellerProducts() {
     if (!input || !sellerTable) return;
 
     const searchValue = input.value.trim().toLowerCase();
+
     const selectedCategory = categoryFilter
         ? categoryFilter.value.trim().toLowerCase()
         : "";
@@ -535,7 +572,37 @@ function searchSellerProducts() {
     });
 }
 
-/* Shared modal shell */
+/* FIX: Toggle between benchmark and seller product views */
+function toggleMarketPriceView() {
+    const benchmarkView = document.getElementById("marketPriceView");
+    const sellerView = document.getElementById("sellerProductsView");
+    const title = document.getElementById("marketPricePageTitle");
+    const button = document.getElementById("toggleSellerProductsBtn");
+
+    if (!benchmarkView || !sellerView || !title || !button) {
+        console.error("Market Price view elements were not found.");
+        return;
+    }
+
+    const showingBenchmarks =
+        getComputedStyle(sellerView).display === "none";
+
+    if (showingBenchmarks) {
+        benchmarkView.style.display = "none";
+        sellerView.style.display = "block";
+        title.textContent = "Seller Product Price Monitoring";
+        button.textContent = "Market Price";
+
+        loadSellerProducts();
+    } else {
+        sellerView.style.display = "none";
+        benchmarkView.style.display = "block";
+        title.textContent = "Market Price";
+        button.textContent = "Products";
+    }
+}
+
+/* Create and display a modal */
 function renderModal(bodyHtml) {
     const oldModal = document.getElementById("pricingModal");
 
@@ -562,7 +629,7 @@ function closeModal() {
     closePricingModal();
 }
 
-/* Add product */
+/* Add a benchmark product */
 function openAddModal() {
     renderModal(`
         <h2>Add Product</h2>
@@ -640,7 +707,7 @@ function showProductSuggestions() {
 
     suggestions.innerHTML = "";
 
-    if (!filtered.length) {
+    if (filtered.length === 0) {
         suggestions.style.display = "none";
         return;
     }
@@ -671,26 +738,25 @@ function showProductSuggestions() {
     suggestions.style.display = "block";
 }
 
-/* Edit existing product */
+/* Edit an existing benchmark */
 function openPricingModal(id) {
     const product = marketPriceData.find(
         item => String(item.id) === String(id)
     );
 
     if (!product) {
-        return console.error("Product not found:", id);
+        console.error("Product not found:", id);
+        return;
     }
 
     const isPerKg = product.pricing_type === "per_kg";
-
     const hasPricing =
-        product.max_price !== null || product.min_price !== null;
+        product.max_price != null || product.min_price != null;
 
     renderModal(`
         <h2>${hasPricing ? "Edit Product Price" : "Set Product Price"}</h2>
 
         <label>Product Name</label>
-
         <input
             type="text"
             id="modalProductName"
@@ -723,7 +789,7 @@ function openPricingModal(id) {
     );
 }
 
-/* Pricing fields */
+/* Update fields when pricing type changes */
 function updatePricingFields(
     currentSize = "",
     currentMinPrice = null,
@@ -784,7 +850,7 @@ function updatePricingFields(
     }
 }
 
-/* Save new product */
+/* Save a new benchmark */
 async function saveNewProduct() {
     const productName =
         document.getElementById("modalProductName").value.trim();
@@ -802,7 +868,8 @@ async function saveNewProduct() {
         const maxPrice =
             document.getElementById("modalMaxPrice").value;
 
-        if (maxPrice === "" || Number(maxPrice) < 0) {
+        if (maxPrice === "" || !Number.isFinite(Number(maxPrice)) ||
+            Number(maxPrice) < 0) {
             return alert("Please enter a valid maximum price.");
         }
 
@@ -812,9 +879,7 @@ async function saveNewProduct() {
         );
 
         if (duplicate) {
-            return alert(
-                `${productName} already exists in the pricing list.`
-            );
+            return alert(`${productName} already exists in the pricing list.`);
         }
 
         const { error } = await db.from("market_prices").insert([{
@@ -844,8 +909,13 @@ async function saveNewProduct() {
         return alert("Please enter the product size.");
     }
 
-    if (minPrice === "" || maxPrice === "") {
-        return alert("Please enter both minimum and maximum prices.");
+    if (
+        minPrice === "" ||
+        maxPrice === "" ||
+        !Number.isFinite(Number(minPrice)) ||
+        !Number.isFinite(Number(maxPrice))
+    ) {
+        return alert("Please enter valid minimum and maximum prices.");
     }
 
     if (Number(minPrice) < 0 || Number(maxPrice) < 0) {
@@ -889,7 +959,7 @@ async function saveNewProduct() {
     await loadMarketPrices();
 }
 
-/* Save existing product */
+/* Save changes to an existing benchmark */
 async function savePricing(id) {
     const product = marketPriceData.find(
         item => String(item.id) === String(id)
@@ -915,7 +985,11 @@ async function savePricing(id) {
         const maxPrice =
             document.getElementById("modalMaxPrice").value;
 
-        if (maxPrice === "" || Number(maxPrice) < 0) {
+        if (
+            maxPrice === "" ||
+            !Number.isFinite(Number(maxPrice)) ||
+            Number(maxPrice) < 0
+        ) {
             return alert("Please enter a valid maximum price.");
         }
 
@@ -926,9 +1000,7 @@ async function savePricing(id) {
         );
 
         if (duplicate) {
-            return alert(
-                `${productName} already exists in the pricing list.`
-            );
+            return alert(`${productName} already exists in the pricing list.`);
         }
 
         const { error } = await db
@@ -961,8 +1033,13 @@ async function savePricing(id) {
         return alert("Please enter the product size.");
     }
 
-    if (minPrice === "" || maxPrice === "") {
-        return alert("Please enter both minimum and maximum prices.");
+    if (
+        minPrice === "" ||
+        maxPrice === "" ||
+        !Number.isFinite(Number(minPrice)) ||
+        !Number.isFinite(Number(maxPrice))
+    ) {
+        return alert("Please enter valid minimum and maximum prices.");
     }
 
     if (Number(minPrice) < 0 || Number(maxPrice) < 0) {
@@ -1010,4 +1087,7 @@ async function savePricing(id) {
     await loadMarketPrices();
 }
 
-document.addEventListener("DOMContentLoaded", loadMarketPrices);
+/* Initialize after the page loads */
+document.addEventListener("DOMContentLoaded", () => {
+    loadMarketPrices();
+});
