@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,108 +7,212 @@
     <title>Seller Requests</title>
 
     <link rel="stylesheet" href="../css/styles.css">
-
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        .request-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .request-table th,
+        .request-table td {
+            padding: 14px;
+            text-align: left;
+        }
+
+        .request-table th {
+            white-space: nowrap;
+        }
+
+        .action-buttons {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .action-buttons button {
+            border: none;
+            border-radius: 6px;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .action-buttons button:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
+        .view-permit-btn {
+            background: #1A2B4C;
+            color: white;
+        }
+
+        .approve-btn {
+            background: #16a34a;
+            color: white;
+        }
+
+        .reject-btn {
+            background: #dc2626;
+            color: white;
+        }
+
+        .permit-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: rgba(0, 0, 0, 0.65);
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .permit-modal-content {
+            position: relative;
+            background: #fff;
+            border-radius: 12px;
+            padding: 24px;
+            width: 100%;
+            max-width: 650px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .permit-modal-content h2 {
+            margin-top: 0;
+            color: #1A2B4C;
+        }
+
+        #permitApplicantInfo {
+            color: #6B7280;
+            margin-bottom: 18px;
+        }
+
+        #permitImage {
+            display: block;
+            width: 100%;
+            max-height: 65vh;
+            object-fit: contain;
+            border-radius: 8px;
+            background: #F5F6F8;
+        }
+
+        .close-permit-btn {
+            position: absolute;
+            top: 12px;
+            right: 14px;
+            border: none;
+            background: transparent;
+            font-size: 26px;
+            cursor: pointer;
+            color: #1A2B4C;
+        }
+
+        @media (max-width: 768px) {
+            .panel {
+                overflow-x: auto;
+            }
+
+            .request-table {
+                min-width: 850px;
+            }
+
+            .permit-modal-content {
+                padding: 18px;
+            }
+        }
+    </style>
 </head>
 
 <body>
-
-<div class="sidebar collapsed" id="sidebar">
-
-    <div class="sidebar-header">
-        <button class="menu-btn" onclick="toggleSidebar()">☰</button>
-        <h2 class="sidebar-title">PDDM ADMIN</h2>
-    </div>
-
-    <ul>
-        <li onclick="window.location='dashboard.html'">
-            <span class="icon">🏠</span>
-            <span class="text">Dashboard</span>
-        </li>
-
-        <li class="active">
-            <span class="icon">📄</span>
-            <span class="text">Requests</span>
-        </li>
-
-        <li onclick="window.location='marketPrice.html'">
-            <span class="icon">💰</span>
-            <span class="text">Market Price</span>
-        </li>
-        
-        <li onclick="window.location='audit.html'">
-            <span class="icon">📜</span>
-            <span class="text">Audit Trail</span>
-        </li>
-        
-        <li onclick="logout()">
-            <span class="icon">🚪</span>
-            <span class="text">Logout</span>
-        </li>
-    </ul>
-
-</div>
-
-
-
-<div class="content collapsed-content" id="content">
-
-    <div class="dashboard-header">
-
-        <div>
-            <h1>Seller Applications</h1>
-            <h3 id="pendingCount">Loading...</h3>
+    <div class="sidebar collapsed" id="sidebar">
+        <div class="sidebar-header">
+            <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+            <h2 class="sidebar-title">PDDM ADMIN</h2>
         </div>
 
-        <input
-            type="text"
-            id="searchRequest"
-            placeholder="Search applicant..."
-            onkeyup="searchRequests()">
+        <ul>
+            <li onclick="window.location='dashboard.html'">
+                <span class="icon">🏠</span>
+                <span class="text">Dashboard</span>
+            </li>
 
+            <li class="active">
+                <span class="icon">📄</span>
+                <span class="text">Requests</span>
+            </li>
+
+            <li onclick="window.location='marketPrice.html'">
+                <span class="icon">💰</span>
+                <span class="text">Market Price</span>
+            </li>
+
+            <li onclick="window.location='audit.html'">
+                <span class="icon">📜</span>
+                <span class="text">Audit Trail</span>
+            </li>
+
+            <li onclick="logout()">
+                <span class="icon">🚪</span>
+                <span class="text">Logout</span>
+            </li>
+        </ul>
     </div>
 
+    <div class="content collapsed-content" id="content">
+        <div class="dashboard-header">
+            <div>
+                <h1>Seller Applications</h1>
+                <h3 id="pendingCount">Loading...</h3>
+            </div>
 
+            <input
+                type="text"
+                id="searchRequest"
+                placeholder="Search applicant..."
+                oninput="searchRequests()">
+        </div>
 
-    <div class="panel">
+        <div class="panel">
+            <table class="request-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Registered</th>
+                        <th>Requested Stall</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
 
-        <table class="request-table">
-
-            <thead>
-
-                <tr>
-
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Phone</th>
-                    <th>Registered</th>
-                    <th>Action</th>
-
-                </tr>
-
-            </thead>
-
-            <tbody id="requestTable">
-
-            </tbody>
-
-        </table>
-
+                <tbody id="requestTable">
+                    <tr>
+                        <td colspan="6">Loading applications...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 
-</div>
+    <div class="permit-modal" id="permitModal" role="dialog" aria-modal="true"
+        aria-labelledby="permitModalTitle">
+        <div class="permit-modal-content">
+            <button class="close-permit-btn" onclick="closePermitModal()"
+                aria-label="Close permit preview">&times;</button>
 
+            <h2 id="permitModalTitle">Permit Photo</h2>
+            <p id="permitApplicantInfo">Loading applicant details...</p>
+            <img id="permitImage" alt="">
+        </div>
+    </div>
 
-
-<script src="../js/supabase.js"></script>
-<script src="../js/script.js"></script>
-<script src="../js/request.js"></script>
-
-<script>
-
-loadRequests();
-
-</script>
-
+    <script src="../js/supabase.js"></script>
+    <script src="../js/script.js"></script>
+    <script src="../js/request.js"></script>
 </body>
 </html>
