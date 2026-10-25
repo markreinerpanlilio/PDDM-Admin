@@ -1,4 +1,3 @@
-
 const tbody = document.getElementById("requestTable");
 const pending = document.getElementById("pendingCount");
 const permitModal = document.getElementById("permitModal");
@@ -18,7 +17,10 @@ function escapeHTML(value) {
 
 async function loadRequests() {
     pending.textContent = "Loading...";
-    tbody.innerHTML = `<tr><td colspan="6">Loading applications...</td></tr>`;
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="6" class="table-message">Loading applications...</td>
+        </tr>`;
 
     const { data, error } = await db
         .from("profiles")
@@ -29,7 +31,12 @@ async function loadRequests() {
     if (error) {
         console.error("Error loading applications:", error);
         pending.textContent = "Unable to load applications";
-        tbody.innerHTML = `<tr><td colspan="6">Failed to load applications.</td></tr>`;
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="table-message">
+                    Failed to load applications. Please refresh the page.
+                </td>
+            </tr>`;
         return;
     }
 
@@ -42,32 +49,91 @@ function renderRequests() {
         `${requests.length} Pending Application${requests.length !== 1 ? "s" : ""}`;
 
     if (!requests.length) {
-        tbody.innerHTML = `<tr><td colspan="6">No pending seller applications.</td></tr>`;
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="table-message">
+                    <div class="empty-state">
+                        <span class="empty-icon">✓</span>
+                        <strong>All caught up!</strong>
+                        <span>There are no pending seller applications.</span>
+                    </div>
+                </td>
+            </tr>`;
         return;
     }
 
     tbody.innerHTML = requests.map(user => `
         <tr id="request-${escapeHTML(user.id)}">
-            <td>${escapeHTML(user.full_name || "-")}</td>
-            <td>${escapeHTML(user.email || "-")}</td>
+            <td>
+                <div class="applicant-cell">
+                    <div class="applicant-avatar">
+                        ${escapeHTML((user.full_name || user.email || "?").trim().charAt(0).toUpperCase())}
+                    </div>
+
+                    <div class="applicant-details">
+                        <span class="applicant-name">
+                            ${escapeHTML(user.full_name || "Unnamed Applicant")}
+                        </span>
+                        <span class="applicant-subtitle">Seller applicant</span>
+                    </div>
+                </div>
+            </td>
+
+            <td><span class="email-text">${escapeHTML(user.email || "-")}</span></td>
             <td>${escapeHTML(user.phone_number || "-")}</td>
-            <td>${user.created_at ? escapeHTML(new Date(user.created_at).toLocaleDateString()) : "-"}</td>
-            <td>${user.stall_number != null ? escapeHTML(user.stall_number) : "-"}</td>
-            <td class="action-buttons">
-                <button class="view-permit-btn"
-                    data-action="view" data-id="${escapeHTML(user.id)}"
-                    ${user.business_permit_path ? "" : "disabled"}>
-                    View Permit
-                </button>
-                <button class="approve-btn"
-                    data-action="approve" data-id="${escapeHTML(user.id)}"
-                    title="Approve application">✓</button>
-                <button class="reject-btn"
-                    data-action="reject" data-id="${escapeHTML(user.id)}"
-                    title="Reject application">✕</button>
+            <td>
+                <span class="date-text">
+                    ${user.created_at
+                        ? escapeHTML(new Date(user.created_at).toLocaleDateString())
+                        : "-"}
+                </span>
+            </td>
+
+            <td>
+                <span class="stall-badge">
+                    ${user.stall_number != null
+                        ? `Stall ${escapeHTML(user.stall_number)}`
+                        : "Not specified"}
+                </span>
+            </td>
+
+            <td>
+                <div class="action-buttons">
+                    <button
+                        type="button"
+                        class="view-permit-btn"
+                        data-action="view"
+                        data-id="${escapeHTML(user.id)}"
+                        ${user.business_permit_path ? "" : "disabled"}
+                        title="${user.business_permit_path
+                            ? "View permit photo"
+                            : "No permit photo uploaded"}"
+                        aria-label="View permit photo"
+                    >View permit</button>
+
+                    <button
+                        type="button"
+                        class="approve-btn circle-action"
+                        data-action="approve"
+                        data-id="${escapeHTML(user.id)}"
+                        title="Approve application"
+                        aria-label="Approve application"
+                    >✓</button>
+
+                    <button
+                        type="button"
+                        class="reject-btn circle-action"
+                        data-action="reject"
+                        data-id="${escapeHTML(user.id)}"
+                        title="Reject application"
+                        aria-label="Reject application"
+                    >✕</button>
+                </div>
             </td>
         </tr>
     `).join("");
+
+    searchRequests();
 }
 
 tbody.addEventListener("click", event => {
@@ -84,19 +150,25 @@ tbody.addEventListener("click", event => {
 async function viewPermit(id) {
     const seller = requests.find(user => user.id === id);
 
-    if (!seller?.business_permit_path) {
+    if (!seller || !seller.business_permit_path) {
         alert("No permit photo was uploaded for this application.");
         return;
     }
 
     const image = document.getElementById("permitImage");
     const info = document.getElementById("permitApplicantInfo");
+    const loading = document.getElementById("permitLoading");
 
     info.textContent =
-        `${seller.full_name || "Applicant"} — Requested stall: ${seller.stall_number ?? "Not specified"}`;
+        `${seller.full_name || "Applicant"} · Requested stall: ${seller.stall_number ?? "Not specified"}`;
 
+    image.onload = null;
+    image.onerror = null;
     image.removeAttribute("src");
-    image.alt = "Loading permit photo...";
+    image.style.display = "none";
+
+    loading.style.display = "block";
+    loading.textContent = "Loading permit photo...";
     permitModal.style.display = "flex";
 
     try {
@@ -105,13 +177,34 @@ async function viewPermit(id) {
             .createSignedUrl(seller.business_permit_path, 300);
 
         if (error) throw error;
+        if (!data?.signedUrl) {
+            throw new Error("Supabase did not return a signed URL.");
+        }
 
+        image.onload = () => {
+            image.style.display = "block";
+            loading.style.display = "none";
+        };
+
+        image.onerror = () => {
+            image.style.display = "block";
+            image.style.visibility = "hidden";
+            loading.style.display = "block";
+            loading.textContent =
+                "The image could not be displayed. Check the stored file path and file format.";
+        };
+
+        image.style.visibility = "visible";
         image.src = data.signedUrl;
-        image.alt = `Permit photo submitted by ${seller.full_name || "applicant"}`;
     } catch (error) {
         console.error("Error loading permit photo:", error);
         closePermitModal();
-        alert("Unable to view the permit photo. Check your Supabase Storage permissions.");
+
+        alert(
+            "Unable to access the permit photo.\n\n" +
+            "Check the Storage bucket name, saved file path, admin login, " +
+            "and Supabase Storage policies."
+        );
     }
 }
 
@@ -119,8 +212,18 @@ function closePermitModal() {
     permitModal.style.display = "none";
 
     const image = document.getElementById("permitImage");
+    image.onload = null;
+    image.onerror = null;
     image.removeAttribute("src");
-    image.alt = "";
+    image.style.display = "none";
+    image.style.visibility = "visible";
+
+    const loading = document.getElementById("permitLoading");
+
+    if (loading) {
+        loading.style.display = "block";
+        loading.textContent = "Loading permit photo...";
+    }
 }
 
 permitModal.addEventListener("click", event => {
@@ -133,7 +236,10 @@ document.addEventListener("keydown", event => {
 
 async function addAuditLog(action, module, description) {
     try {
-        const { data: { user }, error: authError } = await db.auth.getUser();
+        const {
+            data: { user },
+            error: authError
+        } = await db.auth.getUser();
 
         if (authError || !user) {
             console.error("Unable to identify admin:", authError);
@@ -151,15 +257,24 @@ async function addAuditLog(action, module, description) {
             return;
         }
 
-        const { error: logError } = await db.from("audit_logs").insert([{
-            user_id: user.id,
-            user: `${admin.email} (${admin.role})`,
-            action,
-            module,
-            description
-        }]);
+        if (admin.role !== "admin") {
+            console.error("The logged-in profile is not an admin.");
+            return;
+        }
 
-        if (logError) console.error("Audit log error:", logError);
+        const { error: logError } = await db
+            .from("audit_logs")
+            .insert([{
+                user_id: user.id,
+                user: `${admin.email} (${admin.role})`,
+                action,
+                module,
+                description
+            }]);
+
+        if (logError) {
+            console.error("Audit log error:", logError);
+        }
     } catch (error) {
         console.error("Audit log error:", error);
     }
@@ -172,7 +287,7 @@ async function approveSeller(id) {
     const confirmed = confirm(
         `Approve ${seller.full_name || seller.email} as a seller?\n\n` +
         `Requested stall: ${seller.stall_number ?? "Not specified"}\n\n` +
-        `Confirm that the requested stall is available before approving.`
+        "Please confirm that the requested stall is available."
     );
 
     if (!confirmed) return;
@@ -193,7 +308,7 @@ async function approveSeller(id) {
     }
 
     if (!data || data.length === 0) {
-        alert("This application is no longer pending. Refresh the list.");
+        alert("This application is no longer pending. Refreshing the list.");
         await loadRequests();
         return;
     }
@@ -215,7 +330,7 @@ async function rejectSeller(id) {
 
     const confirmed = confirm(
         `Reject ${seller.full_name || seller.email}'s application?\n\n` +
-        `The requested stall number will be reset to NULL.`
+        "The requested stall number will be reset to NULL."
     );
 
     if (!confirmed) return;
@@ -236,7 +351,7 @@ async function rejectSeller(id) {
     }
 
     if (!data || data.length === 0) {
-        alert("This application is no longer pending. Refresh the list.");
+        alert("This application is no longer pending. Refreshing the list.");
         await loadRequests();
         return;
     }
@@ -253,9 +368,15 @@ async function rejectSeller(id) {
 }
 
 function searchRequests() {
-    const value = document.getElementById("searchRequest").value.toLowerCase();
+    const searchInput = document.getElementById("searchRequest");
+    const value = searchInput.value.trim().toLowerCase();
 
     tbody.querySelectorAll("tr").forEach(row => {
+        if (row.querySelector(".empty-state") || row.querySelector(".table-message")) {
+            row.style.display = "";
+            return;
+        }
+
         row.style.display =
             row.innerText.toLowerCase().includes(value) ? "" : "none";
     });
