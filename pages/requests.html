@@ -1,27 +1,177 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Seller Requests</title>
+    <title>Seller Requests | PDDM Admin</title>
 
     <link rel="stylesheet" href="../css/styles.css">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <style>
-        .request-table {
+        .requests-page {
+            padding: 24px;
+            min-width: 0;
+        }
+
+        .requests-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 24px;
+        }
+
+        .requests-header h1 {
+            margin: 0 0 6px;
+        }
+
+        .requests-header p {
+            margin: 0;
+            color: #777;
+        }
+
+        .requests-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .pending-count {
+            font-weight: 600;
+            color: #a66d00;
+            background: #fff3d6;
+            padding: 9px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+
+        .search-wrapper {
+            width: min(100%, 320px);
+        }
+
+        .search-wrapper input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 11px 14px;
+            border: 1px solid #ddd;
+            border-radius: 9px;
+            background: #fff;
+            font: inherit;
+            outline: none;
+        }
+
+        .search-wrapper input:focus {
+            border-color: #f2a900;
+            box-shadow: 0 0 0 3px rgba(242, 169, 0, 0.13);
+        }
+
+        .requests-card {
+            background: #fff;
+            border-radius: 14px;
+            padding: 20px;
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.04);
+            overflow: hidden;
+        }
+
+        .table-scroll {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        .requests-table {
             width: 100%;
             border-collapse: collapse;
+            min-width: 850px;
         }
 
-        .request-table th,
-        .request-table td {
-            padding: 14px;
+        .requests-table thead {
+            background: #f8f8f8;
+        }
+
+        .requests-table th {
             text-align: left;
+            padding: 14px 12px;
+            color: #777;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
         }
 
-        .request-table th {
+        .requests-table td {
+            padding: 16px 12px;
+            border-bottom: 1px solid #eee;
+            font-size: 13px;
+            color: #333;
+            vertical-align: middle;
+        }
+
+        .requests-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .requests-table tbody tr:hover {
+            background: #fffdf7;
+        }
+
+        .applicant-cell {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            min-width: 175px;
+        }
+
+        .applicant-avatar {
+            width: 38px;
+            height: 38px;
+            min-width: 38px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #fff0c2;
+            color: #986500;
+            font-weight: 700;
+            font-size: 15px;
+        }
+
+        .applicant-details {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .applicant-name {
+            font-weight: 600;
+            color: #222;
+        }
+
+        .applicant-subtitle {
+            color: #999;
+            font-size: 11px;
+        }
+
+        .email-text {
+            overflow-wrap: anywhere;
+        }
+
+        .date-text {
+            white-space: nowrap;
+        }
+
+        .stall-badge {
+            display: inline-block;
+            background: #f3f3f3;
+            color: #444;
+            padding: 7px 10px;
+            border-radius: 7px;
+            font-size: 12px;
+            font-weight: 600;
             white-space: nowrap;
         }
 
@@ -29,185 +179,301 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            flex-wrap: wrap;
+            white-space: nowrap;
         }
 
         .action-buttons button {
             border: none;
-            border-radius: 6px;
-            padding: 8px 12px;
             cursor: pointer;
-            font-weight: 600;
-        }
-
-        .action-buttons button:disabled {
-            opacity: 0.45;
-            cursor: not-allowed;
+            transition: 0.2s ease;
+            font: inherit;
         }
 
         .view-permit-btn {
-            background: #1A2B4C;
-            color: white;
+            background: #f2f2f2;
+            color: #333;
+            padding: 9px 11px;
+            border-radius: 7px;
+            font-size: 12px !important;
+            font-weight: 600 !important;
+        }
+
+        .view-permit-btn:hover:not(:disabled) {
+            background: #e6e6e6;
+        }
+
+        .view-permit-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.45;
+        }
+
+        .circle-action {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px !important;
+            font-weight: 700 !important;
         }
 
         .approve-btn {
-            background: #16a34a;
-            color: white;
+            background: #e2f7e9;
+            color: #168044;
+        }
+
+        .approve-btn:hover {
+            background: #c8efd7;
+            transform: translateY(-1px);
         }
 
         .reject-btn {
-            background: #dc2626;
-            color: white;
+            background: #ffe6e6;
+            color: #c62828;
         }
 
-        .permit-modal {
-            display: none;
+        .reject-btn:hover {
+            background: #ffd1d1;
+            transform: translateY(-1px);
+        }
+
+        .table-message {
+            text-align: center;
+            padding: 45px 20px !important;
+            color: #888 !important;
+        }
+
+        .empty-state {
+            display: flex;
+            align-items: center;
+            flex-direction: column;
+            gap: 9px;
+        }
+
+        .empty-state strong {
+            color: #333;
+            font-size: 15px;
+        }
+
+        .empty-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: #e2f7e9;
+            color: #168044;
+            font-size: 22px;
+            font-weight: 700;
+        }
+
+        .modal-overlay {
             position: fixed;
             inset: 0;
             z-index: 9999;
-            background: rgba(0, 0, 0, 0.65);
+            display: none;
             align-items: center;
             justify-content: center;
             padding: 20px;
+            box-sizing: border-box;
+            background: rgba(0, 0, 0, 0.65);
         }
 
-        .permit-modal-content {
-            position: relative;
-            background: #fff;
-            border-radius: 12px;
-            padding: 24px;
-            width: 100%;
-            max-width: 650px;
+        .permit-modal {
+            width: min(100%, 650px);
             max-height: 90vh;
             overflow-y: auto;
+            background: #fff;
+            border-radius: 15px;
+            padding: 22px;
+            box-sizing: border-box;
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.2);
         }
 
-        .permit-modal-content h2 {
-            margin-top: 0;
-            color: #1A2B4C;
-        }
-
-        #permitApplicantInfo {
-            color: #6B7280;
+        .permit-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 15px;
             margin-bottom: 18px;
         }
 
+        .permit-modal-header h2 {
+            margin: 0 0 7px;
+            font-size: 20px;
+        }
+
+        .permit-applicant-info {
+            color: #777;
+            font-size: 13px;
+            overflow-wrap: anywhere;
+        }
+
+        .close-modal-btn {
+            border: none;
+            border-radius: 8px;
+            background: #f1f1f1;
+            color: #333;
+            width: 36px;
+            height: 36px;
+            flex-shrink: 0;
+            cursor: pointer;
+            font-size: 22px;
+        }
+
+        .close-modal-btn:hover {
+            background: #e2e2e2;
+        }
+
+        .permit-image-container {
+            min-height: 180px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f7f7f7;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
         #permitImage {
-            display: block;
+            display: none;
             width: 100%;
             max-height: 65vh;
             object-fit: contain;
-            border-radius: 8px;
-            background: #F5F6F8;
         }
 
-        .close-permit-btn {
-            position: absolute;
-            top: 12px;
-            right: 14px;
-            border: none;
-            background: transparent;
-            font-size: 26px;
-            cursor: pointer;
-            color: #1A2B4C;
+        #permitLoading {
+            padding: 30px;
+            color: #777;
+            text-align: center;
+            font-size: 13px;
         }
 
         @media (max-width: 768px) {
-            .panel {
-                overflow-x: auto;
+            .requests-page {
+                padding: 16px;
             }
 
-            .request-table {
-                min-width: 850px;
+            .requests-card {
+                padding: 12px;
             }
 
-            .permit-modal-content {
-                padding: 18px;
+            .requests-header h1 {
+                font-size: 23px;
+            }
+
+            .requests-toolbar {
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            .search-wrapper {
+                width: 100%;
             }
         }
     </style>
 </head>
 
 <body>
-    <div class="sidebar collapsed" id="sidebar">
-        <div class="sidebar-header">
-            <button class="menu-btn" onclick="toggleSidebar()">☰</button>
-            <h2 class="sidebar-title">PDDM ADMIN</h2>
-        </div>
-
-        <ul>
-            <li onclick="window.location='dashboard.html'">
-                <span class="icon">🏠</span>
-                <span class="text">Dashboard</span>
-            </li>
-
-            <li class="active">
-                <span class="icon">📄</span>
-                <span class="text">Requests</span>
-            </li>
-
-            <li onclick="window.location='marketPrice.html'">
-                <span class="icon">💰</span>
-                <span class="text">Market Price</span>
-            </li>
-
-            <li onclick="window.location='audit.html'">
-                <span class="icon">📜</span>
-                <span class="text">Audit Trail</span>
-            </li>
-
-            <li onclick="logout()">
-                <span class="icon">🚪</span>
-                <span class="text">Logout</span>
-            </li>
-        </ul>
-    </div>
-
-    <div class="content collapsed-content" id="content">
-        <div class="dashboard-header">
-            <div>
-                <h1>Seller Applications</h1>
-                <h3 id="pendingCount">Loading...</h3>
+    <div class="admin-container">
+        <aside class="sidebar">
+            <div class="logo">
+                <h2>PDDM ADMIN</h2>
             </div>
 
-            <input
-                type="text"
-                id="searchRequest"
-                placeholder="Search applicant..."
-                oninput="searchRequests()">
-        </div>
+            <nav>
+                <a href="dashboard.html">Dashboard</a>
+                <a href="requests.html" class="active">Seller Requests</a>
+                <a href="marketprice.html">Market Price</a>
+                <a href="audit.html">Audit Trail</a>
+            </nav>
 
-        <div class="panel">
-            <table class="request-table">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Phone</th>
-                        <th>Registered</th>
-                        <th>Requested Stall</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
+            <div class="sidebar-bottom">
+                <a href="#" id="logoutBtn">Logout</a>
+            </div>
+        </aside>
 
-                <tbody id="requestTable">
-                    <tr>
-                        <td colspan="6">Loading applications...</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+        <main class="main-content">
+            <section class="requests-page">
+                <header class="requests-header">
+                    <div>
+                        <h1>Seller Requests</h1>
+                        <p>Review seller applications and their submitted documents.</p>
+                    </div>
+                </header>
+
+                <div class="requests-toolbar">
+                    <div id="pendingCount" class="pending-count">
+                        Loading applications...
+                    </div>
+
+                    <div class="search-wrapper">
+                        <input
+                            type="search"
+                            id="searchRequest"
+                            placeholder="Search name, email, phone, or stall..."
+                            aria-label="Search seller applications"
+                            oninput="searchRequests()"
+                        >
+                    </div>
+                </div>
+
+                <section class="requests-card">
+                    <div class="table-scroll">
+                        <table class="requests-table">
+                            <thead>
+                                <tr>
+                                    <th>Applicant</th>
+                                    <th>Email</th>
+                                    <th>Phone</th>
+                                    <th>Application Date</th>
+                                    <th>Requested Stall</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="requestTable">
+                                <tr>
+                                    <td colspan="6" class="table-message">
+                                        Loading applications...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </section>
+        </main>
     </div>
 
-    <div class="permit-modal" id="permitModal" role="dialog" aria-modal="true"
-        aria-labelledby="permitModalTitle">
-        <div class="permit-modal-content">
-            <button class="close-permit-btn" onclick="closePermitModal()"
-                aria-label="Close permit preview">&times;</button>
+    <div
+        id="permitModal"
+        class="modal-overlay"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="permitModalTitle"
+    >
+        <div class="permit-modal">
+            <div class="permit-modal-header">
+                <div>
+                    <h2 id="permitModalTitle">Business Permit</h2>
+                    <div id="permitApplicantInfo" class="permit-applicant-info"></div>
+                </div>
 
-            <h2 id="permitModalTitle">Permit Photo</h2>
-            <p id="permitApplicantInfo">Loading applicant details...</p>
-            <img id="permitImage" alt="">
+                <button
+                    type="button"
+                    class="close-modal-btn"
+                    onclick="closePermitModal()"
+                    aria-label="Close permit viewer"
+                >×</button>
+            </div>
+
+            <div class="permit-image-container">
+                <div id="permitLoading">Loading permit photo...</div>
+                <img id="permitImage" alt="Seller's submitted business permit">
+            </div>
         </div>
     </div>
 
