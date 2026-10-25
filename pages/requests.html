@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -10,51 +9,55 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <style>
-        /* Request table enhancements only */
         .request-table {
             width: 100%;
             border-collapse: separate;
             border-spacing: 0;
         }
 
-        .request-table thead th {
-            padding: 16px 14px;
+        .request-table th {
+            padding: 15px 14px;
             text-align: left;
             white-space: nowrap;
-            font-size: 12px;
-            font-weight: 700;
-            letter-spacing: 0.4px;
-            text-transform: uppercase;
             color: #777;
             background: #f8f8f8;
             border-bottom: 1px solid #e9e9e9;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .4px;
         }
 
-        .request-table thead th:first-child {
-            border-top-left-radius: 8px;
+        .request-table th:first-child {
+            border-radius: 8px 0 0 0;
         }
 
-        .request-table thead th:last-child {
-            border-top-right-radius: 8px;
+        .request-table th:last-child {
+            border-radius: 0 8px 0 0;
         }
 
-        .request-table tbody td {
-            padding: 16px 14px;
-            border-bottom: 1px solid #eeeeee;
+        .request-table td {
+            padding: 15px 14px;
+            border-bottom: 1px solid #eee;
             vertical-align: middle;
             font-size: 13px;
         }
 
         .request-table tbody tr {
-            transition: background-color 0.2s ease;
+            transition: background .2s ease;
         }
 
         .request-table tbody tr:hover {
-            background-color: #fffaf0;
+            background: #fffaf0;
         }
 
         .request-table tbody tr:last-child td {
             border-bottom: none;
+        }
+
+        .request-table-wrap {
+            width: 100%;
+            overflow-x: auto;
         }
 
         .request-applicant {
@@ -65,16 +68,15 @@
         }
 
         .request-avatar {
-            width: 36px;
-            height: 36px;
-            min-width: 36px;
             display: flex;
             align-items: center;
             justify-content: center;
+            width: 36px;
+            height: 36px;
+            min-width: 36px;
             border-radius: 50%;
             background: #fff0c2;
             color: #8a6200;
-            font-size: 14px;
             font-weight: 700;
         }
 
@@ -126,26 +128,21 @@
             justify-content: center;
             border: none;
             cursor: pointer;
-            transition: transform 0.18s ease, background-color 0.18s ease,
-                box-shadow 0.18s ease;
+            transition: .2s ease;
         }
 
         .request-view-btn {
-            padding: 9px 11px;
+            padding: 9px 12px;
             border-radius: 7px;
-            background: #f1f1f1;
+            background: #f0f0f0;
             color: #333;
             font-size: 12px;
             font-weight: 600;
         }
 
-        .request-view-btn:hover:not(:disabled) {
-            background: #e4e4e4;
-        }
-
-        .request-view-btn:disabled {
-            opacity: 0.45;
-            cursor: not-allowed;
+        .request-view-btn:hover {
+            background: #e1e1e1;
+            transform: translateY(-1px);
         }
 
         .request-action-btn {
@@ -154,7 +151,7 @@
             border-radius: 50%;
             font-size: 16px;
             font-weight: 700;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06);
+            box-shadow: 0 2px 5px rgba(0,0,0,.06);
         }
 
         .request-approve-btn {
@@ -164,8 +161,8 @@
 
         .request-approve-btn:hover {
             background: #c8efd6;
-            box-shadow: 0 3px 8px rgba(22, 128, 68, 0.15);
             transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(22,128,68,.15);
         }
 
         .request-reject-btn {
@@ -175,8 +172,8 @@
 
         .request-reject-btn:hover {
             background: #ffd0d0;
-            box-shadow: 0 3px 8px rgba(198, 40, 40, 0.15);
             transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(198,40,40,.15);
         }
 
         .request-empty-message {
@@ -198,7 +195,6 @@
             justify-content: center;
             width: 42px;
             height: 42px;
-            margin-bottom: 3px;
             border-radius: 50%;
             background: #e1f6e8;
             color: #168044;
@@ -208,16 +204,9 @@
 
         .request-empty-state strong {
             color: #333;
-            font-size: 14px;
         }
 
-        .request-table-wrap {
-            width: 100%;
-            overflow-x: auto;
-        }
-
-        /* Permit viewer */
-        .permit-modal-overlay {
+        .request-modal-overlay {
             position: fixed;
             inset: 0;
             z-index: 9999;
@@ -226,42 +215,40 @@
             justify-content: center;
             padding: 20px;
             box-sizing: border-box;
-            background: rgba(0, 0, 0, 0.65);
+            background: rgba(0,0,0,.6);
         }
 
-        .permit-modal-box {
-            width: min(650px, 100%);
+        .request-modal {
+            width: min(760px, 100%);
             max-height: 90vh;
             overflow-y: auto;
-            padding: 22px;
+            padding: 24px;
             box-sizing: border-box;
             border-radius: 12px;
             background: #fff;
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 15px 45px rgba(0,0,0,.2);
         }
 
-        .permit-modal-header {
+        .request-modal-header {
             display: flex;
             align-items: flex-start;
             justify-content: space-between;
             gap: 15px;
-            margin-bottom: 18px;
+            margin-bottom: 20px;
         }
 
-        .permit-modal-header h2 {
-            margin: 0 0 7px;
-            font-size: 20px;
+        .request-modal-header h2 {
+            margin: 0 0 6px;
         }
 
-        .permit-applicant-info {
+        .request-modal-subtitle {
             color: #777;
             font-size: 13px;
-            overflow-wrap: anywhere;
         }
 
-        .permit-close-btn {
-            width: 35px;
-            height: 35px;
+        .request-modal-close {
+            width: 36px;
+            height: 36px;
             flex-shrink: 0;
             border: none;
             border-radius: 8px;
@@ -271,33 +258,110 @@
             cursor: pointer;
         }
 
-        .permit-image-area {
-            min-height: 180px;
+        .request-detail-section {
+            margin-bottom: 22px;
+        }
+
+        .request-detail-section h3 {
+            margin: 0 0 12px;
+            padding-bottom: 9px;
+            border-bottom: 1px solid #eee;
+            font-size: 15px;
+        }
+
+        .request-detail-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+        }
+
+        .request-detail-item {
+            min-width: 0;
+            padding: 12px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+
+        .request-detail-label {
+            display: block;
+            margin-bottom: 6px;
+            color: #888;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: .3px;
+        }
+
+        .request-detail-value {
+            display: block;
+            color: #292929;
+            font-size: 13px;
+            font-weight: 600;
+            overflow-wrap: anywhere;
+            white-space: pre-wrap;
+        }
+
+        .request-permit-area {
             display: flex;
             align-items: center;
             justify-content: center;
-            overflow: hidden;
+            min-height: 160px;
+            padding: 12px;
             border-radius: 8px;
             background: #f7f7f7;
+            color: #777;
+            text-align: center;
+            font-size: 13px;
         }
 
         #permitImage {
             display: none;
             width: 100%;
-            max-height: 65vh;
+            max-height: 480px;
             object-fit: contain;
         }
 
-        #permitLoading {
-            padding: 30px;
-            text-align: center;
-            color: #777;
-            font-size: 13px;
+        .request-modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .request-modal-actions button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 7px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .request-modal-approve {
+            background: #168044;
+            color: #fff;
+        }
+
+        .request-modal-reject {
+            background: #c62828;
+            color: #fff;
+        }
+
+        .request-modal-cancel {
+            background: #eee;
+            color: #333;
         }
 
         @media (max-width: 700px) {
             .request-table {
                 min-width: 950px;
+            }
+
+            .request-detail-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .request-modal {
+                padding: 18px;
             }
         }
     </style>
@@ -344,7 +408,6 @@
 <div class="content collapsed-content" id="content">
 
     <div class="dashboard-header">
-
         <div>
             <h1>Seller Applications</h1>
             <h3 id="pendingCount">Loading...</h3>
@@ -355,14 +418,11 @@
             id="searchRequest"
             placeholder="Search applicant..."
             oninput="searchRequests()">
-
     </div>
 
     <div class="panel">
-
         <div class="request-table-wrap">
             <table class="request-table">
-
                 <thead>
                     <tr>
                         <th>Name</th>
@@ -381,41 +441,63 @@
                         </td>
                     </tr>
                 </tbody>
-
             </table>
         </div>
-
     </div>
 
 </div>
 
 <div
-    id="permitModal"
-    class="permit-modal-overlay"
+    id="sellerDetailsModal"
+    class="request-modal-overlay"
     role="dialog"
     aria-modal="true"
-    aria-labelledby="permitModalTitle">
+    aria-labelledby="sellerDetailsTitle">
 
-    <div class="permit-modal-box">
-
-        <div class="permit-modal-header">
+    <div class="request-modal">
+        <div class="request-modal-header">
             <div>
-                <h2 id="permitModalTitle">Business Permit</h2>
-                <div id="permitApplicantInfo" class="permit-applicant-info"></div>
+                <h2 id="sellerDetailsTitle">Seller Details</h2>
+                <div id="sellerDetailsSubtitle" class="request-modal-subtitle">
+                    Application information
+                </div>
             </div>
 
             <button
                 type="button"
-                class="permit-close-btn"
-                onclick="closePermitModal()"
-                aria-label="Close permit viewer">×</button>
+                class="request-modal-close"
+                onclick="closeSellerDetails()"
+                aria-label="Close details">×</button>
         </div>
 
-        <div class="permit-image-area">
-            <div id="permitLoading">Loading permit photo...</div>
-            <img id="permitImage" alt="Seller's submitted business permit">
-        </div>
+        <section class="request-detail-section">
+            <h3>Applicant Information</h3>
+            <div id="sellerProfileDetails" class="request-detail-grid"></div>
+        </section>
 
+        <section class="request-detail-section">
+            <h3>Business Permit</h3>
+            <div id="permitArea" class="request-permit-area">
+                No permit photo loaded.
+            </div>
+        </section>
+
+        <div class="request-modal-actions">
+            <button
+                type="button"
+                class="request-modal-reject"
+                id="modalRejectBtn">Reject</button>
+
+            <button
+                type="button"
+                class="request-modal-approve"
+                id="modalApproveBtn">Approve</button>
+
+            <button
+                type="button"
+                class="request-modal-cancel"
+                onclick="closeSellerDetails()">Close</button>
+        </div>
     </div>
 </div>
 
