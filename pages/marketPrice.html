@@ -9,13 +9,58 @@
 
     <style>
         .seller-price-tools {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
             margin-bottom: 18px;
         }
 
-        .seller-price-tools input {
-            display: block;
+        .seller-search-wrap,
+        .benchmark-search-wrap {
+            position: relative;
             width: 100%;
             max-width: 420px;
+        }
+
+        .seller-search-wrap .search-icon,
+        .benchmark-search-wrap .search-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 17px;
+            pointer-events: none;
+        }
+
+        .seller-search-wrap input,
+        .benchmark-search-wrap input {
+            box-sizing: border-box;
+            width: 100%;
+            height: 44px;
+            padding: 10px 14px 10px 42px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: var(--surface);
+            color: var(--text);
+            font: inherit;
+            font-size: 13px;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .seller-search-wrap input:focus,
+        .benchmark-search-wrap input:focus {
+            border-color: var(--text-muted);
+            box-shadow: 0 0 0 3px rgba(120, 120, 120, 0.10);
+        }
+
+        .seller-search-wrap input::placeholder,
+        .benchmark-search-wrap input::placeholder {
+            color: var(--text-muted);
+            opacity: 0.8;
         }
 
         .seller-price-table-wrap {
@@ -47,29 +92,21 @@
             background: var(--bg);
         }
 
-        /* Category is a dropdown directly in the table header */
-        .category-header-select {
-            display: inline-block;
-            width: auto;
-            max-width: 150px;
-            margin: 0;
-            padding: 0;
-            border: none !important;
-            outline: none !important;
-            box-shadow: none !important;
-            border-radius: 0;
+        .seller-price-table th select {
+            max-width: 145px;
+            padding: 5px 7px;
+            border: none;
+            border-radius: 6px;
             background: transparent;
-            color: inherit;
+            color: var(--text);
             font: inherit;
-            font-weight: inherit;
+            font-weight: 700;
             cursor: pointer;
+            outline: none;
         }
 
-        .category-header-select:focus,
-        .category-header-select:active {
-            border: none !important;
-            outline: none !important;
-            box-shadow: none !important;
+        .seller-price-table th select:focus {
+            background: var(--bg);
         }
 
         .seller-price-value {
@@ -155,9 +192,22 @@
             white-space: nowrap;
         }
 
+        /* Outline state when Seller Products is active */
+        .view-toggle-btn.outline-active {
+            background: transparent !important;
+            color: var(--text) !important;
+            border: 2px solid currentColor !important;
+            box-shadow: none !important;
+        }
+
         @media (max-width: 768px) {
-            .seller-price-tools input {
-                width: 100%;
+            .seller-search-wrap,
+            .benchmark-search-wrap {
+                max-width: 100%;
+            }
+
+            .seller-price-summary {
+                gap: 8px;
             }
         }
     </style>
@@ -175,22 +225,18 @@
                 <span class="icon">🏠</span>
                 <span class="text">Dashboard</span>
             </li>
-
             <li onclick="window.location='requests.html'">
                 <span class="icon">📄</span>
                 <span class="text">Requests</span>
             </li>
-
             <li class="active">
                 <span class="icon">💰</span>
                 <span class="text">Market Price</span>
             </li>
-
             <li onclick="window.location='audit.html'">
                 <span class="icon">📜</span>
                 <span class="text">Audit Trail</span>
             </li>
-
             <li onclick="logout()">
                 <span class="icon">🚪</span>
                 <span class="text">Logout</span>
@@ -203,35 +249,32 @@
             <h1 id="marketPricePageTitle">Market Price</h1>
 
             <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                <button class="refresh-btn" onclick="loadMarketPrices()">
-                    Refresh
-                </button>
-
+                <button class="refresh-btn" onclick="loadMarketPrices()">Refresh</button>
                 <button
                     class="refresh-btn view-toggle-btn"
                     id="toggleSellerProductsBtn"
-                    onclick="toggleMarketPriceView()">
-                    Products
-                </button>
+                    onclick="toggleMarketPriceView()"
+                >Products</button>
             </div>
         </div>
 
-        <!-- Market Price Benchmarks -->
         <section id="marketPriceView">
             <div class="panel full-panel">
                 <h2>Market Price Benchmarks</h2>
 
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px;">
-                    <input
-                        type="text"
-                        id="searchPrice"
-                        placeholder="Search benchmark product..."
-                        oninput="searchMarketPrice()"
-                        style="width:300px;max-width:100%;">
+                    <div class="benchmark-search-wrap">
+                        <span class="search-icon" aria-hidden="true">⌕</span>
+                        <input
+                            type="text"
+                            id="searchPrice"
+                            placeholder="Search benchmark products..."
+                            oninput="searchMarketPrice()"
+                            aria-label="Search benchmark products"
+                        >
+                    </div>
 
-                    <button class="approve-btn" onclick="openAddModal()">
-                        + Add Product
-                    </button>
+                    <button class="approve-btn" onclick="openAddModal()">+ Add Product</button>
                 </div>
 
                 <div style="width:100%;overflow-x:auto;">
@@ -245,55 +288,36 @@
                                 <th>Action</th>
                             </tr>
                         </thead>
-
                         <tbody id="marketPriceTable">
-                            <tr>
-                                <td colspan="5">Loading...</td>
-                            </tr>
+                            <tr><td colspan="5">Loading...</td></tr>
                         </tbody>
                     </table>
                 </div>
             </div>
         </section>
 
-        <!-- Seller Product Monitoring -->
         <section id="sellerProductsView" style="display:none;">
             <div class="panel full-panel">
                 <h2>Seller Product Price Monitoring</h2>
 
-                <p style="color:var(--text-muted);font-size:13px;margin:8px 0 18px;">
-                    Seller-listed products are compared with matching market price benchmarks. Overpriced products appear first.
-                </p>
-
                 <div class="seller-price-summary">
-                    <span>
-                        Total products
-                        <strong id="sellerProductTotal">0</strong>
-                    </span>
-
-                    <span>
-                        Overpriced
-                        <strong id="overpricedProductTotal" style="color:#DC2626;">0</strong>
-                    </span>
-
-                    <span>
-                        Below minimum
-                        <strong id="underpricedProductTotal" style="color:#B7791F;">0</strong>
-                    </span>
-
-                    <span>
-                        No benchmark
-                        <strong id="unmatchedProductTotal">0</strong>
-                    </span>
+                    <span>Total products<strong id="sellerProductTotal">0</strong></span>
+                    <span>Overpriced<strong id="overpricedProductTotal" style="color:#DC2626;">0</strong></span>
+                    <span>Below minimum<strong id="underpricedProductTotal" style="color:#B7791F;">0</strong></span>
+                    <span>No benchmark<strong id="unmatchedProductTotal">0</strong></span>
                 </div>
 
-                <!-- Search bar only. Category is in the table header. -->
                 <div class="seller-price-tools">
-                    <input
-                        type="text"
-                        id="searchSellerProducts"
-                        placeholder="Search seller or product..."
-                        oninput="searchSellerProducts()">
+                    <div class="seller-search-wrap">
+                        <span class="search-icon" aria-hidden="true">⌕</span>
+                        <input
+                            type="text"
+                            id="searchSellerProducts"
+                            placeholder="Search seller or product..."
+                            oninput="searchSellerProducts()"
+                            aria-label="Search seller products"
+                        >
+                    </div>
                 </div>
 
                 <div class="seller-price-table-wrap">
@@ -303,30 +327,36 @@
                                 <th>Priority</th>
                                 <th>Seller</th>
                                 <th>Product</th>
-
                                 <th>
                                     <select
                                         id="sellerCategoryFilter"
-                                        class="category-header-select"
                                         onchange="searchSellerProducts()"
-                                        aria-label="Filter by category">
+                                        aria-label="Filter by category"
+                                    >
                                         <option value="">Category</option>
                                     </select>
                                 </th>
-
                                 <th>Size / Type</th>
                                 <th>Selling Price</th>
                                 <th>Allowed Price</th>
-                                <th>Status</th>
+                                <th>
+                                    <select
+                                        id="sellerStatusFilter"
+                                        onchange="searchSellerProducts()"
+                                        aria-label="Filter by status"
+                                    >
+                                        <option value="">Status</option>
+                                        <option value="overpriced">Overpriced</option>
+                                        <option value="underpriced">Below minimum</option>
+                                        <option value="compliant">Within range</option>
+                                        <option value="missing">Missing price</option>
+                                        <option value="unmatched">No benchmark</option>
+                                    </select>
+                                </th>
                             </tr>
                         </thead>
-
                         <tbody id="sellerProductsTable">
-                            <tr>
-                                <td colspan="8">
-                                    Seller products load when this view is opened.
-                                </td>
-                            </tr>
+                            <tr><td colspan="8">Seller products load when this view is opened.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -334,11 +364,9 @@
         </section>
     </div>
 
-    <!-- Pricing modal -->
     <div id="pricingModal" class="modal">
         <div class="modal-content">
             <h2 id="modalTitle">Set Product Price</h2>
-
             <input type="hidden" id="modalProductId">
 
             <label>Product</label>
@@ -354,26 +382,15 @@
 
             <div id="minSection">
                 <label>Minimum Price</label>
-                <input
-                    type="number"
-                    id="modalMinPrice"
-                    placeholder="Enter minimum price">
+                <input type="number" id="modalMinPrice" placeholder="Enter minimum price">
             </div>
 
             <label id="maxLabel">Maximum Price</label>
-            <input
-                type="number"
-                id="modalMaxPrice"
-                placeholder="Enter maximum price">
+            <input type="number" id="modalMaxPrice" placeholder="Enter maximum price">
 
             <div class="modal-buttons">
-                <button class="approve-btn" onclick="savePricing()">
-                    Save
-                </button>
-
-                <button class="reject-btn" onclick="closeModal()">
-                    Cancel
-                </button>
+                <button class="approve-btn" onclick="savePricing()">Save</button>
+                <button class="reject-btn" onclick="closeModal()">Cancel</button>
             </div>
         </div>
     </div>
