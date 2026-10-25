@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -47,27 +48,31 @@
             background: var(--bg);
         }
 
+        /* Category dropdown appears as the header text itself */
         .category-header-select {
-            border: none;
-            outline: none;
-            box-shadow: none;
-            background: transparent;
-            padding: 0;
+            display: inline-block;
+            width: auto;
+            max-width: 150px;
             margin: 0;
+            padding: 0;
+            border: none !important;
+            outline: none !important;
+            box-shadow: none !important;
+            border-radius: 0;
+            background: transparent;
             color: inherit;
             font: inherit;
             font-weight: inherit;
             cursor: pointer;
             appearance: auto;
             -webkit-appearance: auto;
-            max-width: 150px;
         }
 
         .category-header-select:focus,
         .category-header-select:active {
-            border: none;
-            outline: none;
-            box-shadow: none;
+            border: none !important;
+            outline: none !important;
+            box-shadow: none !important;
         }
 
         .seller-price-value {
@@ -285,7 +290,7 @@
                     </span>
                 </div>
 
-                <!-- Search only. Category is in the table header. -->
+                <!-- Search bar only -->
                 <div class="seller-price-tools">
                     <input
                         type="text"
@@ -332,6 +337,7 @@
         </section>
     </div>
 
+    <!-- Existing pricing modal -->
     <div id="pricingModal" class="modal">
         <div class="modal-content">
             <h2 id="modalTitle">Set Product Price</h2>
