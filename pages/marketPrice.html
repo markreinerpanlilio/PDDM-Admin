@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -10,11 +9,11 @@
 
     <style>
         .seller-price-tools {
-            display: block;
             margin-bottom: 18px;
         }
 
         .seller-price-tools input {
+            display: block;
             width: 100%;
             max-width: 420px;
         }
@@ -48,7 +47,7 @@
             background: var(--bg);
         }
 
-        /* Category dropdown appears as the header text itself */
+        /* Category is a dropdown directly in the table header */
         .category-header-select {
             display: inline-block;
             width: auto;
@@ -64,8 +63,6 @@
             font: inherit;
             font-weight: inherit;
             cursor: pointer;
-            appearance: auto;
-            -webkit-appearance: auto;
         }
 
         .category-header-select:focus,
@@ -214,7 +211,7 @@
                     class="refresh-btn view-toggle-btn"
                     id="toggleSellerProductsBtn"
                     onclick="toggleMarketPriceView()">
-                    Product
+                    Products
                 </button>
             </div>
         </div>
@@ -229,7 +226,7 @@
                         type="text"
                         id="searchPrice"
                         placeholder="Search benchmark product..."
-                        onkeyup="searchMarketPrice()"
+                        oninput="searchMarketPrice()"
                         style="width:300px;max-width:100%;">
 
                     <button class="approve-btn" onclick="openAddModal()">
@@ -265,7 +262,7 @@
                 <h2>Seller Product Price Monitoring</h2>
 
                 <p style="color:var(--text-muted);font-size:13px;margin:8px 0 18px;">
-                    All seller-listed products are compared with matching market price benchmarks. Overpriced products appear first.
+                    Seller-listed products are compared with matching market price benchmarks. Overpriced products appear first.
                 </p>
 
                 <div class="seller-price-summary">
@@ -290,7 +287,7 @@
                     </span>
                 </div>
 
-                <!-- Search bar only -->
+                <!-- Search bar only. Category is in the table header. -->
                 <div class="seller-price-tools">
                     <input
                         type="text"
@@ -337,7 +334,7 @@
         </section>
     </div>
 
-    <!-- Existing pricing modal -->
+    <!-- Pricing modal -->
     <div id="pricingModal" class="modal">
         <div class="modal-content">
             <h2 id="modalTitle">Set Product Price</h2>
