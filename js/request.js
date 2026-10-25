@@ -1,10 +1,10 @@
-
 const tbody = document.getElementById("requestTable");
 const pending = document.getElementById("pendingCount");
-const permitModal = document.getElementById("permitModal");
+const detailsModal = document.getElementById("sellerDetailsModal");
 const BUCKET_NAME = "seller-application-documents";
 
 let requests = [];
+let selectedSellerId = null;
 
 function escapeHTML(value) {
     return String(value ?? "").replace(/[&<>"']/g, char => ({
@@ -14,6 +14,31 @@ function escapeHTML(value) {
         '"': "&quot;",
         "'": "&#39;"
     })[char]);
+}
+
+function displayValue(value) {
+    if (value === null || value === undefined || value === "") {
+        return "Not provided";
+    }
+
+    if (typeof value === "boolean") {
+        return value ? "Yes" : "No";
+    }
+
+    return String(value);
+}
+
+function formatDate(value) {
+    if (!value) return "Not provided";
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) return String(value);
+
+    return date.toLocaleString("en-PH", {
+        dateStyle: "medium",
+        timeStyle: "short"
+    });
 }
 
 async function loadRequests() {
@@ -27,18 +52,19 @@ async function loadRequests() {
 
     const { data, error } = await db
         .from("profiles")
-        .select("id,full_name,email,phone_number,created_at,stall_number,business_permit_path")
+        .select("*")
         .eq("seller_application", "pending")
         .order("created_at", { ascending: false });
 
     if (error) {
-        console.error("Error loading applications:", error);
+        console.error("Error loading seller applications:", error);
         pending.textContent = "Unable to load applications";
 
         tbody.innerHTML = `
             <tr>
                 <td colspan="6" class="request-empty-message">
-                    Failed to load applications. Please refresh the page.
+                    Failed to load applications. Check the browser console
+                    and Supabase permissions.
                 </td>
             </tr>`;
         return;
@@ -68,7 +94,6 @@ function renderRequests() {
 
     tbody.innerHTML = requests.map(user => `
         <tr id="request-${escapeHTML(user.id)}">
-
             <td>
                 <div class="request-applicant">
                     <div class="request-avatar">
@@ -101,9 +126,11 @@ function renderRequests() {
 
             <td>
                 <span class="request-date">
-                    ${user.created_at
-                        ? escapeHTML(new Date(user.created_at).toLocaleDateString())
-                        : "-"}
+                    ${escapeHTML(
+                        user.created_at
+                            ? new Date(user.created_at).toLocaleDateString()
+                            : "-"
+                    )}
                 </span>
             </td>
 
@@ -117,18 +144,11 @@ function renderRequests() {
 
             <td>
                 <div class="request-actions">
-
                     <button
                         type="button"
                         class="request-view-btn"
                         data-action="view"
-                        data-id="${escapeHTML(user.id)}"
-                        ${user.business_permit_path ? "" : "disabled"}
-                        title="${user.business_permit_path
-                            ? "View permit photo"
-                            : "No permit photo uploaded"}">
-                        View permit
-                    </button>
+                        data-id="${escapeHTML(user.id)}">View</button>
 
                     <button
                         type="button"
@@ -145,10 +165,8 @@ function renderRequests() {
                         data-id="${escapeHTML(user.id)}"
                         title="Reject application"
                         aria-label="Reject application">✕</button>
-
                 </div>
             </td>
-
         </tr>
     `).join("");
 
@@ -157,39 +175,87 @@ function renderRequests() {
 
 tbody.addEventListener("click", event => {
     const button = event.target.closest("button[data-action]");
-
-    if (!button || button.disabled) return;
+    if (!button) return;
 
     const { action, id } = button.dataset;
 
-    if (action === "view") viewPermit(id);
+    if (action === "view") viewSellerDetails(id);
     if (action === "approve") approveSeller(id);
     if (action === "reject") rejectSeller(id);
 });
 
-async function viewPermit(id) {
+function renderSellerDetails(seller) {
+    const detailsContainer = document.getElementById("sellerProfileDetails");
+
+    const fields = [
+        ["Full Name", "full_name"],
+        ["Email", "email"],
+        ["Phone Number", "phone_number"],
+        ["Account Role", "role"],
+        ["Seller Status", "seller_status"],
+        ["Application Status", "seller_application"],
+        ["Requested Stall", "stall_number"],
+        ["Store Description", "store_description"],
+        ["Application / Profile Created", "created_at"],
+        ["Latitude", "latitude"],
+        ["Longitude", "longitude"],
+        ["QR Code URL", "qr_url"]
+    ];
+
+    detailsContainer.innerHTML = fields.map(([label, key]) => {
+        if (!(key in seller)) return "";
+
+        let value = seller[key];
+
+        if (key === "created_at") {
+            value = formatDate(value);
+        } else {
+            value = displayValue(value);
+        }
+
+        return `
+            <div class="request-detail-item">
+                <span class="request-detail-label">${escapeHTML(label)}</span>
+                <span class="request-detail-value">${escapeHTML(value)}</span>
+            </div>`;
+    }).join("");
+
+    document.getElementById("sellerDetailsTitle").textContent =
+        seller.full_name || "Seller Details";
+
+    document.getElementById("sellerDetailsSubtitle").textContent =
+        `Email: ${seller.email || "Not provided"} · Application pending`;
+}
+
+async function viewSellerDetails(id) {
     const seller = requests.find(user => user.id === id);
 
-    if (!seller || !seller.business_permit_path) {
-        alert("No permit photo was uploaded for this application.");
+    if (!seller) {
+        alert("This application could not be found. Refresh the page and try again.");
         return;
     }
 
-    const image = document.getElementById("permitImage");
-    const info = document.getElementById("permitApplicantInfo");
-    const loading = document.getElementById("permitLoading");
+    selectedSellerId = id;
+    renderSellerDetails(seller);
 
-    info.textContent =
-        `${seller.full_name || "Applicant"} · Requested stall: ${seller.stall_number ?? "Not specified"}`;
+    const permitArea = document.getElementById("permitArea");
+    permitArea.textContent = "Checking for a submitted permit photo...";
 
-    image.onload = null;
-    image.onerror = null;
-    image.removeAttribute("src");
-    image.style.display = "none";
+    detailsModal.style.display = "flex";
 
-    loading.style.display = "block";
-    loading.textContent = "Loading permit photo...";
-    permitModal.style.display = "flex";
+    const modalApproveBtn = document.getElementById("modalApproveBtn");
+    const modalRejectBtn = document.getElementById("modalRejectBtn");
+
+    modalApproveBtn.onclick = () => approveSeller(id);
+    modalRejectBtn.onclick = () => rejectSeller(id);
+
+    if (!seller.business_permit_path) {
+        permitArea.textContent =
+            "No permit file path is saved in this seller's profile.";
+        return;
+    }
+
+    permitArea.textContent = "Loading permit photo...";
 
     try {
         const { data, error } = await db.storage
@@ -202,59 +268,47 @@ async function viewPermit(id) {
             throw new Error("Supabase did not return a signed URL.");
         }
 
+        const image = document.createElement("img");
+        image.id = "permitImage";
+        image.alt = "Seller's submitted business permit";
+        image.style.display = "none";
+
         image.onload = () => {
+            permitArea.replaceChildren(image);
             image.style.display = "block";
-            loading.style.display = "none";
         };
 
         image.onerror = () => {
-            image.style.display = "none";
-            loading.style.display = "block";
-            loading.textContent =
-                "Unable to display the image. Check the saved file path and file format.";
+            permitArea.textContent =
+                "The permit image could not be displayed. Verify the stored file path and bucket permissions.";
         };
 
         image.src = data.signedUrl;
 
     } catch (error) {
-        console.error("Error loading permit photo:", error);
-        closePermitModal();
+        console.error("Permit access error:", error);
 
-        alert(
-            "Unable to access the permit photo.\n\n" +
-            "Check the Storage bucket name, saved file path, admin login, " +
-            "and Supabase Storage policies."
-        );
+        permitArea.textContent =
+            "Unable to load the permit. Check the Storage SELECT policy, " +
+            "the bucket name, the saved object path, and the admin's role.";
     }
 }
 
-function closePermitModal() {
-    permitModal.style.display = "none";
+function closeSellerDetails() {
+    detailsModal.style.display = "none";
+    selectedSellerId = null;
 
-    const image = document.getElementById("permitImage");
-    image.onload = null;
-    image.onerror = null;
-    image.removeAttribute("src");
-    image.style.display = "none";
-
-    const loading = document.getElementById("permitLoading");
-
-    if (loading) {
-        loading.style.display = "block";
-        loading.textContent = "Loading permit photo...";
-    }
+    const permitArea = document.getElementById("permitArea");
+    permitArea.replaceChildren();
+    permitArea.textContent = "No permit photo loaded.";
 }
 
-permitModal.addEventListener("click", event => {
-    if (event.target === permitModal) {
-        closePermitModal();
-    }
+detailsModal.addEventListener("click", event => {
+    if (event.target === detailsModal) closeSellerDetails();
 });
 
 document.addEventListener("keydown", event => {
-    if (event.key === "Escape") {
-        closePermitModal();
-    }
+    if (event.key === "Escape") closeSellerDetails();
 });
 
 async function addAuditLog(action, module, description) {
@@ -275,13 +329,8 @@ async function addAuditLog(action, module, description) {
             .eq("id", user.id)
             .single();
 
-        if (error || !admin) {
-            console.error("Unable to load admin profile:", error);
-            return;
-        }
-
-        if (admin.role !== "admin") {
-            console.error("The logged-in profile is not an admin.");
+        if (error || !admin || admin.role !== "admin") {
+            console.error("Unable to verify admin profile:", error);
             return;
         }
 
@@ -310,7 +359,7 @@ async function approveSeller(id) {
     const confirmed = confirm(
         `Approve ${seller.full_name || seller.email} as a seller?\n\n` +
         `Requested stall: ${seller.stall_number ?? "Not specified"}\n\n` +
-        "Please confirm that the requested stall is available."
+        "Please verify that the requested stall is available."
     );
 
     if (!confirmed) return;
@@ -344,7 +393,7 @@ async function approveSeller(id) {
 
     requests = requests.filter(user => user.id !== id);
     renderRequests();
-    closePermitModal();
+    closeSellerDetails();
 }
 
 async function rejectSeller(id) {
@@ -387,7 +436,7 @@ async function rejectSeller(id) {
 
     requests = requests.filter(user => user.id !== id);
     renderRequests();
-    closePermitModal();
+    closeSellerDetails();
 }
 
 function searchRequests() {
