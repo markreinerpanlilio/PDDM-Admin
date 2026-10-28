@@ -18,9 +18,11 @@
 .users-search,.users-select,.users-input{height:42px;padding:0 14px;border:1px solid var(--border);border-radius:10px;background:#fff;color:var(--text);font-size:13px;outline:none}
 .users-search{width:270px}
 .users-search:focus,.users-select:focus,.users-input:focus{border-color:var(--accent)}
-.users-btn{padding:11px 18px;border-radius:9px;font-size:13px;font-weight:700}
+.users-btn{padding:11px 18px;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer}
 .users-primary{background:var(--accent);color:#171717}
-.users-secondary{background:#f0f0f0;color:#333}
+.users-secondary{background:#f7f7f7;color:#333}
+.users-refresh{border:2px solid #d2a332!important;background:#fff!important;color:#6c5200!important}
+.users-refresh:hover{background:#fff8e5!important}
 .users-danger{background:#ffe7e7;color:#b93030}
 .users-btn:disabled{opacity:.5;cursor:wait}
 .users-status{min-height:18px;margin-bottom:12px;color:var(--text-muted);font-size:12px}
@@ -39,7 +41,7 @@
 .users-pill.seller{background:#fff0d4;color:#9b6900}
 .users-pill.admin{background:#f0eaff;color:#7452ae}
 .users-actions{display:flex;gap:7px;white-space:nowrap}
-.users-actions button{padding:8px 12px;border-radius:8px;font-size:12px}
+.users-actions button{padding:8px 12px;border-radius:8px;font-size:12px;cursor:pointer}
 .users-view{background:#f0f0f0;color:#333}
 .users-edit{background:#fff0d4;color:#946000}
 .users-delete{background:#ffe7e7;color:#b93030}
@@ -64,9 +66,11 @@
 .users-field label{font-size:12px;font-weight:700;color:#555}
 .users-field .users-input{width:100%}
 .users-field.full{grid-column:1/-1}
-.users-form-note{font-size:12px;color:#888;margin-top:12px}
+.users-password-wrap{display:flex;position:relative}
+.users-password-wrap input{padding-right:65px}
+.users-show-password{position:absolute;right:7px;top:6px;height:30px;padding:0 9px;background:#f1f1f1;color:#555;border-radius:6px;font-size:11px;cursor:pointer}
+.users-form-note{font-size:12px;color:#888;margin-top:12px;line-height:1.5}
 .users-modal-footer{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}
-@media(max-width:1100px){.users-stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:768px){
 .users-mobile-menu{display:block;position:fixed;top:12px;left:12px;z-index:1002;background:#fff;border:1px solid var(--border);padding:8px 12px;border-radius:10px;font-size:20px}
 .dashboard-header{padding-top:35px}
@@ -107,8 +111,8 @@
             <h3>Account Management</h3>
         </div>
         <div class="users-header-actions">
-            <button class="users-btn users-secondary" id="usersRefresh">Refresh</button>
-            <button class="users-btn users-primary" id="usersAdd">+ Add User</button>
+            <button class="users-btn users-refresh" id="usersRefresh" type="button">Refresh</button>
+            <button class="users-btn users-primary" id="usersAdd" type="button">+ Add User</button>
         </div>
     </div>
 
@@ -130,31 +134,22 @@
                 </select>
             </div>
         </div>
-
         <div id="usersStatus" class="users-status" role="status" aria-live="polite"></div>
-
         <div class="users-table-wrap">
             <table class="users-table">
                 <thead>
-                    <tr>
-                        <th>User</th>
-                        <th>Email</th>
-                        <th>Role</th>
-                        <th>Joined</th>
-                        <th>Actions</th>
-                    </tr>
+                    <tr><th>User</th><th>Email</th><th>Role</th><th>Joined</th><th>Actions</th></tr>
                 </thead>
                 <tbody id="usersTable">
                     <tr><td colspan="5" class="users-empty">Loading...</td></tr>
                 </tbody>
             </table>
         </div>
-
         <div class="users-footer">
             <span id="usersPageInfo" class="users-page-info">0 users</span>
             <div class="users-page-buttons">
-                <button id="usersPrevious">Previous</button>
-                <button id="usersNext">Next</button>
+                <button id="usersPrevious" type="button">Previous</button>
+                <button id="usersNext" type="button">Next</button>
             </div>
         </div>
     </div>
