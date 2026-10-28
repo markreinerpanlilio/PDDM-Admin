@@ -5,6 +5,7 @@ const plViewContent = document.getElementById("plViewContent");
 
 let plProducts = [];
 let plSellers = [];
+let plBenchmarks = [];
 let plFiltered = [];
 let plAdmin = null;
 let plPage = 1;
@@ -12,6 +13,7 @@ let plEditingId = null;
 let plBusy = false;
 let plCategoryFilter = "all";
 let plTypeFilter = "all";
+let plStatusFilter = "all";
 
 const plPageSize = 10;
 
@@ -25,8 +27,15 @@ function plEsc(value) {
     })[char]);
 }
 
+function plNormalize(value) {
+    return String(value ?? "").trim().toLowerCase().replace(/\s+/g, "");
+}
+
 function plMoney(value) {
+    if (value === null || value === undefined || value === "") return "—";
+
     const n = Number(value);
+
     return Number.isFinite(n)
         ? "₱" + n.toLocaleString("en-PH", {
             minimumFractionDigits: 2,
@@ -37,8 +46,12 @@ function plMoney(value) {
 
 function plDate(value) {
     if (!value) return "—";
+
     const d = new Date(value);
-    return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("en-PH");
+
+    return Number.isNaN(d.getTime())
+        ? "—"
+        : d.toLocaleDateString("en-PH");
 }
 
 function plMessage(message, error = false) {
@@ -49,9 +62,12 @@ function plMessage(message, error = false) {
 
 function plSetBusy(busy) {
     plBusy = busy;
+
     document.querySelectorAll(
-        "#plRefresh,#plAdd,#plSave,.pl-actions button"
-    ).forEach(button => button.disabled = busy);
+        "#plRefresh,#plAdd,#plSave,#plCancel,.pl-actions button"
+    ).forEach(button => {
+        button.disabled = busy;
+    });
 }
 
 async function plVerifyAdmin() {
@@ -74,16 +90,24 @@ async function plVerifyAdmin() {
     plAdmin = { user, profile };
 }
 
-async function plFetchAll(table, columns, sort = "created_at") {
+async function plFetchAll(table, columns, sort = "created_at", filters = null) {
     const rows = [];
     const size = 1000;
 
     for (let start = 0; start < 100000; start += size) {
-        const { data, error } = await db
+        let query = db
             .from(table)
             .select(columns)
             .order(sort, { ascending: false })
             .range(start, start + size - 1);
+
+        if (filters) {
+            for (const [column, value] of Object.entries(filters)) {
+                query = query.eq(column, value);
+            }
+        }
+
+        const { data, error } = await query;
 
         if (error) throw error;
 
@@ -96,24 +120,162 @@ async function plFetchAll(table, columns, sort = "created_at") {
 }
 
 async function plLoadSellers() {
-    const profiles = await plFetchAll(
+    plSellers = await plFetchAll(
         "profiles",
         "id,full_name,email,role",
-        "created_at"
+        "created_at",
+        { role: "seller" }
     );
 
-    plSellers = profiles
-        .filter(p => String(p.role || "").trim().toLowerCase() === "seller")
-        .sort((a, b) =>
-            String(a.full_name || a.email || "").localeCompare(
-                String(b.full_name || b.email || "")
-            )
-        );
+    plSellers.sort((a, b) =>
+        String(a.full_name || a.email || "").localeCompare(
+            String(b.full_name || b.email || "")
+        )
+    );
 }
 
 function plSellerName(id, fallback = "") {
     const seller = plSellers.find(s => s.id === id);
     return seller?.full_name || seller?.email || fallback || "Unknown Seller";
+}
+
+// Match benchmark names, categories, pricing types, and product sizes.
+function plGetProductSizes(product) {
+    return [
+        product.variant,
+        product.size,
+        product.weight != null && product.unit
+            ? `${product.weight}${product.unit}`
+            : null,
+        product.weight != null ? String(product.weight) : null
+    ].filter(value =>
+        value !== null &&
+        value !== undefined &&
+        String(value).trim() !== ""
+    );
+}
+
+function plGetPricingType(product) {
+    if (product.pricing_type === "per_kg") return "per_kg";
+    if (product.pricing_type === "fixed_size") return "fixed_size";
+
+    const sizes = plGetProductSizes(product).map(plNormalize);
+
+    return sizes.some(size => size === "kg" || size.endsWith("/kg"))
+        ? "per_kg"
+        : "fixed_size";
+}
+
+function plFindBenchmark(product) {
+    const name = plNormalize(product.name);
+
+    if (!name) return null;
+
+    const type = plGetPricingType(product);
+    const category = plNormalize(product.category);
+
+    const matches = plBenchmarks.filter(benchmark => {
+        if (plNormalize(benchmark.product_name) !== name) return false;
+
+        if (
+            category &&
+            benchmark.category &&
+            category !== plNormalize(benchmark.category)
+        ) {
+            return false;
+        }
+
+        return benchmark.pricing_type === type;
+    });
+
+    if (type === "per_kg") {
+        return matches[0] || null;
+    }
+
+    const sizes = plGetProductSizes(product).map(plNormalize);
+
+    if (!sizes.length) {
+        return matches[0] || null;
+    }
+
+    return matches.find(benchmark =>
+        benchmark.size != null &&
+        sizes.includes(plNormalize(benchmark.size))
+    ) || null;
+}
+
+function plComparePrice(product) {
+    const benchmark = plFindBenchmark(product);
+
+    const hasMax = benchmark &&
+        benchmark.max_price !== null &&
+        benchmark.max_price !== undefined &&
+        String(benchmark.max_price).trim() !== "" &&
+        Number.isFinite(Number(benchmark.max_price));
+
+    if (!hasMax) {
+        return {
+            benchmark: null,
+            status: "unmatched",
+            label: "No Benchmark",
+            srp: "—"
+        };
+    }
+
+    const max = Number(benchmark.max_price);
+
+    const hasMin = benchmark.min_price !== null &&
+        benchmark.min_price !== undefined &&
+        String(benchmark.min_price).trim() !== "" &&
+        Number.isFinite(Number(benchmark.min_price));
+
+    const min = hasMin ? Number(benchmark.min_price) : null;
+
+    const srp = min === null
+        ? plMoney(max)
+        : `${plMoney(min)}–${plMoney(max)}`;
+
+    const price = Number(product.price);
+
+    if (
+        product.price === null ||
+        product.price === undefined ||
+        product.price === "" ||
+        !Number.isFinite(price) ||
+        price < 0
+    ) {
+        return {
+            benchmark,
+            status: "unmatched",
+            label: "No Price",
+            srp
+        };
+    }
+
+    if (price > max) {
+        return {
+            benchmark,
+            status: "overpriced",
+            label: "Overpriced",
+            srp
+        };
+    }
+
+    if (min !== null && price < min) {
+        return {
+            benchmark,
+            status: "underpriced",
+            label: "Below Minimum",
+            srp
+        };
+    }
+
+    return {
+        benchmark,
+        status: "compliant",
+        label: "Within Range",
+        srp
+    };
 }
 
 async function loadProducts() {
@@ -125,12 +287,32 @@ async function loadProducts() {
     try {
         await plVerifyAdmin();
 
-        await plLoadSellers();
+        const [sellers, benchmarks, products] = await Promise.all([
+            plFetchAll(
+                "profiles",
+                "id,full_name,email,role",
+                "created_at",
+                { role: "seller" }
+            ),
+            plFetchAll(
+                "market_prices",
+                "id,product_name,category,pricing_type,size,min_price,max_price",
+                "created_at"
+            ),
+            plFetchAll(
+                "products",
+                "id,name,price,stock,category,seller_id,seller_name,image_url,created_at,is_active,variant,unit,price_status,weight,pricing_type"
+            )
+        ]);
 
-        plProducts = await plFetchAll(
-            "products",
-            "id,name,price,stock,category,seller_id,seller_name,image_url,created_at,is_active,variant,unit,price_status,weight,pricing_type"
+        plSellers = sellers.sort((a, b) =>
+            String(a.full_name || a.email || "").localeCompare(
+                String(b.full_name || b.email || "")
+            )
         );
+
+        plBenchmarks = benchmarks;
+        plProducts = products;
 
         plPage = 1;
         plBuildFilters();
@@ -140,7 +322,7 @@ async function loadProducts() {
         console.error("Load products:", error);
         plMessage(error.message || "Unable to load products.", true);
         plTable.innerHTML =
-            '<tr><td colspan="8" class="pl-empty">Unable to load products</td></tr>';
+            '<tr><td colspan="9" class="pl-empty">Unable to load products</td></tr>';
     } finally {
         plSetBusy(false);
     }
@@ -171,9 +353,12 @@ function plToggleFilter(menuId, triggerId) {
 
 function plOption(label, value, kind) {
     const button = document.createElement("button");
+
     const selected = kind === "category"
         ? plCategoryFilter
-        : plTypeFilter;
+        : kind === "type"
+            ? plTypeFilter
+            : plStatusFilter;
 
     button.type = "button";
     button.className = "pl-filter-option";
@@ -186,8 +371,10 @@ function plOption(label, value, kind) {
     button.addEventListener("click", () => {
         if (kind === "category") {
             plCategoryFilter = value;
-        } else {
+        } else if (kind === "type") {
             plTypeFilter = value;
+        } else {
+            plStatusFilter = value;
         }
 
         plPage = 1;
@@ -201,7 +388,9 @@ function plOption(label, value, kind) {
 
 function plBuildFilters() {
     const categories = [...new Set(
-        plProducts.map(p => String(p.category || "").trim()).filter(Boolean)
+        plProducts
+            .map(p => String(p.category || "").trim())
+            .filter(Boolean)
     )].sort((a, b) => a.localeCompare(b));
 
     if (
@@ -213,22 +402,29 @@ function plBuildFilters() {
 
     const categoryMenu = document.getElementById("plCategoryMenu");
     const typeMenu = document.getElementById("plTypeMenu");
+    const statusMenu = document.getElementById("plStatusMenu");
     const suggestions = document.getElementById("plCategorySuggestions");
 
     categoryMenu.replaceChildren(
         plOption("All Categories", "all", "category")
     );
 
-    categories.forEach(category => {
-        categoryMenu.appendChild(
-            plOption(category, category, "category")
-        );
-    });
+    categories.forEach(category =>
+        categoryMenu.appendChild(plOption(category, category, "category"))
+    );
 
     typeMenu.replaceChildren(
         plOption("All Types", "all", "type"),
         plOption("Per kg", "per_kg", "type"),
         plOption("Fixed Size", "fixed_size", "type")
+    );
+
+    statusMenu.replaceChildren(
+        plOption("All Statuses", "all", "status"),
+        plOption("Within Range", "compliant", "status"),
+        plOption("Overpriced", "overpriced", "status"),
+        plOption("Below Minimum", "underpriced", "status"),
+        plOption("No Benchmark", "unmatched", "status")
     );
 
     suggestions.replaceChildren();
@@ -244,6 +440,9 @@ function plBuildFilters() {
 
     document.getElementById("plTypeTrigger")
         .classList.toggle("selected", plTypeFilter !== "all");
+
+    document.getElementById("plStatusTrigger")
+        .classList.toggle("selected", plStatusFilter !== "all");
 }
 
 function plFilter() {
@@ -252,20 +451,24 @@ function plFilter() {
 
     plFiltered = plProducts.filter(product => {
         const seller = plSellerName(product.seller_id, product.seller_name);
+        const priceInfo = plComparePrice(product);
 
         const searchable = [
             product.name,
             product.category,
             product.variant,
             seller,
-            product.id
-        ].map(v => String(v ?? "")).join(" ").toLowerCase();
+            product.id,
+            priceInfo.label
+        ].map(value => String(value ?? "")).join(" ").toLowerCase();
 
         return (!search || searchable.includes(search)) &&
             (plCategoryFilter === "all" ||
                 product.category === plCategoryFilter) &&
             (plTypeFilter === "all" ||
-                product.pricing_type === plTypeFilter);
+                plGetPricingType(product) === plTypeFilter) &&
+            (plStatusFilter === "all" ||
+                priceInfo.status === plStatusFilter);
     });
 
     plPage = Math.min(
@@ -282,17 +485,14 @@ function plRender() {
 
     plTable.innerHTML = page.length
         ? page.map(product => {
-            const kg = product.pricing_type === "per_kg";
-            const name = product.name || "Unnamed Product";
-            const seller = plSellerName(
-                product.seller_id,
-                product.seller_name
-            );
+            const kg = plGetPricingType(product) === "per_kg";
+            const priceInfo = plComparePrice(product);
 
             const image = product.image_url &&
                 /^https?:\/\//i.test(product.image_url)
-                ? `<img class="pl-thumbnail" src="${plEsc(product.image_url)}"
-                     alt="" loading="lazy" referrerpolicy="no-referrer">`
+                ? `<img class="pl-thumbnail"
+                    src="${plEsc(product.image_url)}"
+                    alt="" loading="lazy" referrerpolicy="no-referrer">`
                 : '<div class="pl-thumbnail-empty">No image</div>';
 
             return `
@@ -301,12 +501,18 @@ function plRender() {
                         <div class="pl-product">
                             ${image}
                             <div>
-                                <div class="pl-name">${plEsc(name)}</div>
-                                <div class="pl-sub">${plEsc(product.variant || "—")}</div>
+                                <div class="pl-name">
+                                    ${plEsc(product.name || "Unnamed Product")}
+                                </div>
+                                <div class="pl-sub">
+                                    ${plEsc(product.variant || "—")}
+                                </div>
                             </div>
                         </div>
                     </td>
-                    <td class="pl-seller">${plEsc(seller)}</td>
+                    <td class="pl-seller">
+                        ${plEsc(plSellerName(product.seller_id, product.seller_name))}
+                    </td>
                     <td>${plEsc(product.category || "—")}</td>
                     <td>
                         <span class="pl-pill ${kg ? "kg" : "fixed"}">
@@ -314,23 +520,30 @@ function plRender() {
                         </span>
                     </td>
                     <td class="pl-price">${plMoney(product.price)}</td>
-                    <td>${Number(product.stock || 0).toLocaleString()}</td>
+                    <td class="pl-srp">${plEsc(priceInfo.srp)}</td>
                     <td>
-                        <span class="pl-pill ${product.is_active ? "active" : "inactive"}">
-                            ${product.is_active ? "Active" : "Inactive"}
+                        <span class="pl-pill ${priceInfo.status}">
+                            ${plEsc(priceInfo.label)}
                         </span>
                     </td>
+                    <td>${Number(product.stock || 0).toLocaleString()}</td>
                     <td>
                         <div class="pl-actions">
-                            <button class="pl-view" data-action="view" data-id="${plEsc(product.id)}">View</button>
-                            <button class="pl-edit" data-action="edit" data-id="${plEsc(product.id)}">Edit</button>
-                            <button class="pl-delete" data-action="delete" data-id="${plEsc(product.id)}">Delete</button>
+                            <button type="button" class="pl-view"
+                                data-action="view"
+                                data-id="${plEsc(product.id)}">View</button>
+                            <button type="button" class="pl-edit"
+                                data-action="edit"
+                                data-id="${plEsc(product.id)}">Edit</button>
+                            <button type="button" class="pl-delete"
+                                data-action="delete"
+                                data-id="${plEsc(product.id)}">Delete</button>
                         </div>
                     </td>
                 </tr>
             `;
         }).join("")
-        : '<tr><td colspan="8" class="pl-empty">No products found</td></tr>';
+        : '<tr><td colspan="9" class="pl-empty">No products found</td></tr>';
 
     const total = plFiltered.length;
 
@@ -349,6 +562,7 @@ function plPopulateSellers(selectedId = "") {
 
     plSellers.forEach(seller => {
         const name = seller.full_name || seller.email || seller.id;
+
         const label = seller.email && seller.full_name
             ? `${seller.full_name} (${seller.email})`
             : name;
@@ -357,11 +571,6 @@ function plPopulateSellers(selectedId = "") {
     });
 
     select.value = selectedId || "";
-
-    if (selectedId && !plSellers.some(s => s.id === selectedId)) {
-        select.add(new Option("Seller no longer available", selectedId));
-        select.value = selectedId;
-    }
 }
 
 function plOpen(title, subtitle) {
@@ -408,23 +617,26 @@ function plOpenForm(id = null) {
     document.getElementById("plName").value = product?.name || "";
     document.getElementById("plCategory").value = product?.category || "";
     document.getElementById("plPricingType").value =
-        product?.pricing_type === "per_kg" ? "per_kg" : "fixed_size";
+        plGetPricingType(product || {}) === "per_kg"
+            ? "per_kg"
+            : "fixed_size";
     document.getElementById("plPrice").value = product?.price ?? "";
     document.getElementById("plStock").value = product?.stock ?? "";
     document.getElementById("plVariant").value = product?.variant || "";
     document.getElementById("plWeight").value = product?.weight ?? "";
     document.getElementById("plUnit").value = product?.unit || "";
-    document.getElementById("plActive").value =
-        product?.is_active === false ? "false" : "true";
     document.getElementById("plImage").value = product?.image_url || "";
 
     plUpdatePreview();
+    plUpdatePricePreview();
     document.getElementById("plName").focus();
 }
 
 function plShowDetails(id) {
     const product = plProducts.find(p => String(p.id) === String(id));
     if (!product) return;
+
+    const priceInfo = plComparePrice(product);
 
     plForm.hidden = true;
     plViewContent.hidden = false;
@@ -434,14 +646,14 @@ function plShowDetails(id) {
         ["Product Name", product.name],
         ["Seller", plSellerName(product.seller_id, product.seller_name)],
         ["Category", product.category],
-        ["Pricing Type", product.pricing_type === "per_kg" ? "Per kg" : "Fixed Size"],
+        ["Pricing Type", plGetPricingType(product) === "per_kg" ? "Per kg" : "Fixed Size"],
         ["Selling Price", plMoney(product.price)],
+        ["Market Price (SRP)", priceInfo.srp],
+        ["Price Status", priceInfo.label],
         ["Stock", product.stock],
         ["Variant / Size", product.variant],
         ["Weight", product.weight],
         ["Unit", product.unit],
-        ["Availability", product.is_active ? "Active" : "Inactive"],
-        ["Price Status", product.price_status],
         ["Created", plDate(product.created_at)],
         ["Product ID", product.id]
     ];
@@ -451,13 +663,16 @@ function plShowDetails(id) {
             ${fields.map(([label, value]) => `
                 <div class="pl-detail">
                     <span class="pl-detail-label">${plEsc(label)}</span>
-                    <span class="pl-detail-value">${plEsc(value ?? "—")}</span>
+                    <span class="pl-detail-value">
+                        ${plEsc(value ?? "—")}
+                    </span>
                 </div>
             `).join("")}
         </div>
         ${product.image_url && /^https?:\/\//i.test(product.image_url)
-            ? `<img src="${plEsc(product.image_url)}" alt="Product image"
-                 style="max-width:100%;max-height:220px;object-fit:contain;margin-top:16px;border-radius:10px">`
+            ? `<img src="${plEsc(product.image_url)}"
+                alt="Product image"
+                style="max-width:100%;max-height:220px;object-fit:contain;margin-top:16px;border-radius:10px">`
             : ""}
     `;
 
@@ -476,6 +691,34 @@ function plUpdatePreview() {
         preview.removeAttribute("src");
         preview.style.display = "none";
     }
+}
+
+function plUpdatePricePreview() {
+    const name = document.getElementById("plName").value.trim();
+    const priceText = document.getElementById("plPrice").value;
+    const preview = document.getElementById("plPricePreview");
+
+    if (!name) {
+        preview.textContent = "Enter product details to check the market price.";
+        return;
+    }
+
+    const product = {
+        name,
+        category: document.getElementById("plCategory").value.trim(),
+        pricing_type: document.getElementById("plPricingType").value,
+        variant: document.getElementById("plVariant").value.trim(),
+        weight: document.getElementById("plWeight").value === ""
+            ? null
+            : Number(document.getElementById("plWeight").value),
+        unit: document.getElementById("plUnit").value.trim(),
+        price: priceText === "" ? null : Number(priceText)
+    };
+
+    const info = plComparePrice(product);
+
+    preview.textContent =
+        `Market Price (SRP): ${info.srp} | Status: ${info.label}`;
 }
 
 function plReadForm() {
@@ -551,8 +794,7 @@ function plReadForm() {
         variant: variant || null,
         weight,
         unit: unit || null,
-        image_url: image || null,
-        is_active: document.getElementById("plActive").value === "true"
+        image_url: image || null
     };
 }
 
@@ -597,16 +839,21 @@ async function plSave(event) {
 
         const query = editing
             ? db.from("products").update(values).eq("id", plEditingId)
-            : db.from("products").insert(values);
+            : db.from("products").insert({
+                ...values,
+                is_active: true
+            });
 
         const { data, error } = await query.select("id").single();
 
         if (error) throw error;
         if (!data?.id) throw Error("Product was not saved.");
 
+        const priceInfo = plComparePrice(values);
+
         await plAudit(
             editing ? "Update Product" : "Create Product",
-            `${values.name} — Seller: ${values.seller_name || values.seller_id}`
+            `${values.name} — Seller: ${values.seller_name || values.seller_id} — ${priceInfo.label}`
         );
 
         plBusy = false;
@@ -679,27 +926,26 @@ plTable.addEventListener("click", event => {
     if (action === "delete") plDelete(id);
 });
 
-document.getElementById("plAdd")
-    .addEventListener("click", () => plOpenForm());
+document.getElementById("plAdd").addEventListener("click", () => {
+    plOpenForm();
+});
 
-document.getElementById("plRefresh")
-    .addEventListener("click", loadProducts);
+document.getElementById("plRefresh").addEventListener("click", loadProducts);
 
-document.getElementById("plSearch")
-    .addEventListener("input", () => {
-        plPage = 1;
-        plFilter();
+document.getElementById("plSearch").addEventListener("input", () => {
+    plPage = 1;
+    plFilter();
+});
+
+[
+    ["plCategoryTrigger", "plCategoryMenu"],
+    ["plTypeTrigger", "plTypeMenu"],
+    ["plStatusTrigger", "plStatusMenu"]
+].forEach(([triggerId, menuId]) => {
+    document.getElementById(triggerId).addEventListener("click", () => {
+        plToggleFilter(menuId, triggerId);
     });
-
-document.getElementById("plCategoryTrigger")
-    .addEventListener("click", () =>
-        plToggleFilter("plCategoryMenu", "plCategoryTrigger")
-    );
-
-document.getElementById("plTypeTrigger")
-    .addEventListener("click", () =>
-        plToggleFilter("plTypeMenu", "plTypeTrigger")
-    );
+});
 
 document.addEventListener("click", event => {
     if (!event.target.closest(".pl-filter-header")) {
@@ -707,53 +953,46 @@ document.addEventListener("click", event => {
     }
 });
 
-document.getElementById("plPrevious")
-    .addEventListener("click", () => {
-        if (plPage > 1) {
-            plPage--;
-            plRender();
-        }
-    });
+document.getElementById("plPrevious").addEventListener("click", () => {
+    if (plPage > 1) {
+        plPage--;
+        plRender();
+    }
+});
 
-document.getElementById("plNext")
-    .addEventListener("click", () => {
-        if (plPage * plPageSize < plFiltered.length) {
-            plPage++;
-            plRender();
-        }
-    });
+document.getElementById("plNext").addEventListener("click", () => {
+    if (plPage * plPageSize < plFiltered.length) {
+        plPage++;
+        plRender();
+    }
+});
 
-document.getElementById("plImage")
-    .addEventListener("input", plUpdatePreview);
+document.getElementById("plImage").addEventListener("input", plUpdatePreview);
 
-document.getElementById("plImagePreview")
-    .addEventListener("error", () => {
-        document.getElementById("plImagePreview").style.display = "none";
-    });
+document.getElementById("plImagePreview").addEventListener("error", () => {
+    document.getElementById("plImagePreview").style.display = "none";
+});
+
+[
+    "plName",
+    "plCategory",
+    "plPricingType",
+    "plPrice",
+    "plVariant",
+    "plWeight",
+    "plUnit"
+].forEach(id => {
+    const element = document.getElementById(id);
+
+    element.addEventListener("input", plUpdatePricePreview);
+    element.addEventListener("change", plUpdatePricePreview);
+});
 
 plForm.addEventListener("submit", plSave);
 
-document.getElementById("plCancel")
-    .addEventListener("click", plClose);
+document.getElementById("plCancel").addEventListener("click", plClose);
+document.getElementById("plViewClose").addEventListener("click", plClose);
 
-document.getElementById("plModalClose")
-    .addEventListener("click", plClose);
-
-document.getElementById("plViewClose")
-    .addEventListener("click", plClose);
-
-plModal.addEventListener("click", event => {
-    if (event.target === plModal) plClose();
-});
-
-document.addEventListener("keydown", event => {
-    if (event.key === "Escape") {
-        plCloseFilters();
-
-        if (plModal.style.display === "flex") {
-            plClose();
-        }
-    }
-});
+// The modal closes only through Cancel, not backdrop clicks or Escape.
 
 loadProducts();
