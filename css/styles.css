@@ -1,3 +1,4 @@
+
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 /* Tokens */
@@ -8,7 +9,7 @@
   --text:#15171C;
   --text-muted:#75778A;
 
-  --accent:#F2A900;      /* gold — primary brand color */
+  --accent:#F2A900;
   --accent-dark:#C98A00;
   --accent-soft:#FFF4D9;
 
@@ -219,4 +220,23 @@ button[onclick="openAddModal()"]:hover{background:var(--accent-dark) !important;
   .content{padding:20px}
   .cards{grid-template-columns:1fr}
   .dashboard-header{flex-direction:column;align-items:flex-start;gap:15px}
+}
+
+/* Dashboard phase: hover-to-expand desktop navigation; keep existing theme */
+@media (min-width:769px) and (hover:hover) {
+  .sidebar.collapsed:hover,.sidebar.collapsed:focus-within {width:250px}
+  .sidebar.collapsed:hover .sidebar-title,.sidebar.collapsed:focus-within .sidebar-title,
+  .sidebar.collapsed:hover .text,.sidebar.collapsed:focus-within .text {opacity:1;width:auto}
+  .sidebar .menu-btn {display:none}
+}
+.sidebar-placeholder {opacity:.55;cursor:default!important}
+.sidebar-placeholder:hover {background:transparent!important}
+#dashboardStatus {font-size:12px;color:var(--text-muted);margin-bottom:8px}
+
+.mobile-nav-toggle {display:none}
+@media(max-width:768px) {
+ .mobile-nav-toggle {display:block;position:fixed;top:12px;left:12px;z-index:999;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;cursor:pointer}
+ .dashboard-header {padding-top:30px}
+ .sidebar.mobile-open .sidebar-title,.sidebar.mobile-open .text {opacity:1;width:auto}
+ .sidebar.mobile-open .menu-btn {display:block}
 }
