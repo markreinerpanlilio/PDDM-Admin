@@ -19,7 +19,7 @@ function uDate(value){
 }
 
 function uRole(user){
-    return String(user.role||"").trim().toLowerCase();
+    return String(user?.role||"").trim().toLowerCase();
 }
 
 function uStatus(message,error=false){
@@ -75,8 +75,8 @@ async function loadUsers(){
         filterUsers();
         uStatus("");
     }catch(error){
-        console.error(error);
-        uStatus(error.message,true);
+        console.error("Load users:",error);
+        uStatus(error.message||"Unable to load users.",true);
         usersTable.innerHTML='<tr><td colspan="5" class="users-empty">Unable to load users</td></tr>';
     }finally{
         uBusy(false);
@@ -86,7 +86,6 @@ async function loadUsers(){
 function updateUsersStats(){
     const customers=allUsers.filter(u=>uRole(u)==="customer").length;
     const sellers=allUsers.filter(u=>uRole(u)==="seller").length;
-
     document.getElementById("usersTotal").textContent=(customers+sellers).toLocaleString();
     document.getElementById("usersCustomers").textContent=customers.toLocaleString();
     document.getElementById("usersSellers").textContent=sellers.toLocaleString();
@@ -98,8 +97,7 @@ function filterUsers(){
 
     filteredUsers=allUsers.filter(user=>{
         const text=[
-            user.full_name,user.email,user.phone_number,
-            user.stall_number,user.id
+            user.full_name,user.email,user.phone_number,user.stall_number,user.id
         ].map(v=>String(v??"")).join(" ").toLowerCase();
 
         return (!search||text.includes(search))&&
@@ -135,9 +133,9 @@ function renderUsers(){
             <td>${uDate(user.created_at)}</td>
             <td>
                 <div class="users-actions">
-                    <button class="users-view" data-action="view" data-id="${uEsc(user.id)}">View</button>
-                    <button class="users-edit" data-action="edit" data-id="${uEsc(user.id)}" ${protectedUser?"disabled":""}>Edit</button>
-                    <button class="users-delete" data-action="delete" data-id="${uEsc(user.id)}" ${protectedUser?"disabled":""}>Delete</button>
+                    <button type="button" class="users-view" data-action="view" data-id="${uEsc(user.id)}">View</button>
+                    <button type="button" class="users-edit" data-action="edit" data-id="${uEsc(user.id)}" ${protectedUser?"disabled":""}>Edit</button>
+                    <button type="button" class="users-delete" data-action="delete" data-id="${uEsc(user.id)}" ${protectedUser?"disabled":""}>Delete</button>
                 </div>
             </td>
         </tr>`;
@@ -206,6 +204,20 @@ function userField(label,name,value="",type="text",required=false){
     </div>`;
 }
 
+function userPasswordField(label,name,required=false){
+    return `<div class="users-field">
+        <label for="uf_${name}">${label}</label>
+        <div class="users-password-wrap">
+            <input class="users-input" id="uf_${name}" name="${name}"
+                type="password" autocomplete="new-password"
+                minlength="12" maxlength="128"
+                placeholder="${required?"At least 12 characters":"Leave blank to keep current"}"
+                ${required?"required":""}>
+            <button class="users-show-password" type="button" data-show="${name}">Show</button>
+        </div>
+    </div>`;
+}
+
 function showUserForm(id=null){
     const user=id?allUsers.find(u=>u.id===id):null;
     if(id&&!user)return;
@@ -226,17 +238,34 @@ function showUserForm(id=null){
                         <option value="seller" ${uRole(user||{})==="seller"?"selected":""}>Seller</option>
                     </select>
                 </div>
-                ${userField("Stall Number","stall_number",user?.stall_number??"")}
+                ${userField("Stall Number (Optional)","stall_number",user?.stall_number??"")}
                 <div class="users-field full">
                     <label for="uf_store_description">Store Description</label>
                     <input class="users-input" name="store_description" id="uf_store_description" value="${uEsc(user?.store_description||"")}">
                 </div>
+                ${userPasswordField(user?"New Password (Optional)":"Password","password",!user)}
+                ${userPasswordField("Confirm Password","confirm_password",!user)}
             </div>
-            <p class="users-form-note">${user?"Email cannot be changed here.":"An invitation will be sent to the email address."}</p>
+            <p class="users-form-note">
+                ${user
+                    ?"Leave both password fields blank to keep the existing password."
+                    :"The new account will use the password you enter. Share it securely with the user."}
+                Passwords must contain at least 12 characters.
+            </p>
         </form>
     `;
 
     if(user)document.getElementById("uf_email").readOnly=true;
+
+    usersContent.querySelectorAll("[data-show]").forEach(button=>{
+        button.addEventListener("click",()=>{
+            const input=document.getElementById(`uf_${button.dataset.show}`);
+            const visible=input.type==="password";
+            input.type=visible?"text":"password";
+            button.textContent=visible?"Hide":"Show";
+        });
+    });
+
     usersFooter.replaceChildren(
         uButton("Cancel","users-secondary",uClose),
         uButton(user?"Save Changes":"Create User","users-primary",()=>saveUser(id))
@@ -249,15 +278,27 @@ function collectUserForm(){
     if(!form.reportValidity())return null;
 
     const data=new FormData(form);
-    const role=String(data.get("role")||"");
+    const password=String(data.get("password")||"");
+    const confirmation=String(data.get("confirm_password")||"");
+
+    if(password!==confirmation){
+        uStatus("Passwords do not match.",true);
+        return null;
+    }
+
+    if(password&&password.length<12){
+        uStatus("Password must contain at least 12 characters.",true);
+        return null;
+    }
 
     return {
         full_name:String(data.get("full_name")||"").trim(),
         email:String(data.get("email")||"").trim().toLowerCase(),
         phone_number:String(data.get("phone_number")||"").trim(),
-        role,
+        role:String(data.get("role")||""),
         stall_number:String(data.get("stall_number")||"").trim()||null,
-        store_description:String(data.get("store_description")||"").trim()
+        store_description:String(data.get("store_description")||"").trim(),
+        password
     };
 }
 
@@ -292,18 +333,19 @@ async function saveUser(id=null){
 
     if(!values.full_name){uStatus("Full name required.",true);return;}
     if(!["customer","seller"].includes(values.role)){uStatus("Invalid role.",true);return;}
+    if(!id&&!values.password){uStatus("Password required.",true);return;}
 
     uBusy(true);
     uStatus("Saving...");
 
     try{
         await callAdminUsers(id?"update":"create",{id,values});
-        usersBusy=false;
+        uBusy(false);
         uClose();
-        uStatus(id?"User updated":"Invitation sent");
         await loadUsers();
+        uStatus(id?"User updated successfully":"User created successfully");
     }catch(error){
-        console.error(error);
+        console.error("Save user:",error);
         uStatus(error.message,true);
     }finally{
         uBusy(false);
@@ -324,11 +366,11 @@ async function deleteUser(id){
 
     try{
         await callAdminUsers("delete",{id});
-        usersBusy=false;
+        uBusy(false);
         await loadUsers();
-        uStatus("User deleted");
+        uStatus("User deleted successfully");
     }catch(error){
-        console.error(error);
+        console.error("Delete user:",error);
         uStatus(error.message,true);
     }finally{
         uBusy(false);
@@ -338,7 +380,6 @@ async function deleteUser(id){
 usersTable.addEventListener("click",event=>{
     const button=event.target.closest("button[data-action]");
     if(!button||usersBusy)return;
-
     const {action,id}=button.dataset;
     if(action==="view")showUserDetails(id);
     if(action==="edit")showUserForm(id);
@@ -347,7 +388,6 @@ usersTable.addEventListener("click",event=>{
 
 document.getElementById("usersAdd").addEventListener("click",()=>showUserForm());
 document.getElementById("usersRefresh").addEventListener("click",loadUsers);
-
 document.getElementById("usersSearch").addEventListener("input",()=>{
     currentPage=1;
     filterUsers();
@@ -356,14 +396,12 @@ document.getElementById("usersRoleFilter").addEventListener("change",()=>{
     currentPage=1;
     filterUsers();
 });
-
 document.getElementById("usersPrevious").addEventListener("click",()=>{
     if(currentPage>1){currentPage--;renderUsers();}
 });
 document.getElementById("usersNext").addEventListener("click",()=>{
     if(currentPage*usersPageSize<filteredUsers.length){currentPage++;renderUsers();}
 });
-
 document.getElementById("usersModalClose").addEventListener("click",uClose);
 usersModal.addEventListener("click",event=>{
     if(event.target===usersModal)uClose();
