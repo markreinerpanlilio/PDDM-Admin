@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Users | PPDM Admin</title>
 <link rel="stylesheet" href="../css/styles.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -11,15 +11,18 @@
 .users-placeholder{opacity:.55;cursor:default!important}
 .users-placeholder:hover{background:transparent!important}
 .users-mobile-menu{display:none}
-.users-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:20px}
+.users-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:20px}
 .users-stats .card{min-width:0}
 .users-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;flex-wrap:wrap}
-.users-filters{display:flex;gap:10px;flex-wrap:wrap}
-.users-search,.users-select{height:42px;padding:0 14px;border:1px solid var(--border);border-radius:10px;background:#fff;color:var(--text);font-size:13px;outline:none}
-.users-search{width:260px}
-.users-search:focus,.users-select:focus{border-color:var(--accent)}
-.users-refresh{height:42px;padding:0 18px;background:var(--accent);color:#171717}
-.users-refresh:disabled{opacity:.55;cursor:wait}
+.users-filters,.users-header-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.users-search,.users-select,.users-input{height:42px;padding:0 14px;border:1px solid var(--border);border-radius:10px;background:#fff;color:var(--text);font-size:13px;outline:none}
+.users-search{width:270px}
+.users-search:focus,.users-select:focus,.users-input:focus{border-color:var(--accent)}
+.users-btn{padding:11px 18px;border-radius:9px;font-size:13px;font-weight:700}
+.users-primary{background:var(--accent);color:#171717}
+.users-secondary{background:#f0f0f0;color:#333}
+.users-danger{background:#ffe7e7;color:#b93030}
+.users-btn:disabled{opacity:.5;cursor:wait}
 .users-status{min-height:18px;margin-bottom:12px;color:var(--text-muted);font-size:12px}
 .users-table-wrap{width:100%;overflow-x:auto}
 .users-table{width:100%;border-collapse:collapse}
@@ -28,24 +31,19 @@
 .users-table tbody tr:hover{background:#fffaf0}
 .users-person{display:flex;align-items:center;gap:10px;min-width:160px}
 .users-avatar{width:38px;height:38px;min-width:38px;border-radius:50%;display:grid;place-items:center;background:#fff0c2;color:#8a6200;font-weight:800}
-.users-person-info{min-width:0}
-.users-name{font-weight:700;color:var(--text);overflow-wrap:anywhere}
+.users-name{font-weight:700;overflow-wrap:anywhere}
 .users-id{font-size:11px;color:#999;margin-top:4px}
 .users-email{overflow-wrap:anywhere}
-.users-pill{display:inline-block;padding:6px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
+.users-pill{display:inline-block;padding:6px 10px;border-radius:20px;font-size:11px;font-weight:700;text-transform:capitalize}
 .users-pill.customer{background:#eaf2ff;color:#2863ae}
 .users-pill.seller{background:#fff0d4;color:#9b6900}
 .users-pill.admin{background:#f0eaff;color:#7452ae}
-.users-pill.active{background:#e1f6e8;color:#168044}
-.users-pill.inactive{background:#ffe7e7;color:#b93030}
-.users-pill.pending{background:#fff1d6;color:#9b6900}
-.users-pill.unknown{background:#eee;color:#666}
-.users-row-actions{display:flex;align-items:center;gap:7px;white-space:nowrap}
-.users-row-actions button{padding:8px 12px;border-radius:8px;font-size:12px}
+.users-actions{display:flex;gap:7px;white-space:nowrap}
+.users-actions button{padding:8px 12px;border-radius:8px;font-size:12px}
 .users-view{background:#f0f0f0;color:#333}
-.users-toggle{background:#ffe7e7;color:#b93030}
-.users-toggle.enable{background:#e1f6e8;color:#168044}
-.users-row-actions button:disabled{opacity:.45;cursor:not-allowed}
+.users-edit{background:#fff0d4;color:#946000}
+.users-delete{background:#ffe7e7;color:#b93030}
+.users-actions button:disabled{opacity:.4;cursor:not-allowed}
 .users-empty{text-align:center;padding:36px!important;color:#888}
 .users-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:18px;flex-wrap:wrap}
 .users-page-info{font-size:12px;color:var(--text-muted)}
@@ -58,24 +56,27 @@
 .users-modal-header h2{margin:0 0 6px;font-size:20px}
 .users-modal-header p{color:#888;font-size:12px}
 .users-modal-close{width:36px;height:36px;background:#f1f1f1;font-size:22px}
-.users-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.users-detail-grid,.users-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .users-detail{padding:13px;border:1px solid #eee;border-radius:9px;background:#fafafa;min-width:0}
 .users-detail-label{display:block;margin-bottom:6px;font-size:11px;color:#888;text-transform:uppercase}
 .users-detail-value{display:block;font-size:13px;font-weight:600;overflow-wrap:anywhere}
-.users-modal-footer{display:flex;justify-content:flex-end;margin-top:20px}
-.users-modal-footer button{padding:10px 20px;background:var(--accent);color:#171717}
-@media(max-width:1100px){.users-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.users-field{display:flex;flex-direction:column;gap:7px}
+.users-field label{font-size:12px;font-weight:700;color:#555}
+.users-field .users-input{width:100%}
+.users-field.full{grid-column:1/-1}
+.users-form-note{font-size:12px;color:#888;margin-top:12px}
+.users-modal-footer{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}
+@media(max-width:1100px){.users-stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:768px){
 .users-mobile-menu{display:block;position:fixed;top:12px;left:12px;z-index:1002;background:#fff;border:1px solid var(--border);padding:8px 12px;border-radius:10px;font-size:20px}
 .dashboard-header{padding-top:35px}
 .sidebar.mobile-open{display:block;position:fixed;left:0;top:0;width:250px;height:100vh;z-index:1001}
 .sidebar.mobile-open .sidebar-title,.sidebar.mobile-open .text{opacity:1;width:auto}
-.users-toolbar{align-items:stretch}
-.users-filters{width:100%}
 .users-search{width:100%}
+.users-filters{width:100%}
 .users-select{flex:1}
 }
-@media(max-width:480px){.users-stats{gap:10px}.users-stats .card{padding:15px}.users-stats .card h1{font-size:27px}.users-detail-grid{grid-template-columns:1fr}}
+@media(max-width:480px){.users-stats{gap:10px}.users-stats .card{padding:13px}.users-stats .card h1{font-size:25px}.users-detail-grid,.users-form-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -105,14 +106,16 @@
             <h1>Users</h1>
             <h3>Account Management</h3>
         </div>
-        <button class="users-refresh" id="usersRefresh" type="button">Refresh</button>
+        <div class="users-header-actions">
+            <button class="users-btn users-secondary" id="usersRefresh">Refresh</button>
+            <button class="users-btn users-primary" id="usersAdd">+ Add User</button>
+        </div>
     </div>
 
     <div class="users-stats">
         <div class="card"><h2>Total Users</h2><h1 id="usersTotal">—</h1></div>
         <div class="card"><h2>Customers</h2><h1 id="usersCustomers">—</h1></div>
         <div class="card"><h2>Sellers</h2><h1 id="usersSellers">—</h1></div>
-        <div class="card"><h2>Inactive</h2><h1 id="usersInactive">—</h1></div>
     </div>
 
     <div class="panel">
@@ -124,11 +127,6 @@
                     <option value="customer">Customers</option>
                     <option value="seller">Sellers</option>
                     <option value="admin">Admins</option>
-                </select>
-                <select class="users-select" id="usersStatusFilter">
-                    <option value="all">All Status</option>
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
                 </select>
             </div>
         </div>
@@ -142,13 +140,12 @@
                         <th>User</th>
                         <th>Email</th>
                         <th>Role</th>
-                        <th>Status</th>
                         <th>Joined</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody id="usersTable">
-                    <tr><td colspan="6" class="users-empty">Loading...</td></tr>
+                    <tr><td colspan="5" class="users-empty">Loading...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -156,8 +153,8 @@
         <div class="users-footer">
             <span id="usersPageInfo" class="users-page-info">0 users</span>
             <div class="users-page-buttons">
-                <button id="usersPrevious" type="button">Previous</button>
-                <button id="usersNext" type="button">Next</button>
+                <button id="usersPrevious">Previous</button>
+                <button id="usersNext">Next</button>
             </div>
         </div>
     </div>
@@ -168,14 +165,12 @@
         <div class="users-modal-header">
             <div>
                 <h2 id="usersModalTitle">User Details</h2>
-                <p>Account Information</p>
+                <p id="usersModalSubtitle">Account Information</p>
             </div>
             <button class="users-modal-close" id="usersModalClose" type="button">×</button>
         </div>
-        <div id="usersDetailGrid" class="users-detail-grid"></div>
-        <div class="users-modal-footer">
-            <button id="usersModalDone" type="button">Close</button>
-        </div>
+        <div id="usersModalContent"></div>
+        <div class="users-modal-footer" id="usersModalFooter"></div>
     </div>
 </div>
 
