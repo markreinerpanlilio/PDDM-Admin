@@ -1,3 +1,4 @@
+
 let userGrowthChart = null;
 let priceComplianceChart = null;
 let marketActivityChart = null;
@@ -169,13 +170,12 @@ async function loadDashboard() {
     setStatus("");
 
     try {
-        await Promise.all([
-            loadSummaryCards(),
-            loadNotifications(),
-            loadUserGrowthChart(),
-            loadOrderActivityChart(),
-            loadPriceComplianceChart()
+        const results=await Promise.allSettled([
+            loadSummaryCards(),loadNotifications(),loadUserGrowthChart(),
+            loadOrderActivityChart(),loadPriceComplianceChart()
         ]);
+        const errors=results.filter(r=>r.status==="rejected").map(r=>r.reason?.message||"Unknown error");
+        if(errors.length)throw new Error(errors.join(" | "));
 
         setStatus(`Updated ${new Date().toLocaleTimeString("en-PH", {
             hour: "numeric",
@@ -202,53 +202,39 @@ async function loadDashboard() {
 async function loadSummaryCards() {
     const client = getDatabase();
     const range = selectedRange();
-
-    const results = await Promise.all([
-        client.from("profiles")
-            .select("id", { count: "exact", head: true })
-            .eq("role", "customer"),
-
-        client.from("profiles")
-            .select("id", { count: "exact", head: true })
-            .eq("role", "seller"),
-
-        client.from("orders")
-            .select("user_id")
-            .gte("created_at", range.startISO)
-            .lte("created_at", range.endISO)
-            .not("user_id", "is", null),
-
-        client.from("order_items")
-            .select("seller_id")
-            .gte("created_at", range.startISO)
-            .lte("created_at", range.endISO)
-            .not("seller_id", "is", null)
+    const [profilesResult, ordersResult, itemsResult] = await Promise.all([
+        client.from("profiles").select("id,role,seller_status,seller_application"),
+        fetchAllRows(client.from("orders").select("user_id").gte("created_at",range.startISO).lte("created_at",range.endISO)),
+        fetchAllRows(client.from("order_items").select("seller_id").gte("created_at",range.startISO).lte("created_at",range.endISO))
     ]);
-
-    const failed = results.find(result => result.error);
-    if (failed) throw failed.error;
-
-    const [customers, sellers, orders, items] = results;
-
-    const activeCustomers = new Set(
-        (orders.data || []).map(item => item.user_id).filter(Boolean)
-    );
-
-    const activeSellers = new Set(
-        (items.data || []).map(item => item.seller_id).filter(Boolean)
-    );
-
-    document.getElementById("customerCount").textContent =
-        numberText(customers.count);
-
-    document.getElementById("sellerCount").textContent =
-        numberText(sellers.count);
-
-    document.getElementById("activeCustomerCount").textContent =
-        numberText(activeCustomers.size);
-
-    document.getElementById("activeSellerCount").textContent =
-        numberText(activeSellers.size);
+    if(profilesResult.error) throw profilesResult.error;
+    const profiles=profilesResult.data||[];
+    const users=profiles.filter(p=>["customer","seller"].includes(String(p.role||"").toLowerCase()));
+    // Adjust these values if your application workflow uses different status labels.
+    const applicants=profiles.filter(p=>{
+        const status=String(p.seller_status||"").trim().toLowerCase();
+        const application=String(p.seller_application||"").trim().toLowerCase();
+        return ["pending","under review","submitted"].includes(status) ||
+            ["pending","under review","submitted"].includes(application);
+    });
+    const customers=new Set(users.filter(p=>String(p.role).toLowerCase()==="customer").map(p=>p.id));
+    const sellers=new Set(users.filter(p=>String(p.role).toLowerCase()==="seller").map(p=>p.id));
+    const activeCustomers=new Set(ordersResult.map(o=>o.user_id).filter(id=>customers.has(id)));
+    const activeSellers=new Set(itemsResult.map(i=>i.seller_id).filter(id=>sellers.has(id)));
+    document.getElementById("totalUsersCount").textContent=numberText(users.length);
+    document.getElementById("applicantCount").textContent=numberText(new Set(applicants.map(p=>p.id)).size);
+    document.getElementById("activeCustomerCount").textContent=numberText(activeCustomers.size);
+    document.getElementById("activeSellerCount").textContent=numberText(activeSellers.size);
+}
+async function fetchAllRows(query) {
+    const all=[];
+    for(let from=0;from<100000;from+=1000){
+        const {data,error}=await query.range(from,from+999);
+        if(error)throw error;
+        all.push(...(data||[]));
+        if(!data||data.length<1000)return all;
+    }
+    throw new Error("Dashboard data exceeds safe fetch limit; add an aggregate RPC.");
 }
 
 function relativeTime(value) {
@@ -276,61 +262,37 @@ function addNotificationText(parent, className, value) {
 }
 
 async function loadNotifications() {
-    const client = getDatabase();
-    const list = document.getElementById("notificationList");
-    const countElement = document.getElementById("notificationCount");
-
-    const [countResult, listResult] = await Promise.all([
-        client.from("notifications")
-            .select("id", { count: "exact", head: true })
-            .eq("is_read", false),
-
-        client.from("notifications")
-            .select("id, type, title, message, created_at, is_read")
-            .eq("is_read", false)
-            .order("created_at", { ascending: false })
-            .limit(3)
+    const client=getDatabase();
+    const list=document.getElementById("dashboardNotificationList");
+    const count=document.getElementById("unreadNotificationCount");
+    const {data:{user},error:authError}=await client.auth.getUser();
+    if(authError)throw authError;
+    if(!user){list.innerHTML='<li class="notification-empty">Please sign in.</li>';return;}
+    const [recent,unread,applicants]=await Promise.all([
+        client.from("notifications").select("id,title,message,is_read,created_at").eq("user_id",user.id).order("created_at",{ascending:false}).limit(8),
+        client.from("notifications").select("id",{head:true,count:"exact"}).eq("user_id",user.id).eq("is_read",false),
+        client.from("profiles").select("id,seller_status,seller_application")
     ]);
-
-    if (countResult.error) throw countResult.error;
-    if (listResult.error) throw listResult.error;
-
-    countElement.textContent = `${numberText(countResult.count)} unread`;
+    for(const r of [recent,unread,applicants])if(r.error)throw r.error;
+    const pending=(applicants.data||[]).filter(p=>["pending","submitted","under review"].includes(String(p.seller_status||"").toLowerCase())||["pending","submitted","under review"].includes(String(p.seller_application||"").toLowerCase())).length;
+    count.textContent=`Unread: ${unread.count||0}`;
     list.replaceChildren();
-
-    const notifications = listResult.data || [];
-
-    if (!notifications.length) {
-        const empty = document.createElement("li");
-        empty.className = "notification-empty";
-        empty.textContent = "You're all caught up.";
-        list.appendChild(empty);
-        return;
+    if(pending){
+        const li=document.createElement("li");li.className="unread";
+        const detail=document.createElement("div");detail.className="notification-details";
+        const title=document.createElement("div");title.className="notification-title";title.textContent=`${pending} pending seller application(s)`;
+        const message=document.createElement("div");message.className="notification-message";message.textContent="Review applicants in Seller Requests.";
+        detail.append(title,message);li.append(detail);list.append(li);
     }
-
-    for (const notification of notifications) {
-        const item = document.createElement("li");
-        item.className = "notification-item";
-
-        addNotificationText(
-            item,
-            "notification-title",
-            notification.title || notification.type || "Notification"
-        );
-
-        addNotificationText(
-            item,
-            "notification-message",
-            notification.message || "No details provided."
-        );
-
-        const time = document.createElement("span");
-        time.className = "notification-time";
-        time.textContent = relativeTime(notification.created_at);
-        item.appendChild(time);
-
-        list.appendChild(item);
+    for(const n of recent.data||[]){
+        const li=document.createElement("li");if(!n.is_read)li.className="unread";
+        const detail=document.createElement("div");detail.className="notification-details";
+        for(const [cls,val] of [["notification-title",n.title||"Notification"],["notification-message",n.message||""],["notification-time",relativeTime(n.created_at)]]){
+            const el=document.createElement("div");el.className=cls;el.textContent=val;detail.append(el);
+        }
+        li.append(detail);list.append(li);
     }
+    if(!list.children.length){const li=document.createElement("li");li.className="notification-empty";li.textContent="No notifications or pending applications.";list.append(li);}
 }
 
 async function loadUserGrowthChart() {
@@ -386,183 +348,49 @@ async function loadUserGrowthChart() {
 }
 
 async function loadOrderActivityChart() {
-    const client = getDatabase();
-    const range = selectedRange();
-
-    const { data, error } = await client.from("orders")
-        .select("status, created_at")
-        .gte("created_at", range.startISO)
-        .lte("created_at", range.endISO);
-
-    if (error) throw error;
-
-    const statuses = ["Pending", "Accepted", "Ready", "Completed", "Cancelled", "Other"];
-    const totals = Object.fromEntries(statuses.map(status => [status, 0]));
-
-    for (const order of data || []) {
-        const status = String(order.status || "").trim().toLowerCase();
-
-        if (status === "pending") totals.Pending++;
-        else if (status === "accepted") totals.Accepted++;
-        else if (status === "ready") totals.Ready++;
-        else if (status === "completed") totals.Completed++;
-        else if (status === "cancelled" || status === "canceled") totals.Cancelled++;
-        else totals.Other++;
-    }
-
-    marketActivityChart = renderChart(
-        marketActivityChart,
-        document.getElementById("marketActivityChart"),
-        {
-            type: "bar",
-            data: {
-                labels: statuses,
-                datasets: [{
-                    label: "Orders",
-                    data: statuses.map(status => totals[status]),
-                    backgroundColor: [
-                        chartColors.orange,
-                        chartColors.primary,
-                        chartColors.blue,
-                        chartColors.green,
-                        chartColors.red,
-                        chartColors.gray
-                    ],
-                    borderRadius: 6,
-                    borderSkipped: false,
-                    maxBarThickness: 45
-                }]
-            },
-            options: {
-                ...chartOptions(),
-                plugins: {
-                    ...chartOptions().plugins,
-                    legend: { display: false }
-                },
-                scales: {
-                    x: { grid: { display: false } },
-                    y: {
-                        beginAtZero: true,
-                        ticks: { precision: 0 },
-                        grid: { color: "rgba(130, 130, 130, 0.12)" }
-                    }
-                }
-            }
-        }
-    );
-
-    document.getElementById("orderRangeLabel").textContent = rangeLabel();
+    const range=selectedRange();
+    const orders=await fetchAllRows(getDatabase().from("orders").select("status,created_at").eq("status","completed").gte("created_at",range.startISO).lte("created_at",range.endISO).order("created_at"));
+    const labels=dailyLabels(range.start,range.end);
+    const totals=countsByDate(orders,"created_at",labels);
+    marketActivityChart=renderChart(marketActivityChart,document.getElementById("marketActivityChart"),{
+        type:"bar",data:{labels:labels.map(x=>x.label),datasets:[{label:"Completed orders",data:totals,backgroundColor:chartColors.green,borderRadius:6,maxBarThickness:38}]},
+        options:{...chartOptions(),scales:{x:{grid:{display:false},ticks:{maxTicksLimit:12}},y:{beginAtZero:true,ticks:{precision:0}}}}
+    });
+    document.getElementById("orderRangeLabel").textContent=`${rangeLabel()} · ${orders.length} completed orders`;
 }
 
 function normalizeName(value) {
     return String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-function findMarketPrice(product, marketPrices) {
-    const name = normalizeName(product.name);
-    const candidates = marketPrices.filter(
-        item => normalizeName(item.product_name) === name
-    );
-
-    if (!candidates.length) return null;
-
-    const category = normalizeName(product.category);
-
-    return candidates.find(
-        item => category && normalizeName(item.category) === category
-    ) || candidates[0];
+function findMarketPrice(product, prices) {
+    const matches=prices.filter(m=>normalizeName(m.product_name)===normalizeName(product.name)
+        && (!m.category||normalizeName(m.category)===normalizeName(product.category))
+        && (!m.pricing_type||normalizeName(m.pricing_type)===normalizeName(product.pricing_type))
+        && (!m.size||normalizeName(m.size)===normalizeName(product.variant||product.unit)));
+    // Ambiguous references must not be treated as compliant.
+    return matches.length===1?matches[0]:null;
 }
-
 async function loadPriceComplianceChart() {
-    const client = getDatabase();
-
-    const [productsResult, marketResult] = await Promise.all([
-        client.from("products")
-            .select("name, price, category, is_active")
-            .eq("is_active", true),
-
-        client.from("market_prices")
-            .select("product_name, category, min_price, max_price")
+    const client=getDatabase();
+    const [products,market]=await Promise.all([
+        fetchAllRows(client.from("products").select("name,price,category,variant,unit,pricing_type").eq("is_active",true)),
+        fetchAllRows(client.from("market_prices").select("product_name,category,size,pricing_type,min_price,max_price"))
     ]);
-
-    if (productsResult.error) throw productsResult.error;
-    if (marketResult.error) throw marketResult.error;
-
-    let within = 0;
-    let above = 0;
-    let below = 0;
-    let unmatched = 0;
-
-    const marketPrices = marketResult.data || [];
-
-    for (const product of productsResult.data || []) {
-        const market = findMarketPrice(product, marketPrices);
-
-        if (!market) {
-            unmatched++;
-            continue;
-        }
-
-        const price = Number(product.price);
-        const min = Number(market.min_price);
-        const max = Number(market.max_price);
-
-        if (
-            !Number.isFinite(price) ||
-            !Number.isFinite(min) ||
-            !Number.isFinite(max) ||
-            min > max
-        ) {
-            unmatched++;
-        } else if (price < min) {
-            below++;
-        } else if (price > max) {
-            above++;
-        } else {
-            within++;
-        }
+    let within=0,above=0,below=0,unmatched=0;
+    for(const p of products){
+        const ref=findMarketPrice(p,market);
+        if(!ref||p.price==null||ref.min_price==null||ref.max_price==null){unmatched++;continue;}
+        const price=Number(p.price),min=Number(ref.min_price),max=Number(ref.max_price);
+        if(![price,min,max].every(Number.isFinite)||min>max){unmatched++;continue;}
+        if(price>max)above++;else if(price<min)below++;else within++;
     }
-
-    priceComplianceChart = renderChart(
-        priceComplianceChart,
-        document.getElementById("priceComplianceChart"),
-        {
-            type: "doughnut",
-            data: {
-                labels: ["Within range", "Above range", "Below range"],
-                datasets: [{
-                    data: [within, above, below],
-                    backgroundColor: [
-                        chartColors.green,
-                        chartColors.red,
-                        chartColors.orange
-                    ],
-                    borderWidth: 0,
-                    hoverOffset: 4
-                }]
-            },
-            options: {
-                ...chartOptions(),
-                cutout: "70%",
-                plugins: {
-                    ...chartOptions().plugins,
-                    legend: {
-                        position: "bottom",
-                        labels: {
-                            usePointStyle: true,
-                            pointStyle: "circle",
-                            boxWidth: 8,
-                            padding: 12,
-                            font: { size: 10 }
-                        }
-                    }
-                }
-            }
-        }
-    );
-
-    document.getElementById("complianceNote").textContent =
-        `${within + above + below} matched products · ${unmatched} unmatched or invalid`;
+    priceComplianceChart=renderChart(priceComplianceChart,document.getElementById("priceComplianceChart"),{
+        type:"doughnut",
+        data:{labels:["Within range","Above range","Below range","Unmatched / needs review"],datasets:[{data:[within,above,below,unmatched],backgroundColor:[chartColors.green,chartColors.red,chartColors.orange,chartColors.gray],borderWidth:0}]},
+        options:{...chartOptions(),cutout:"70%",plugins:{...chartOptions().plugins,legend:{position:"bottom",labels:{usePointStyle:true,boxWidth:8,font:{size:10}}}}}
+    });
+    document.getElementById("complianceNote").textContent=`${above} overpriced · ${unmatched} unmatched/needs review`;
 }
 
 function scheduleDashboardRefresh() {
