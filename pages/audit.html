@@ -3,36 +3,244 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDDM Audit Trail</title>
+    <title>Audit Trail | PPDM Admin</title>
 
     <link rel="stylesheet" href="../css/styles.css">
-
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        .at-brand {
+            display: grid;
+            place-items: center;
+            min-width: 35px;
+            height: 35px;
+            font-size: 25px;
+        }
+
+        .at-placeholder {
+            opacity: .5;
+            cursor: default !important;
+        }
+
+        .at-refresh {
+            padding: 9px 16px;
+            border: 2px solid #d2a332;
+            border-radius: 9px;
+            background: #fff;
+            color: #705300;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .at-refresh:hover {
+            background: #fff8e5;
+        }
+
+        .at-refresh:disabled {
+            opacity: .5;
+            cursor: wait;
+        }
+
+        .at-table-wrap {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        .audit-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .audit-table th {
+            padding: 15px 12px;
+            border-bottom: 1px solid var(--border);
+            background: #fafafa;
+            color: #777;
+            font-size: 12px;
+            font-weight: 700;
+            text-align: left;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .audit-table td {
+            padding: 15px 12px;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+            vertical-align: middle;
+        }
+
+        .audit-table tbody tr:hover {
+            background: #fffaf0;
+        }
+
+        .at-time-header {
+            position: relative;
+        }
+
+        .at-time-trigger {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            color: inherit;
+            font: inherit;
+            font-weight: 700;
+            text-transform: uppercase;
+            cursor: pointer;
+        }
+
+        .at-arrow {
+            color: #999;
+            font-size: 10px;
+        }
+
+        .at-time-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 8px;
+            z-index: 100;
+            min-width: 170px;
+            padding: 5px;
+            border: 1px solid #e5e5e5;
+            border-radius: 9px;
+            background: #fff;
+            box-shadow: 0 8px 24px #0002;
+            text-transform: none;
+        }
+
+        .at-time-menu.open {
+            display: block;
+        }
+
+        .at-time-option {
+            display: block;
+            width: 100%;
+            padding: 10px 11px;
+            border: 0;
+            border-radius: 6px;
+            background: transparent;
+            color: #444;
+            font-size: 12px;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .at-time-option:hover {
+            background: #fff6df;
+        }
+
+        .at-time-option.selected {
+            background: #fff0c2;
+            color: #765500;
+            font-weight: 700;
+        }
+
+        .at-time-value {
+            white-space: nowrap;
+            color: #555;
+        }
+
+        .at-empty {
+            padding: 36px !important;
+            color: #888;
+            text-align: center;
+        }
+
+        .at-mobile-menu {
+            display: none;
+        }
+
+        @media (min-width: 769px) {
+            .sidebar.collapsed:hover {
+                width: 250px;
+            }
+
+            .sidebar.collapsed:hover .sidebar-title,
+            .sidebar.collapsed:hover .text {
+                opacity: 1;
+                width: auto;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .at-mobile-menu {
+                display: block;
+                position: fixed;
+                top: 12px;
+                left: 12px;
+                z-index: 1002;
+                padding: 8px 12px;
+                border: 1px solid var(--border);
+                border-radius: 9px;
+                background: #fff;
+                font-size: 20px;
+                cursor: pointer;
+            }
+
+            .dashboard-header {
+                padding-top: 35px;
+            }
+
+            .sidebar.mobile-open {
+                display: block;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 250px;
+                height: 100vh;
+                z-index: 1001;
+            }
+
+            .sidebar.mobile-open .sidebar-title,
+            .sidebar.mobile-open .text {
+                opacity: 1;
+                width: auto;
+            }
+
+            .audit-table {
+                min-width: 850px;
+            }
+        }
+    </style>
 </head>
 
 <body>
 
-<div class="sidebar collapsed" id="sidebar">
-
+<aside class="sidebar collapsed" id="sidebar">
     <div class="sidebar-header">
-        <button class="menu-btn" onclick="toggleSidebar()">☰</button>
-        <h2 class="sidebar-title">PDDM ADMIN</h2>
+        <span class="at-brand" title="PPDM Market">🏬</span>
+        <h2 class="sidebar-title">PPDM ADMIN</h2>
     </div>
 
     <ul>
-        <li onclick="window.location='dashboard.html'">
+        <li onclick="location.href='dashboard.html'">
             <span class="icon">🏠</span>
             <span class="text">Dashboard</span>
         </li>
 
-        <li onclick="window.location='requests.html'">
+        <li onclick="location.href='requests.html'">
             <span class="icon">📄</span>
-            <span class="text">Requests</span>
+            <span class="text">Seller Requests</span>
         </li>
 
-        <li onclick="window.location='marketPrice.html'">
+        <li onclick="location.href='users.html'">
+            <span class="icon">👥</span>
+            <span class="text">Users</span>
+        </li>
+
+        <li onclick="location.href='marketPrice.html'">
             <span class="icon">💰</span>
             <span class="text">Market Price</span>
+        </li>
+
+        <li onclick="location.href='products.html'">
+            <span class="icon">📦</span>
+            <span class="text">Product Listings</span>
         </li>
 
         <li class="active">
@@ -40,66 +248,120 @@
             <span class="text">Audit Trail</span>
         </li>
 
+        <li class="at-placeholder">
+            <span class="icon">⚙️</span>
+            <span class="text">Settings</span>
+        </li>
+
         <li onclick="logout()">
             <span class="icon">🚪</span>
             <span class="text">Logout</span>
         </li>
-
     </ul>
+</aside>
 
-</div>
+<button
+    class="at-mobile-menu"
+    id="atMobileMenu"
+    type="button"
+    aria-label="Open Menu"
+>☰</button>
 
-<div class="content collapsed-content" id="content">
+<main class="content collapsed-content" id="content">
 
     <div class="dashboard-header">
-
         <div>
             <h1>Audit Trail</h1>
-            <h3>System activity logs</h3>
+            <h3>System Activity Logs</h3>
         </div>
 
-        <button class="refresh-btn" onclick="loadAuditLogs()">
+        <button
+            class="at-refresh"
+            id="atRefresh"
+            type="button"
+            onclick="loadAuditLogs()"
+        >
             Refresh
         </button>
-
     </div>
 
     <div class="panel full-panel">
+        <div class="at-table-wrap">
+            <table class="audit-table">
+                <thead>
+                    <tr>
+                        <th class="at-time-header">
+                            <button
+                                class="at-time-trigger"
+                                id="atTimeTrigger"
+                                type="button"
+                                aria-expanded="false"
+                                aria-haspopup="true"
+                            >
+                                Time
+                                <span class="at-arrow">▾</span>
+                            </button>
 
-        <table class="audit-table">
+                            <div class="at-time-menu" id="atTimeMenu">
+                                <button
+                                    class="at-time-option selected"
+                                    type="button"
+                                    data-order="desc"
+                                >
+                                    Newest First
+                                </button>
 
-            <thead>
-                <tr>
-                    <th>Time</th>
-                    <th>User</th>
-                    <th>Action</th>
-                    <th>Module</th>
-                    <th>Description</th>
-                </tr>
-            </thead>
+                                <button
+                                    class="at-time-option"
+                                    type="button"
+                                    data-order="asc"
+                                >
+                                    Oldest First
+                                </button>
+                            </div>
+                        </th>
 
-            <tbody id="auditTableBody">
+                        <th>User</th>
+                        <th>Action</th>
+                        <th>Module</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
 
-                <tr>
-                    <td colspan="5" style="text-align:center">
-                        Loading...
-                    </td>
-                </tr>
-
-            </tbody>
-
-        </table>
-
+                <tbody id="auditTableBody">
+                    <tr>
+                        <td colspan="5" class="at-empty">Loading...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
-
-</div>
+</main>
 
 <script src="../js/supabase.js"></script>
 <script src="../js/script.js"></script>
 <script src="../js/audit.js"></script>
 
 <script>
-loadAuditLogs();
+document.addEventListener("DOMContentLoaded", () => {
+    const sidebar = document.getElementById("sidebar");
+    const menuButton = document.getElementById("atMobileMenu");
+
+    menuButton.addEventListener("click", event => {
+        event.stopPropagation();
+        sidebar.classList.toggle("mobile-open");
+    });
+
+    document.addEventListener("click", event => {
+        if (
+            window.innerWidth <= 768 &&
+            !sidebar.contains(event.target) &&
+            event.target !== menuButton
+        ) {
+            sidebar.classList.remove("mobile-open");
+        }
+    });
+});
 </script>
 
 </body>
