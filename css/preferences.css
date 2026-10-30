@@ -1,0 +1,23 @@
+:root {
+    --ppdm-font-scale: 1;
+}
+
+html {
+    font-size: calc(16px * var(--ppdm-font-scale));
+}
+
+/*
+  Existing px font sizes need explicit scaling.
+  Apply this to your shared stylesheet's typography rules,
+  or convert those font sizes to rem.
+*/
+
+html[data-ppdm-theme="dark"] {
+    color-scheme: dark;
+    --background: #151E30;
+    --card: #27344A;
+    --text: #F4F6FA;
+    --text-muted: #B0BAC9;
+    --border: #40516B;
+    --accent: #F5A623;
+}
