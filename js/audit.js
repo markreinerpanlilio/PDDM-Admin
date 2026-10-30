@@ -28,14 +28,71 @@ function auditFormatTime(value) {
     });
 }
 
+/*
+ * Capitalize normal words while preserving:
+ * - Email addresses
+ * - URLs
+ * - UUIDs
+ *
+ * Examples:
+ * customer(sunny@gmail.com) -> Customer(sunny@gmail.com)
+ * seller(john@gmail.com) -> Seller(john@gmail.com)
+ * admin updated product -> Admin Updated Product
+ */
 function auditCapitalize(value) {
     const text = String(value ?? "").trim();
 
     if (!text) return "—";
 
-    return text.replace(/\b[a-z]/g, character =>
-        character.toUpperCase()
+    const protectedParts = [];
+
+    const protectedText = text.replace(
+        /https?:\/\/[^\s<>"']+|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi,
+        match => {
+            const index = protectedParts.push(match) - 1;
+            return `\uE000${index}\uE001`;
+        }
     );
+
+    const capitalized = protectedText.replace(
+        /\b[a-z]/g,
+        character => character.toUpperCase()
+    );
+
+    return capitalized.replace(
+        /\uE000(\d+)\uE001/g,
+        (_, index) => protectedParts[Number(index)]
+    );
+}
+
+function auditActionClass(value) {
+    const action = String(value ?? "").toLowerCase();
+
+    if (
+        action.includes("create") ||
+        action.includes("add") ||
+        action.includes("approve")
+    ) {
+        return "create";
+    }
+
+    if (
+        action.includes("delete") ||
+        action.includes("remove") ||
+        action.includes("reject")
+    ) {
+        return "delete";
+    }
+
+    if (
+        action.includes("update") ||
+        action.includes("edit") ||
+        action.includes("change")
+    ) {
+        return "update";
+    }
+
+    return "other";
 }
 
 function auditUpdateSortMenu() {
@@ -49,6 +106,7 @@ function auditUpdateSortMenu() {
 
 function auditCloseSortMenu() {
     document.getElementById("atTimeMenu").classList.remove("open");
+
     document.getElementById("atTimeTrigger")
         .setAttribute("aria-expanded", "false");
 }
@@ -72,7 +130,6 @@ async function loadAuditLogs() {
         const logs = [];
         const pageSize = 1000;
 
-        // Fetch all accessible logs in the selected time order.
         for (let start = 0; start < 100000; start += pageSize) {
             const { data, error } = await db
                 .from("audit_logs")
@@ -103,17 +160,39 @@ async function loadAuditLogs() {
             return;
         }
 
-        body.innerHTML = logs.map(log => `
-            <tr>
-                <td class="at-time-value">
-                    ${auditEscape(auditFormatTime(log.created_at))}
-                </td>
-                <td>${auditEscape(auditCapitalize(log.user))}</td>
-                <td>${auditEscape(auditCapitalize(log.action))}</td>
-                <td>${auditEscape(auditCapitalize(log.module))}</td>
-                <td>${auditEscape(auditCapitalize(log.description))}</td>
-            </tr>
-        `).join("");
+        body.innerHTML = logs.map(log => {
+            const actionClass = auditActionClass(log.action);
+
+            return `
+                <tr>
+                    <td class="at-time-value">
+                        ${auditEscape(auditFormatTime(log.created_at))}
+                    </td>
+
+                    <td>
+                        <span class="at-user">
+                            ${auditEscape(auditCapitalize(log.user))}
+                        </span>
+                    </td>
+
+                    <td>
+                        <span class="at-action ${actionClass}">
+                            ${auditEscape(auditCapitalize(log.action))}
+                        </span>
+                    </td>
+
+                    <td>
+                        <span class="at-module">
+                            ${auditEscape(auditCapitalize(log.module))}
+                        </span>
+                    </td>
+
+                    <td class="at-description">
+                        ${auditEscape(auditCapitalize(log.description))}
+                    </td>
+                </tr>
+            `;
+        }).join("");
 
     } catch (error) {
         console.error("Audit Trail:", error);
@@ -131,7 +210,6 @@ async function loadAuditLogs() {
     }
 }
 
-// Open or close the Time header dropdown.
 document.getElementById("atTimeTrigger")
     .addEventListener("click", event => {
         event.stopPropagation();
@@ -143,7 +221,6 @@ document.getElementById("atTimeTrigger")
             .setAttribute("aria-expanded", String(isOpen));
     });
 
-// Change between ascending and descending time order.
 document.querySelectorAll(".at-time-option").forEach(button => {
     button.addEventListener("click", () => {
         const nextOrder = button.dataset.order;
@@ -158,14 +235,12 @@ document.querySelectorAll(".at-time-option").forEach(button => {
     });
 });
 
-// Close the dropdown when clicking outside it.
 document.addEventListener("click", event => {
     if (!event.target.closest(".at-time-header")) {
         auditCloseSortMenu();
     }
 });
 
-// Close the dropdown using Escape.
 document.addEventListener("keydown", event => {
     if (event.key === "Escape") {
         auditCloseSortMenu();
