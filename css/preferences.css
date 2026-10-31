@@ -1,0 +1,13 @@
+/* Global PPDM appearance settings — loaded by every admin page. */
+:root { --ppdm-font-scale: 1; --ppdm-page:#ECEDF1; --ppdm-surface:#FFFFFF; --ppdm-ink:#15171C; --ppdm-muted:#75778A; --ppdm-line:#E2E3E8; --ppdm-input:#F5F6F8; --ppdm-table-head:#FAFAFB; }
+html[data-ppdm-theme="dark"] { color-scheme:dark; --ppdm-page:#151E30; --ppdm-surface:#27344A; --ppdm-ink:#F4F6FA; --ppdm-muted:#B0BAC9; --ppdm-line:#40516B; --ppdm-input:#34445C; --ppdm-table-head:#34445C; }
+/* Existing shared stylesheet uses these tokens. */
+:root { --bg:var(--ppdm-page); --surface:var(--ppdm-surface); --text:var(--ppdm-ink); --text-muted:var(--ppdm-muted); --border:var(--ppdm-line); }
+html[data-ppdm-theme="dark"] body, html[data-ppdm-theme="dark"] .content { background:var(--ppdm-page);color:var(--ppdm-ink); }
+html[data-ppdm-theme="dark"] input, html[data-ppdm-theme="dark"] textarea, html[data-ppdm-theme="dark"] select { background:var(--ppdm-input);color:var(--ppdm-ink);border-color:var(--ppdm-line); }
+html[data-ppdm-theme="dark"] input::placeholder, html[data-ppdm-theme="dark"] textarea::placeholder {color:var(--ppdm-muted)}
+html[data-ppdm-theme="dark"] table, html[data-ppdm-theme="dark"] tbody, html[data-ppdm-theme="dark"] td {color:var(--ppdm-ink)}
+html[data-ppdm-theme="dark"] thead, html[data-ppdm-theme="dark"] th {background:var(--ppdm-table-head);color:var(--ppdm-ink)}
+
+html[data-ppdm-theme="dark"] .sidebar, html[data-ppdm-theme="dark"] .panel, html[data-ppdm-theme="dark"] .card, html[data-ppdm-theme="dark"] .modal-content {background:var(--ppdm-surface);color:var(--ppdm-ink);border-color:var(--ppdm-line)}
+html[data-ppdm-theme="dark"] .settings-card {background:var(--ppdm-surface);color:var(--ppdm-ink)}
