@@ -60,8 +60,7 @@
 
 .pm-section[hidden],
 .pm-field[hidden],
-.pm-note[hidden],
-.pm-compat[hidden]{
+.pm-note[hidden]{
  display:none!important;
 }
 
@@ -170,7 +169,7 @@
  min-width:145px;
 }
 
-/* Product autocomplete */
+/* Autocomplete */
 .mp-autocomplete{
  position:relative;
 }
@@ -548,7 +547,7 @@
  }
 
  .pm-table{
-  min-width:900px;
+  min-width:800px;
  }
 }
 
@@ -644,7 +643,7 @@
   </div>
  </div>
 
- <!-- Tabs -->
+ <!-- Straight underline tabs -->
  <div class="pm-tabs" role="tablist">
   <button
    class="pm-tab active"
@@ -705,10 +704,6 @@
     <select id="mpBrandFilter" class="pm-input pm-filter">
      <option value="">All Brands</option>
     </select>
-
-    <select id="mpTypeFilter" class="pm-input pm-filter">
-     <option value="">All Pricing Units</option>
-    </select>
    </div>
 
    <div id="mpStatus" class="pm-status" role="status"></div>
@@ -720,18 +715,17 @@
        <th>Product</th>
        <th>Brand</th>
        <th>Category</th>
-       <th>Pricing Unit</th>
        <th>Variant</th>
        <th>Min Price</th>
        <th>Max Price</th>
        <th>Updated</th>
-       <th class="actions-header">Actions</th>
+       <th class="actions-header"></th>
       </tr>
      </thead>
 
      <tbody id="marketPriceTable">
       <tr>
-       <td colspan="9" class="empty">Loading...</td>
+       <td colspan="8" class="empty">Loading...</td>
       </tr>
      </tbody>
     </table>
@@ -780,7 +774,7 @@
        <th>Product Name</th>
        <th>Brands</th>
        <th>Categories</th>
-       <th class="actions-header">Actions</th>
+       <th class="actions-header"></th>
       </tr>
      </thead>
 
@@ -798,17 +792,10 @@
      id="pmRequestSearch"
      class="pm-search"
      type="search"
-     placeholder="Search product requests..."
+     placeholder="Search pending product requests..."
     >
 
     <div class="pm-actions">
-     <select id="pmRequestFilter" class="pm-input pm-filter">
-      <option value="all">All Statuses</option>
-      <option value="pending" selected>Pending</option>
-      <option value="approved">Approved</option>
-      <option value="rejected">Rejected</option>
-     </select>
-
      <button
       id="pmRequestsRefresh"
       class="pm-btn outline"
@@ -831,7 +818,7 @@
        <th>Price / Stock</th>
        <th>Seller</th>
        <th>Status</th>
-       <th class="actions-header">Actions</th>
+       <th class="actions-header"></th>
       </tr>
      </thead>
 
@@ -975,12 +962,6 @@
      Save Product
     </button>
    </div>
-
-   <!-- Compatibility with previous JavaScript -->
-   <div class="pm-compat" hidden>
-    <div id="mpEditNote"></div>
-    <button id="mpCancel" type="button" tabindex="-1">Cancel</button>
-   </div>
   </form>
  </div>
 </div>
@@ -1065,35 +1046,6 @@
      Save Product
     </button>
    </div>
-
-   <!-- Retained only for existing productManagement.js -->
-   <div class="pm-compat" hidden>
-    <input
-     id="pmNewBrand"
-     type="text"
-     tabindex="-1"
-     autocomplete="off"
-    >
-
-    <button id="pmAddBrand" type="button" tabindex="-1">
-     Add Brand
-    </button>
-
-    <input
-     id="pmNewCategory"
-     type="text"
-     tabindex="-1"
-     autocomplete="off"
-    >
-
-    <button id="pmAddCategory" type="button" tabindex="-1">
-     Add Category
-    </button>
-
-    <button id="pmMasterCancel" type="button" tabindex="-1">
-     Cancel
-    </button>
-   </div>
   </form>
  </div>
 </div>
@@ -1114,19 +1066,21 @@ document.addEventListener("DOMContentLoaded",()=>{
  const menu=document.getElementById("pmMobileMenu");
  const sidebar=document.getElementById("sidebar");
 
- menu.addEventListener("click",()=>{
-  sidebar.classList.toggle("mobile-open");
- });
+ if(menu&&sidebar){
+  menu.addEventListener("click",()=>{
+   sidebar.classList.toggle("mobile-open");
+  });
 
- document.addEventListener("click",event=>{
-  if(
-   window.innerWidth<=768&&
-   !sidebar.contains(event.target)&&
-   !menu.contains(event.target)
-  ){
-   sidebar.classList.remove("mobile-open");
-  }
- });
+  document.addEventListener("click",event=>{
+   if(
+    window.innerWidth<=768&&
+    !sidebar.contains(event.target)&&
+    !menu.contains(event.target)
+   ){
+    sidebar.classList.remove("mobile-open");
+   }
+  });
+ }
 });
 </script>
 
