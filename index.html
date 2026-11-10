@@ -1,0 +1,40 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PPDM Admin</title>
+
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="login-page">
+        <form class="login-card" id="loginForm" onsubmit="event.preventDefault(); login();">
+            <h1>PPDM ADMIN</h1>
+            <p>Administrator Login</p>
+
+            <input
+                id="email"
+                type="email"
+                placeholder="Email"
+                autocomplete="username"
+                required
+            >
+
+            <input
+                id="password"
+                type="password"
+                placeholder="Password"
+                autocomplete="current-password"
+                required
+            >
+
+            <button type="submit">Login</button>
+        </form>
+    </div>
+
+    <script src="js/supabase.js"></script>
+    <script src="js/script.js"></script>
+</body>
+</html>
