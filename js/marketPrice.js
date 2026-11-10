@@ -1,37 +1,35 @@
 
 (()=>{
-'use strict';
+"use strict";
 
 const $=id=>document.getElementById(id);
-const norm=v=>String(v??'').trim().toLowerCase();
-const normalizeVariant=v=>norm(v).replace(/\s+/g,'');
+const norm=v=>String(v??"").trim().toLowerCase();
+const normalizeVariant=v=>norm(v)
+ .replace(/\bkilograms?\b/g,"kg")
+ .replace(/\bgrams?\b/g,"g")
+ .replace(/\bmillilit(?:ers?|res?)\b/g,"ml")
+ .replace(/\blit(?:ers?|res?)\b/g,"l")
+ .replace(/\s+/g,"");
 
-const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({
- '&':'&amp;',
- '<':'&lt;',
- '>':'&gt;',
- '"':'&quot;',
- "'":'&#39;'
+const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({
+ "&":"&amp;",
+ "<":"&lt;",
+ ">":"&gt;",
+ '"':"&quot;",
+ "'":"&#39;"
 }[c]));
 
-const peso=v=>v===null||v===undefined||v===''
- ?'—'
- :'₱'+Number(v).toLocaleString('en-PH',{
+const peso=v=>v===null||v===undefined||v===""
+ ?"—"
+ :"₱"+Number(v).toLocaleString("en-PH",{
   minimumFractionDigits:2,
   maximumFractionDigits:2
  });
 
 const WEIGHT_CATEGORIES=[
- 'meat',
- 'meats',
- 'fish',
- 'fishes',
- 'seafood',
- 'seafoods',
- 'poultry',
- 'fresh meat',
- 'fresh fish',
- 'fresh seafood'
+ "meat","meats","fish","fishes",
+ "seafood","seafoods","poultry",
+ "fresh meat","fresh fish","fresh seafood"
 ];
 
 let client;
@@ -42,18 +40,19 @@ let categories=[];
 let brandProducts=[];
 let selectedProductId=null;
 let editingId=null;
+let editingRecord=null;
 let loading=false;
 let saving=false;
 
 function getClient(){
- if(typeof db!=='undefined'&&db?.from)return db;
+ if(typeof db!=="undefined"&&db?.from)return db;
  if(window.supabaseClient?.from)return window.supabaseClient;
  if(window.supabase?.from)return window.supabase;
- throw new Error('Supabase client not found. Check js/supabase.js.');
+ throw Error("Supabase client not found.");
 }
 
 function setStatus(message){
- $('mpStatus').textContent=message||'';
+ $("mpStatus").textContent=message||"";
 }
 
 function getProduct(id){
@@ -76,29 +75,26 @@ function getLinks(productId){
 
 function getPricingType(categoryName){
  return WEIGHT_CATEGORIES.includes(norm(categoryName))
-  ?'per_kg'
-  :'fixed_size';
+  ?"per_kg":"fixed_size";
 }
 
 function pricingLabel(type){
- return type==='per_kg'?'Per 1 kg':'Per Variant';
+ return type==="per_kg"?"Per 1 kg":"Per Variant";
 }
 
 function formatDate(value){
- if(!value)return '—';
-
+ if(!value)return "—";
  const date=new Date(value);
+ if(Number.isNaN(date.getTime()))return "—";
 
- if(Number.isNaN(date.getTime()))return '—';
-
- return date.toLocaleDateString('en-PH',{
-  year:'numeric',
-  month:'short',
-  day:'numeric'
+ return date.toLocaleDateString("en-PH",{
+  year:"numeric",
+  month:"short",
+  day:"numeric"
  });
 }
 
-async function fetchAll(table,columns,orderColumn='id'){
+async function fetchAll(table,columns,orderColumn="id"){
  const rows=[];
  const batchSize=500;
 
@@ -122,15 +118,15 @@ async function fetchAll(table,columns,orderColumn='id'){
 async function loadCatalog(){
  const results=await Promise.all([
   fetchAll(
-   'master_products',
-   'id,product_name,allow_unbranded',
-   'product_name'
+   "master_products",
+   "id,product_name,allow_unbranded",
+   "product_name"
   ),
-  fetchAll('brands','id,name','name'),
-  fetchAll('categories','id,name','name'),
+  fetchAll("brands","id,name","name"),
+  fetchAll("categories","id,name","name"),
   fetchAll(
-   'brand_products',
-   'id,brand_id,master_product_id,category_id'
+   "brand_products",
+   "id,brand_id,master_product_id,category_id"
   )
  ]);
 
@@ -144,20 +140,32 @@ async function loadPrices(){
  if(loading)return;
 
  loading=true;
- $('mpRefresh').disabled=true;
- setStatus('Loading market prices...');
+ $("mpRefresh").disabled=true;
+ setStatus("Loading market prices...");
 
  try{
-  await loadCatalog();
+  // The Market Price table always reads from market_prices.
+  const [catalogResult,pricesResult]=await Promise.allSettled([
+   loadCatalog(),
+   fetchAll(
+    "market_prices",
+    "id,master_product_id,brand_id,product_name,category,variant,min_price,max_price,pricing_type,created_at,updated_at"
+   )
+  ]);
 
-  records=await fetchAll(
-   'market_prices',
-   'id,master_product_id,brand_id,product_name,category,variant,min_price,max_price,pricing_type,created_at,updated_at'
-  );
+  if(pricesResult.status==="rejected"){
+   throw pricesResult.reason;
+  }
+
+  if(catalogResult.status==="rejected"){
+   console.warn("Master List unavailable:",catalogResult.reason);
+  }
+
+  records=pricesResult.value;
 
   records.sort((a,b)=>
-   String(a.product_name||'').localeCompare(
-    String(b.product_name||'')
+   String(a.product_name||"").localeCompare(
+    String(b.product_name||"")
    )
   );
 
@@ -165,102 +173,90 @@ async function loadPrices(){
   renderPrices();
 
   setStatus(
-   records.length
-    ?`${records.length} market price records loaded.`
-    :'No market price records found.'
+   `${records.length} market price record${records.length===1?"":"s"} loaded.`
   );
 
  }catch(error){
-  console.error('Market Price load error:',error);
+  console.error("Market Price load error:",error);
 
-  $('marketPriceTable').innerHTML=`
-   <tr>
-    <td colspan="9" class="empty">
-     ${esc(error.message)}
-    </td>
-   </tr>
+  $("marketPriceTable").innerHTML=`
+   <tr><td colspan="9" class="empty">
+    ${esc(error.message)}
+   </td></tr>
   `;
 
-  $('mpCount').textContent='';
-  setStatus('Unable to load Market Price: '+error.message);
+  $("mpCount").textContent="";
+  setStatus("Unable to load Market Price: "+error.message);
 
  }finally{
   loading=false;
-  $('mpRefresh').disabled=false;
+  $("mpRefresh").disabled=false;
  }
 }
 
 function getBrandName(row){
- if(!row.brand_id)return 'Unbranded';
-
- return getBrand(row.brand_id)?.name||'Unknown Brand';
+ if(!row.brand_id)return "Unbranded";
+ return getBrand(row.brand_id)?.name||"Unknown Brand";
 }
 
 function buildFilters(){
- const categorySelect=$('mpCategoryFilter');
- const brandSelect=$('mpBrandFilter');
- const typeSelect=$('mpTypeFilter');
+ const categorySelect=$("mpCategoryFilter");
+ const brandSelect=$("mpBrandFilter");
+ const typeSelect=$("mpTypeFilter");
 
- const previousCategory=categorySelect.value;
- const previousBrand=brandSelect.value;
- const previousType=typeSelect.value;
+ const oldCategory=categorySelect.value;
+ const oldBrand=brandSelect.value;
+ const oldType=typeSelect.value;
 
  const categoryValues=[...new Set(
   records.map(r=>r.category).filter(Boolean)
  )].sort((a,b)=>a.localeCompare(b));
 
  const brandValues=[...new Set(
-  records.map(r=>r.brand_id||'unbranded')
+  records.map(r=>r.brand_id||"unbranded")
  )];
 
  const typeValues=[...new Set(
   records.map(r=>r.pricing_type).filter(Boolean)
  )];
 
- categorySelect.innerHTML=`
-  <option value="">All Categories</option>
-  ${categoryValues.map(value=>`
-   <option value="${esc(value)}">${esc(value)}</option>
-  `).join('')}
- `;
+ categorySelect.replaceChildren(
+  new Option("All Categories","")
+ );
+ categoryValues.forEach(value=>
+  categorySelect.add(new Option(value,value))
+ );
 
- brandSelect.innerHTML=`
-  <option value="">All Brands</option>
-  ${brandValues.map(id=>`
-   <option value="${esc(id)}">
-    ${esc(
-     id==='unbranded'
-      ?'Unbranded'
-      :getBrand(id)?.name||'Unknown Brand'
-    )}
-   </option>
-  `).join('')}
- `;
+ brandSelect.replaceChildren(
+  new Option("All Brands","")
+ );
+ brandValues.forEach(id=>{
+  const label=id==="unbranded"
+   ?"Unbranded"
+   :getBrand(id)?.name||"Unknown Brand";
+  brandSelect.add(new Option(label,id));
+ });
 
- typeSelect.innerHTML=`
-  <option value="">All Pricing Units</option>
-  ${typeValues.map(value=>`
-   <option value="${esc(value)}">
-    ${esc(pricingLabel(value))}
-   </option>
-  `).join('')}
- `;
+ typeSelect.replaceChildren(
+  new Option("All Pricing Units","")
+ );
+ typeValues.forEach(value=>
+  typeSelect.add(new Option(pricingLabel(value),value))
+ );
 
- categorySelect.value=categoryValues.includes(previousCategory)
-  ?previousCategory:'';
-
- brandSelect.value=brandValues.includes(previousBrand)
-  ?previousBrand:'';
-
- typeSelect.value=typeValues.includes(previousType)
-  ?previousType:'';
+ categorySelect.value=categoryValues.includes(oldCategory)
+  ?oldCategory:"";
+ brandSelect.value=brandValues.includes(oldBrand)
+  ?oldBrand:"";
+ typeSelect.value=typeValues.includes(oldType)
+  ?oldType:"";
 }
 
 function renderPrices(){
- const search=norm($('mpSearch').value);
- const category=$('mpCategoryFilter').value;
- const brand=$('mpBrandFilter').value;
- const type=$('mpTypeFilter').value;
+ const search=norm($("mpSearch").value);
+ const category=$("mpCategoryFilter").value;
+ const brand=$("mpBrandFilter").value;
+ const type=$("mpTypeFilter").value;
 
  const filtered=records.filter(row=>{
   const searchable=norm([
@@ -270,65 +266,52 @@ function renderPrices(){
    row.variant,
    row.pricing_type,
    pricingLabel(row.pricing_type)
-  ].join(' '));
+  ].join(" "));
 
   return searchable.includes(search)
    &&(!category||row.category===category)
-   &&(!brand||(row.brand_id||'unbranded')===brand)
+   &&(!brand||(row.brand_id||"unbranded")===brand)
    &&(!type||row.pricing_type===type);
  });
 
- $('marketPriceTable').innerHTML=filtered.length
+ $("marketPriceTable").innerHTML=filtered.length
   ?filtered.map(row=>`
    <tr>
     <td class="name">${esc(row.product_name)}</td>
     <td>${esc(getBrandName(row))}</td>
-    <td>${esc(row.category||'—')}</td>
+    <td>${esc(row.category||"—")}</td>
     <td>${esc(pricingLabel(row.pricing_type))}</td>
-    <td>${esc(
-     row.pricing_type==='per_kg'
-      ?'1 kg'
-      :row.variant||'—'
-    )}</td>
+    <td>${esc(row.pricing_type==="per_kg"
+     ?"1 kg":row.variant||"—")}</td>
     <td>${peso(row.min_price)}</td>
     <td><strong>${peso(row.max_price)}</strong></td>
     <td>${esc(formatDate(row.updated_at||row.created_at))}</td>
     <td>
-     <button
-      class="pm-row-btn"
-      type="button"
-      data-mp-edit="${esc(row.id)}"
-     >Edit</button>
-     <button
-      class="pm-row-btn danger"
-      type="button"
-      data-mp-delete="${esc(row.id)}"
-     >Delete</button>
+     <button class="pm-row-btn" type="button"
+      data-mp-edit="${esc(row.id)}">Edit</button>
+     <button class="pm-row-btn danger" type="button"
+      data-mp-delete="${esc(row.id)}">Delete</button>
     </td>
    </tr>
-  `).join('')
-  :`
-   <tr>
-    <td colspan="9" class="empty">
-     No market prices found.
-    </td>
-   </tr>
-  `;
+  `).join("")
+  :`<tr><td colspan="9" class="empty">
+      No market prices found.
+     </td></tr>`;
 
- $('mpCount').textContent=
+ $("mpCount").textContent=
   `Showing ${filtered.length} of ${records.length} records. `+
-  'Scroll inside the table to see more.';
-
- $('mpScrollArea').scrollTop=0;
+  "Scroll inside the table to see more.";
 }
 
 function hideSuggestions(){
- $('mpSuggestions').hidden=true;
- $('mpProductSearch').setAttribute('aria-expanded','false');
+ $("mpSuggestions").hidden=true;
+ $("mpProductSearch").setAttribute("aria-expanded","false");
 }
 
 function showSuggestions(){
- const query=norm($('mpProductSearch').value);
+ if(editingId)return;
+
+ const query=norm($("mpProductSearch").value);
 
  const matches=masterProducts
   .filter(product=>
@@ -337,75 +320,29 @@ function showSuggestions(){
   .sort((a,b)=>{
    const aStart=norm(a.product_name).startsWith(query)?0:1;
    const bStart=norm(b.product_name).startsWith(query)?0:1;
-
    return aStart-bStart||
     a.product_name.localeCompare(b.product_name);
   })
   .slice(0,12);
 
- const container=$('mpSuggestions');
+ const container=$("mpSuggestions");
 
- if(!masterProducts.length){
-  container.innerHTML=`
-   <div class="mp-suggestion-empty">
-    No products in Master List.
-   </div>
-  `;
- }else if(!matches.length){
-  container.innerHTML=`
-   <div class="mp-suggestion-empty">
-    No matching product in Master List.
-   </div>
-  `;
- }else{
-  container.innerHTML=matches.map(product=>`
-   <button
-    class="mp-suggestion"
-    type="button"
-    role="option"
-    data-product-id="${esc(product.id)}"
-   >
-    ${esc(product.product_name)}
-    <small>Master List product</small>
-   </button>
-  `).join('');
- }
+ container.innerHTML=matches.length
+  ?matches.map(product=>`
+    <button class="mp-suggestion" type="button"
+     role="option" data-product-id="${esc(product.id)}">
+     ${esc(product.product_name)}
+     <small>Master List product</small>
+    </button>
+   `).join("")
+  :`<div class="mp-suggestion-empty">
+      ${masterProducts.length
+       ?"No matching product in Master List."
+       :"No products available in Master List."}
+     </div>`;
 
  container.hidden=false;
- $('mpProductSearch').setAttribute('aria-expanded','true');
-}
-
-function resetProductSelection(){
- selectedProductId=null;
-
- $('mpProductSelected').textContent='';
- $('mpProductSelected').classList.remove('error');
-
- $('mpBrandSelect').innerHTML=`
-  <option value="">Select a product first</option>
- `;
- $('mpBrandSelect').disabled=true;
-
- $('mpCategorySelect').innerHTML=`
-  <option value="">Select a brand first</option>
- `;
- $('mpCategorySelect').disabled=true;
-
- updatePricingFields();
-}
-
-function selectProduct(productId){
- const product=getProduct(productId);
-
- if(!product)return;
-
- selectedProductId=product.id;
- $('mpProductSearch').value=product.product_name;
- $('mpProductSelected').textContent='Selected from Master List';
- $('mpProductSelected').classList.remove('error');
-
- hideSuggestions();
- updateBrandOptions();
+ $("mpProductSearch").setAttribute("aria-expanded","true");
 }
 
 function getAvailableBrands(productId){
@@ -419,13 +356,11 @@ function getAvailableBrands(productId){
 }
 
 function getAvailableCategories(productId,brandValue){
- let links=getLinks(productId);
-
- if(brandValue==='unbranded'){
-  links=links.filter(link=>!link.brand_id);
- }else{
-  links=links.filter(link=>link.brand_id===brandValue);
- }
+ const links=getLinks(productId).filter(link=>
+  brandValue==="unbranded"
+   ?!link.brand_id
+   :link.brand_id===brandValue
+ );
 
  const ids=new Set(
   links.map(link=>link.category_id).filter(Boolean)
@@ -434,11 +369,45 @@ function getAvailableCategories(productId,brandValue){
  return categories.filter(category=>ids.has(category.id));
 }
 
-function updateBrandOptions(preferred=''){
- const product=getProduct(selectedProductId);
- const select=$('mpBrandSelect');
+function resetProductSelection(){
+ selectedProductId=null;
 
- select.innerHTML='<option value="">Select a brand</option>';
+ $("mpProductSelected").textContent="";
+ $("mpProductSelected").classList.remove("error");
+
+ $("mpBrandSelect").replaceChildren(
+  new Option("Select a product first","")
+ );
+ $("mpBrandSelect").disabled=true;
+
+ $("mpCategorySelect").replaceChildren(
+  new Option("Select a brand first","")
+ );
+ $("mpCategorySelect").disabled=true;
+
+ updatePricingFields();
+}
+
+function selectProduct(productId){
+ if(editingId)return;
+
+ const product=getProduct(productId);
+ if(!product)return;
+
+ selectedProductId=product.id;
+ $("mpProductSearch").value=product.product_name;
+ $("mpProductSelected").textContent="Selected from Master List";
+ $("mpProductSelected").classList.remove("error");
+
+ hideSuggestions();
+ updateBrandOptions();
+}
+
+function updateBrandOptions(preferred=""){
+ const product=getProduct(selectedProductId);
+ const select=$("mpBrandSelect");
+
+ select.replaceChildren(new Option("Select a brand",""));
  select.disabled=true;
 
  if(!product){
@@ -449,39 +418,33 @@ function updateBrandOptions(preferred=''){
  const available=getAvailableBrands(product.id);
 
  if(product.allow_unbranded){
-  select.innerHTML+=`
-   <option value="unbranded">Unbranded</option>
-  `;
+  select.add(new Option("Unbranded","unbranded"));
  }
 
- select.innerHTML+=available.map(brand=>`
-  <option value="${esc(brand.id)}">
-   ${esc(brand.name)}
-  </option>
- `).join('');
+ available.forEach(brand=>
+  select.add(new Option(brand.name,brand.id))
+ );
 
  select.disabled=false;
 
- if(preferred==='unbranded'&&product.allow_unbranded){
-  select.value='unbranded';
+ if(preferred==="unbranded"&&product.allow_unbranded){
+  select.value="unbranded";
  }else if(available.some(b=>b.id===preferred)){
   select.value=preferred;
  }else if(available.length===1&&!product.allow_unbranded){
   select.value=available[0].id;
  }else if(!available.length&&product.allow_unbranded){
-  select.value='unbranded';
+  select.value="unbranded";
  }
 
  updateCategoryOptions();
 }
 
-function updateCategoryOptions(preferred=''){
- const select=$('mpCategorySelect');
- const brandValue=$('mpBrandSelect').value;
+function updateCategoryOptions(preferred=""){
+ const select=$("mpCategorySelect");
+ const brandValue=$("mpBrandSelect").value;
 
- select.innerHTML=`
-  <option value="">Select a category</option>
- `;
+ select.replaceChildren(new Option("Select a category",""));
  select.disabled=true;
 
  if(!selectedProductId||!brandValue){
@@ -490,15 +453,12 @@ function updateCategoryOptions(preferred=''){
  }
 
  const available=getAvailableCategories(
-  selectedProductId,
-  brandValue
+  selectedProductId,brandValue
  );
 
- select.innerHTML+=available.map(category=>`
-  <option value="${esc(category.id)}">
-   ${esc(category.name)}
-  </option>
- `).join('');
+ available.forEach(category=>
+  select.add(new Option(category.name,category.id))
+ );
 
  select.disabled=!available.length;
 
@@ -509,282 +469,375 @@ function updateCategoryOptions(preferred=''){
  }
 
  if(!available.length){
-  select.innerHTML=`
-   <option value="">No registered category</option>
-  `;
+  select.replaceChildren(
+   new Option("No registered category","")
+  );
  }
 
  updatePricingFields();
+}
+
+// Pricing fields depend on the saved record in Edit mode.
+function currentPricingType(){
+ if(editingId&&editingRecord){
+  return editingRecord.pricing_type||
+   getPricingType(editingRecord.category);
+ }
+
+ const category=getCategory($("mpCategorySelect").value);
+ return category?getPricingType(category.name):null;
 }
 
 function updatePricingFields(){
- const category=getCategory($('mpCategorySelect').value);
- const type=category?getPricingType(category.name):null;
- const perKg=type==='per_kg';
- const fixed=type==='fixed_size';
+ const type=currentPricingType();
+ const perKg=type==="per_kg";
+ const fixed=type==="fixed_size";
 
- // Hide variant until a quantity-based category is selected.
- $('mpVariantField').hidden=!fixed;
- $('mpMinField').hidden=!fixed;
+ $("mpVariantField").hidden=!fixed;
+ $("mpMinField").hidden=!fixed;
 
- // Hidden inputs must not block form submission.
- $('mpVariant').disabled=!fixed;
- $('mpMinPrice').disabled=!fixed;
+ $("mpVariant").disabled=!fixed;
+ $("mpMinPrice").disabled=!fixed;
 
- $('mpVariant').required=fixed;
- $('mpMinPrice').required=fixed;
+ $("mpVariant").required=fixed;
+ $("mpMinPrice").required=fixed;
 
- // A weight-based product always uses 1 kg internally.
  if(perKg){
-  $('mpVariant').value='1 kg';
-  $('mpMinPrice').value='';
- }else if(!category){
-  $('mpVariant').value='';
-  $('mpMinPrice').value='';
- }else if($('mpVariant').value==='1 kg'){
-  $('mpVariant').value='';
+  $("mpVariant").value="1 kg";
+  $("mpMinPrice").value="";
+ }else if(!type){
+  $("mpVariant").value="";
+  $("mpMinPrice").value="";
+ }else if($("mpVariant").value==="1 kg"){
+  $("mpVariant").value="";
  }
 
- $('mpUnitDisplay').textContent=!category
-  ?'Select a category to determine the pricing unit.'
-  :perKg
-   ?'Per kilogram — reference price is based on 1 kg.'
-   :'Per variant — reference price depends on the package size.';
+ $("mpMaxLabel").textContent=perKg
+  ?"Reference Price per 1 kg (₱) *"
+  :"Maximum Price (₱) *";
 
- $('mpMaxLabel').textContent=perKg
-  ?'Reference Price per 1 kg (₱)'
-  :'Maximum Price (₱)';
-
- $('mpPriceHint').textContent=!category
-  ?''
+ $("mpPriceHint").textContent=!type
+  ?"Select a product, brand, and category."
   :perKg
-   ?'Example: Pork at ₱100 means the reference price is ₱100 for 1 kg. No variant or minimum price is needed.'
-   :'Enter a variant, minimum price, and maximum price.';
+   ?"Weight-based product: enter the reference price for 1 kg."
+   :"Packaged product: enter its variant and minimum/maximum prices.";
 }
 
+// Add uses Master List; Edit uses the saved market_prices row.
 function openModal(row=null){
+ if(saving)return;
+
  editingId=row?.id||null;
+ editingRecord=row?{...row}:null;
 
- $('mpForm').reset();
+ $("mpForm").reset();
+ $("mpProductSearch").readOnly=false;
+ $("mpBrandSelect").disabled=true;
+ $("mpCategorySelect").disabled=true;
+
  resetProductSelection();
+ hideSuggestions();
 
- $('mpModalTitle').textContent=
-  row?'Edit Market Price':'Add Market Price';
+ $("mpModalTitle").textContent=row
+  ?"Edit Market Price":"Add Market Price";
 
- $('mpSave').textContent=
-  row?'Save Changes':'Save Product';
+ $("mpSave").textContent=row
+  ?"Save Changes":"Save Product";
+
+ $("mpEditNote").hidden=!row;
 
  if(row){
-  const product=getProduct(row.master_product_id);
+  selectedProductId=row.master_product_id||null;
 
-  if(product){
-   selectProduct(product.id);
+  // Values come from market_prices, not Master List.
+  $("mpProductSearch").value=row.product_name||"";
+  $("mpProductSearch").readOnly=true;
 
-   updateBrandOptions(row.brand_id||'unbranded');
+  $("mpProductSelected").textContent=
+   "Loaded from saved Market Price record";
 
-   const category=categories.find(c=>
-    norm(c.name)===norm(row.category)
-   );
+  const brandValue=row.brand_id||"unbranded";
+  const brandName=row.brand_id
+   ?getBrand(row.brand_id)?.name||"Saved Brand"
+   :"Unbranded";
 
-   updateCategoryOptions(category?.id||'');
-  }
+  $("mpBrandSelect").replaceChildren(
+   new Option(brandName,brandValue)
+  );
+  $("mpBrandSelect").value=brandValue;
+  $("mpBrandSelect").disabled=true;
 
-  // Restore the variant only for fixed-size products.
-  const category=getCategory($('mpCategorySelect').value);
-  const type=category?getPricingType(category.name):row.pricing_type;
+  $("mpCategorySelect").replaceChildren(
+   new Option(row.category||"Uncategorized",row.category||"")
+  );
+  $("mpCategorySelect").value=row.category||"";
+  $("mpCategorySelect").disabled=true;
 
-  $('mpVariant').value=type==='per_kg'
-   ?'1 kg'
-   :row.variant||'';
+  $("mpProductHelp").textContent=
+   "This product is loaded directly from its saved market price record.";
 
-  $('mpMinPrice').value=type==='per_kg'
-   ?''
-   :row.min_price??'';
+  // Populate all editable fields from the saved row.
+  $("mpVariant").value=row.variant??"";
+  $("mpMinPrice").value=row.min_price??"";
+  $("mpMaxPrice").value=row.max_price??"";
 
-  $('mpMaxPrice').value=row.max_price??'';
+ }else{
+  $("mpProductSearch").value="";
+  $("mpProductHelp").textContent=
+   "Select a registered product from the Master List.";
+  $("mpMaxPrice").value="";
  }
 
  updatePricingFields();
 
- $('mpModal').classList.add('open');
- $('mpProductSearch').focus();
+ $("mpModal").classList.add("open");
+
+ if(row){
+  $("mpMaxPrice").focus();
+ }else{
+  $("mpProductSearch").focus();
+ }
 }
 
 function closeModal(){
  if(saving)return;
 
- $('mpModal').classList.remove('open');
+ $("mpModal").classList.remove("open");
  hideSuggestions();
 
  editingId=null;
+ editingRecord=null;
  selectedProductId=null;
 
- $('mpForm').reset();
+ $("mpForm").reset();
+ $("mpProductSearch").readOnly=false;
  resetProductSelection();
 }
 
-async function savePrice(event){
- event.preventDefault();
+function validatePrices(type){
+ const perKg=type==="per_kg";
+ const variant=perKg?"1 kg":$("mpVariant").value.trim();
 
- if(saving)return;
+ const maxText=$("mpMaxPrice").value;
+ const minText=$("mpMinPrice").value;
 
- const product=getProduct(selectedProductId);
- const typedName=norm($('mpProductSearch').value);
-
- if(!product||typedName!==norm(product.product_name)){
-  $('mpProductSelected').textContent=
-   'Select an existing product from the suggestions.';
-
-  $('mpProductSelected').classList.add('error');
-
-  alert(
-   'This product is not selected from Master List. '+
-   'Choose an existing product before saving.'
-  );
-  return;
- }
-
- const brandValue=$('mpBrandSelect').value;
- const brandId=brandValue==='unbranded'?null:brandValue;
- const categoryId=$('mpCategorySelect').value;
- const category=getCategory(categoryId);
-
- if(!brandValue){
-  alert('Select a brand.');
-  return;
- }
-
- if(!brandId&&!product.allow_unbranded){
-  alert('This product does not allow unbranded listings.');
-  return;
- }
-
- if(brandId&&!getAvailableBrands(product.id)
-  .some(b=>b.id===brandId)){
-  alert('The selected brand does not belong to this product.');
-  return;
- }
-
- if(!category){
-  alert('Select a registered category.');
-  return;
- }
-
- const validCategories=getAvailableCategories(
-  product.id,
-  brandValue
- );
-
- if(!validCategories.some(c=>c.id===category.id)){
-  alert(
-   'This category is not registered for the selected product and brand.'
-  );
-  return;
- }
-
- const pricingType=getPricingType(category.name);
- const perKg=pricingType==='per_kg';
-
- const variant=perKg?'1 kg':$('mpVariant').value.trim();
- const minPrice=perKg?null:Number($('mpMinPrice').value);
- const maxPrice=Number($('mpMaxPrice').value);
+ const maxPrice=Number(maxText);
+ const minPrice=perKg?null:Number(minText);
 
  if(!variant){
-  alert('Enter the product variant.');
-  return;
+  throw Error("Enter a product variant.");
  }
 
  if(
-  $('mpMaxPrice').value===''||
+  maxText===""||
   !Number.isFinite(maxPrice)||
   maxPrice<0
  ){
-  alert('Enter a valid reference price.');
-  return;
+  throw Error("Enter a valid reference price.");
  }
 
  if(!perKg&&(
-  $('mpMinPrice').value===''||
+  minText===""||
   !Number.isFinite(minPrice)||
   minPrice<0||
   minPrice>maxPrice
  )){
-  alert(
-   'Enter a valid minimum price that does not exceed the maximum.'
+  throw Error(
+   "Minimum price must be valid and must not exceed maximum price."
   );
-  return;
  }
 
- const duplicate=records.some(row=>
-  row.id!==editingId&&
-  row.master_product_id===product.id&&
-  (row.brand_id||null)===(brandId||null)&&
-  norm(row.category)===norm(category.name)&&
-  row.pricing_type===pricingType&&
+ return {variant,minPrice,maxPrice};
+}
+
+function isDuplicate(identity,variant,excludeId=null){
+ return records.some(row=>
+  row.id!==excludeId&&
+  row.master_product_id===identity.master_product_id&&
+  (row.brand_id||null)===(identity.brand_id||null)&&
+  norm(row.category)===norm(identity.category)&&
+  row.pricing_type===identity.pricing_type&&
   normalizeVariant(row.variant)===normalizeVariant(variant)
  );
+}
 
- if(duplicate){
-  alert(
-   'A reference price already exists for this product, '+
-   'brand, category, and variant.'
-  );
+async function savePrice(event){
+ event.preventDefault();
+ if(saving)return;
+
+ let payload;
+
+ try{
+  if(editingId){
+   if(!editingRecord){
+    throw Error("The saved market price record was not found.");
+   }
+
+   const type=editingRecord.pricing_type||
+    getPricingType(editingRecord.category);
+
+   const values=validatePrices(type);
+
+   // Preserve the saved record's identity.
+   payload={
+    variant:values.variant,
+    min_price:values.minPrice,
+    max_price:values.maxPrice,
+    updated_at:new Date().toISOString()
+   };
+
+   const identity={
+    master_product_id:editingRecord.master_product_id,
+    brand_id:editingRecord.brand_id,
+    category:editingRecord.category,
+    pricing_type:type
+   };
+
+   if(isDuplicate(identity,values.variant,editingId)){
+    throw Error(
+     "Another market price already exists for this product, brand, category, and variant."
+    );
+   }
+
+  }else{
+   // Master List restriction applies when adding only.
+   const product=getProduct(selectedProductId);
+   const typedName=norm($("mpProductSearch").value);
+
+   if(!product||typedName!==norm(product.product_name)){
+    $("mpProductSelected").textContent=
+     "Select an existing product from Master List.";
+    $("mpProductSelected").classList.add("error");
+
+    throw Error(
+     "You can only add products registered in the Master List."
+    );
+   }
+
+   const brandValue=$("mpBrandSelect").value;
+   const brandId=brandValue==="unbranded"?null:brandValue;
+   const categoryId=$("mpCategorySelect").value;
+   const category=getCategory(categoryId);
+
+   if(!brandValue){
+    throw Error("Select a brand.");
+   }
+
+   if(!brandId&&!product.allow_unbranded){
+    throw Error("This product does not allow unbranded listings.");
+   }
+
+   if(brandId&&!getAvailableBrands(product.id)
+    .some(brand=>brand.id===brandId)){
+    throw Error("The brand is not registered for this product.");
+   }
+
+   if(!category){
+    throw Error("Select a registered category.");
+   }
+
+   const available=getAvailableCategories(
+    product.id,brandValue
+   );
+
+   if(!available.some(c=>c.id===category.id)){
+    throw Error(
+     "The category is not registered for this product and brand."
+    );
+   }
+
+   const type=getPricingType(category.name);
+   const values=validatePrices(type);
+
+   const identity={
+    master_product_id:product.id,
+    brand_id:brandId,
+    category:category.name,
+    pricing_type:type
+   };
+
+   if(isDuplicate(identity,values.variant)){
+    throw Error(
+     "A market price already exists for this product, brand, category, and variant."
+    );
+   }
+
+   payload={
+    ...identity,
+    product_name:product.product_name,
+    variant:values.variant,
+    min_price:values.minPrice,
+    max_price:values.maxPrice,
+    updated_at:new Date().toISOString()
+   };
+  }
+
+ }catch(error){
+  alert(error.message);
   return;
  }
 
- const payload={
-  master_product_id:product.id,
-  brand_id:brandId,
-  product_name:product.product_name,
-  category:category.name,
-  pricing_type:pricingType,
-  variant,
-  min_price:minPrice,
-  max_price:maxPrice,
-  updated_at:new Date().toISOString()
- };
-
  saving=true;
- $('mpSave').disabled=true;
- $('mpModalClose').disabled=true;
+ $("mpSave").disabled=true;
+ $("mpModalClose").disabled=true;
 
  try{
-  const query=editingId
-   ?client.from('market_prices')
-    .update(payload).eq('id',editingId)
-   :client.from('market_prices')
-    .insert(payload);
+  if(editingId){
+   const {data,error}=await client
+    .from("market_prices")
+    .update(payload)
+    .eq("id",editingId)
+    .select("id")
+    .single();
 
-  const {error}=await query;
+   if(error)throw error;
+   if(!data?.id)throw Error("Market price was not updated.");
 
-  if(error)throw error;
+  }else{
+   const {data,error}=await client
+    .from("market_prices")
+    .insert(payload)
+    .select("id")
+    .single();
 
-  $('mpModal').classList.remove('open');
+   if(error)throw error;
+   if(!data?.id)throw Error("Market price was not created.");
+  }
+
+  const wasEditing=Boolean(editingId);
+
+  // Close the modal and refresh the actual database records.
+  $("mpModal").classList.remove("open");
   editingId=null;
+  editingRecord=null;
   selectedProductId=null;
 
-  $('mpForm').reset();
-  resetProductSelection();
+  $("mpForm").reset();
+  hideSuggestions();
 
   await loadPrices();
 
- }catch(error){
-  console.error('Market Price save error:',error);
-
-  alert(
-   'Unable to save market price: '+error.message
+  setStatus(
+   wasEditing
+    ?"Market price updated successfully."
+    :"Market price added successfully."
   );
+
+ }catch(error){
+  console.error("Market Price save error:",error);
+  alert("Unable to save market price: "+error.message);
 
  }finally{
   saving=false;
-  $('mpSave').disabled=false;
-  $('mpModalClose').disabled=false;
+  $("mpSave").disabled=false;
+  $("mpModalClose").disabled=false;
  }
 }
 
 async function deletePrice(id){
- const row=records.find(r=>r.id===id);
+ if(saving)return;
 
+ const row=records.find(r=>r.id===id);
  if(!row)return;
 
  if(!confirm(
@@ -792,31 +845,35 @@ async function deletePrice(id){
  ))return;
 
  try{
-  const {error}=await client
-   .from('market_prices')
+  const {data,error}=await client
+   .from("market_prices")
    .delete()
-   .eq('id',id);
+   .eq("id",id)
+   .select("id");
 
   if(error)throw error;
+  if(!data?.length)throw Error("Market price was not deleted.");
 
   await loadPrices();
+  setStatus("Market price deleted successfully.");
 
  }catch(error){
-  console.error('Market Price delete error:',error);
-
-  alert(
-   'Unable to delete market price: '+error.message
-  );
+  console.error("Market Price delete error:",error);
+  alert("Unable to delete market price: "+error.message);
  }
 }
 
 function setupAutocomplete(){
- const input=$('mpProductSearch');
- const suggestions=$('mpSuggestions');
+ const input=$("mpProductSearch");
+ const suggestions=$("mpSuggestions");
 
- input.addEventListener('focus',showSuggestions);
+ input.addEventListener("focus",()=>{
+  if(!editingId)showSuggestions();
+ });
 
- input.addEventListener('input',()=>{
+ input.addEventListener("input",()=>{
+  if(editingId)return;
+
   const product=getProduct(selectedProductId);
 
   if(!product||norm(input.value)!==norm(product.product_name)){
@@ -826,14 +883,14 @@ function setupAutocomplete(){
   showSuggestions();
  });
 
- input.addEventListener('keydown',event=>{
-  if(event.key==='Escape'){
+ input.addEventListener("keydown",event=>{
+  if(event.key==="Escape"){
    hideSuggestions();
    return;
   }
 
-  if(event.key==='Enter'&&!suggestions.hidden){
-   const first=suggestions.querySelector('[data-product-id]');
+  if(event.key==="Enter"&&!suggestions.hidden){
+   const first=suggestions.querySelector("[data-product-id]");
 
    if(first){
     event.preventDefault();
@@ -842,58 +899,62 @@ function setupAutocomplete(){
   }
  });
 
- suggestions.addEventListener('click',event=>{
-  const button=event.target.closest('[data-product-id]');
-
-  if(button){
-   selectProduct(button.dataset.productId);
-  }
+ suggestions.addEventListener("click",event=>{
+  const button=event.target.closest("[data-product-id]");
+  if(button)selectProduct(button.dataset.productId);
  });
 
- document.addEventListener('click',event=>{
-  if(!$('mpProductAutocomplete').contains(event.target)){
+ document.addEventListener("click",event=>{
+  if(!$("mpProductAutocomplete").contains(event.target)){
    hideSuggestions();
   }
  });
 }
 
-document.addEventListener('DOMContentLoaded',()=>{
+document.addEventListener("DOMContentLoaded",()=>{
  try{
   client=getClient();
 
-  $('mpRefresh').addEventListener('click',loadPrices);
-  $('mpAdd').addEventListener('click',()=>openModal());
+  $("mpRefresh").addEventListener("click",loadPrices);
+  $("mpAdd").addEventListener("click",()=>openModal());
 
-  $('mpSearch').addEventListener('input',renderPrices);
-  $('mpCategoryFilter').addEventListener('change',renderPrices);
-  $('mpBrandFilter').addEventListener('change',renderPrices);
-  $('mpTypeFilter').addEventListener('change',renderPrices);
+  $("mpSearch").addEventListener("input",renderPrices);
+  $("mpCategoryFilter").addEventListener("change",renderPrices);
+  $("mpBrandFilter").addEventListener("change",renderPrices);
+  $("mpTypeFilter").addEventListener("change",renderPrices);
 
-  $('mpBrandSelect').addEventListener('change',()=>{
-   updateCategoryOptions();
+  $("mpBrandSelect").addEventListener("change",()=>{
+   if(!editingId)updateCategoryOptions();
   });
 
-  $('mpCategorySelect').addEventListener('change',()=>{
-   updatePricingFields();
+  $("mpCategorySelect").addEventListener("change",()=>{
+   if(!editingId)updatePricingFields();
   });
 
-  $('mpForm').addEventListener('submit',savePrice);
+  $("mpForm").addEventListener("submit",savePrice);
 
-  $('mpModalClose').addEventListener('click',closeModal);
+  $("mpModalClose").addEventListener("click",closeModal);
 
-  $('mpModal').addEventListener('click',event=>{
-   if(event.target===$('mpModal')){
+  $("mpModal").addEventListener("click",event=>{
+   if(event.target===$("mpModal"))closeModal();
+  });
+
+  document.addEventListener("keydown",event=>{
+   if(
+    event.key==="Escape"&&
+    $("mpModal").classList.contains("open")&&
+    $("mpSuggestions").hidden
+   ){
     closeModal();
    }
   });
 
-  $('marketPriceTable').addEventListener('click',event=>{
-   const edit=event.target.closest('[data-mp-edit]');
-   const remove=event.target.closest('[data-mp-delete]');
+  $("marketPriceTable").addEventListener("click",event=>{
+   const edit=event.target.closest("[data-mp-edit]");
+   const remove=event.target.closest("[data-mp-delete]");
 
    if(edit){
     const row=records.find(r=>r.id===edit.dataset.mpEdit);
-
     if(row)openModal(row);
    }
 
