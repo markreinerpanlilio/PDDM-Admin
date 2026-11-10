@@ -19,12 +19,14 @@
  align-items:stretch;
  gap:8px;
  margin-bottom:18px;
- border-bottom:1px solid #e5e5e5;
+ border:0!important;
+ border-bottom:1px solid var(--border,#e5e5e5)!important;
  border-radius:0!important;
+ background:transparent!important;
+ box-shadow:none!important;
 }
 
-.pm-tab{
- position:relative;
+.pm-tabs .pm-tab{
  display:inline-flex;
  align-items:center;
  justify-content:center;
@@ -37,33 +39,29 @@
  background:transparent!important;
  box-shadow:none!important;
  color:var(--text-muted,#777);
- font-size:calc(14px * var(--ppdm-font-scale,1));
+ font-size:14px;
  font-weight:700;
  cursor:pointer;
  transition:color .2s;
 }
 
-.pm-tab:hover{
+.pm-tabs .pm-tab:hover{
  color:#F5A623;
 }
 
-.pm-tab.active,
-.pm-tab[aria-selected="true"]{
- color:var(--text,#222);
+.pm-tabs .pm-tab.active,
+.pm-tabs .pm-tab[aria-selected="true"]{
+ color:var(--text,#222)!important;
  border-bottom:3px solid #F5A623!important;
  border-radius:0!important;
  background:transparent!important;
  box-shadow:none!important;
 }
 
-.pm-tab:focus-visible{
- outline:2px solid #F5A623;
- outline-offset:-2px;
-}
-
 .pm-section[hidden],
 .pm-field[hidden],
-.pm-note[hidden]{
+.pm-note[hidden],
+.pm-compat[hidden]{
  display:none!important;
 }
 
@@ -90,7 +88,7 @@
  padding:11px 16px;
  background:#f1f1f1;
  color:#333;
- font-size:calc(13px * var(--ppdm-font-scale,1));
+ font-size:13px;
  font-weight:700;
  cursor:pointer;
  transition:background .2s,transform .2s;
@@ -130,7 +128,7 @@
  border-radius:9px;
  background:var(--ppdm-surface,#fff);
  color:var(--text,#222);
- font-size:calc(13px * var(--ppdm-font-scale,1));
+ font-size:13px;
 }
 
 .pm-input{
@@ -157,7 +155,7 @@
  min-height:20px;
  margin:10px 0;
  color:var(--text-muted,#777);
- font-size:calc(12px * var(--ppdm-font-scale,1));
+ font-size:12px;
 }
 
 .pm-market-filters{
@@ -172,7 +170,7 @@
  min-width:145px;
 }
 
-/* Autocomplete */
+/* Product autocomplete */
 .mp-autocomplete{
  position:relative;
 }
@@ -185,7 +183,7 @@
  z-index:30;
  max-height:240px;
  overflow-y:auto;
- border:1px solid #ddd;
+ border:1px solid var(--border,#ddd);
  border-radius:10px;
  background:var(--ppdm-surface,#fff);
  box-shadow:0 12px 28px #0002;
@@ -201,16 +199,17 @@
  padding:12px 14px;
  text-align:left;
  border:0;
- border-bottom:1px solid #eee;
+ border-bottom:1px solid var(--border,#eee);
  background:transparent;
  color:var(--text,#222);
- font-size:calc(13px * var(--ppdm-font-scale,1));
+ font-size:13px;
  cursor:pointer;
 }
 
 .mp-suggestion:hover,
 .mp-suggestion:focus{
  background:#fff3d9;
+ color:#222;
  outline:none;
 }
 
@@ -218,7 +217,7 @@
  display:block;
  margin-top:4px;
  color:#888;
- font-size:calc(11px * var(--ppdm-font-scale,1));
+ font-size:11px;
 }
 
 .mp-suggestion-empty{
@@ -246,7 +245,7 @@
 .pm-scroll-table{
  max-height:390px;
  overflow:auto;
- border:1px solid #eee;
+ border:1px solid var(--border,#eee);
  border-radius:10px;
 }
 
@@ -258,31 +257,31 @@
 
 .pm-table th{
  padding:14px 12px;
- background:#fafafa;
- color:#777;
+ background:var(--ppdm-surface,#fafafa);
+ color:var(--text-muted,#777);
  text-align:left;
- font-size:calc(12px * var(--ppdm-font-scale,1));
+ font-size:12px;
  text-transform:uppercase;
  white-space:nowrap;
- border-bottom:1px solid #e8e8e8;
+ border-bottom:1px solid var(--border,#e8e8e8);
 }
 
 .pm-scroll-table .pm-table th{
  position:sticky;
  top:0;
  z-index:2;
- box-shadow:0 1px 0 #e8e8e8;
+ box-shadow:0 1px 0 var(--border,#e8e8e8);
 }
 
 .pm-table td{
  padding:14px 12px;
- border-bottom:1px solid #ededed;
+ border-bottom:1px solid var(--border,#ededed);
  vertical-align:middle;
- font-size:calc(13px * var(--ppdm-font-scale,1));
+ font-size:13px;
 }
 
 .pm-table tbody tr:hover{
- background:#fffaf0;
+ background:rgba(245,166,35,.06);
 }
 
 .pm-table .name{
@@ -293,7 +292,7 @@
 .pm-table .empty{
  padding:32px 12px;
  text-align:center;
- color:#888;
+ color:var(--text-muted,#888);
 }
 
 .pm-table .actions-header{
@@ -302,7 +301,7 @@
 
 .pm-table-foot{
  margin-top:12px;
- color:#777;
+ color:var(--text-muted,#777);
  font-size:12px;
 }
 
@@ -387,11 +386,10 @@
 
 .pm-modal-header h2{
  margin:0;
- font-size:calc(20px * var(--ppdm-font-scale,1));
+ font-size:20px;
  line-height:1.3;
 }
 
-/* Improved X button */
 .pm-close{
  display:inline-flex;
  align-items:center;
@@ -453,13 +451,13 @@
 }
 
 .pm-field label{
- font-size:calc(12px * var(--ppdm-font-scale,1));
+ font-size:12px;
  font-weight:700;
 }
 
 .pm-field small{
- color:#888;
- font-size:calc(11px * var(--ppdm-font-scale,1));
+ color:var(--text-muted,#888);
+ font-size:11px;
  line-height:1.5;
 }
 
@@ -559,7 +557,7 @@
   gap:0;
  }
 
- .pm-tab{
+ .pm-tabs .pm-tab{
   flex:1;
   padding:12px 6px;
   font-size:12px;
@@ -582,9 +580,7 @@
 <!-- Sidebar -->
 <aside class="sidebar collapsed" id="sidebar">
  <div class="sidebar-header">
-  <span class="icon">
-   <i data-lucide="store"></i>
-  </span>
+  <span class="icon"><i data-lucide="store"></i></span>
   <h2 class="sidebar-title">PPDM ADMIN</h2>
  </div>
 
@@ -648,7 +644,7 @@
   </div>
  </div>
 
- <!-- Straight underline tabs -->
+ <!-- Tabs -->
  <div class="pm-tabs" role="tablist">
   <button
    class="pm-tab active"
@@ -682,7 +678,6 @@
  <!-- Market Price -->
  <section id="pmPrices" class="pm-section">
   <div class="panel">
-
    <div class="pm-toolbar">
     <input
      id="mpSearch"
@@ -749,7 +744,6 @@
  <!-- Master List -->
  <section id="pmMaster" class="pm-section" hidden>
   <div class="panel">
-
    <div class="pm-toolbar">
     <input
      id="pmMasterSearch"
@@ -799,7 +793,6 @@
  <!-- Product Requests -->
  <section id="pmRequests" class="pm-section" hidden>
   <div class="panel">
-
    <div class="pm-toolbar">
     <input
      id="pmRequestSearch"
@@ -809,10 +802,7 @@
     >
 
     <div class="pm-actions">
-     <select
-      id="pmRequestFilter"
-      class="pm-input pm-filter"
-     >
+     <select id="pmRequestFilter" class="pm-input pm-filter">
       <option value="all">All Statuses</option>
       <option value="pending" selected>Pending</option>
       <option value="approved">Approved</option>
@@ -861,7 +851,6 @@
  aria-labelledby="mpModalTitle"
 >
  <div class="pm-modal">
-
   <div class="pm-modal-header">
    <h2 id="mpModalTitle">Add Market Price</h2>
 
@@ -878,14 +867,10 @@
 
   <form id="mpForm" autocomplete="off">
    <div class="pm-grid">
-
     <div class="pm-field full">
      <label for="mpProductSearch">Product Name *</label>
 
-     <div
-      class="mp-autocomplete"
-      id="mpProductAutocomplete"
-     >
+     <div class="mp-autocomplete" id="mpProductAutocomplete">
       <input
        id="mpProductSearch"
        class="pm-input"
@@ -938,11 +923,7 @@
      </select>
     </div>
 
-    <div
-     class="pm-field full"
-     id="mpVariantField"
-     hidden
-    >
+    <div class="pm-field full" id="mpVariantField" hidden>
      <label for="mpVariant">Variant *</label>
 
      <input
@@ -952,16 +933,10 @@
       placeholder="Example: 25g, 150g, 1L, 12 pcs"
      >
 
-     <small>
-      Required for packaged products.
-     </small>
+     <small>Required for packaged products.</small>
     </div>
 
-    <div
-     class="pm-field"
-     id="mpMinField"
-     hidden
-    >
+    <div class="pm-field" id="mpMinField" hidden>
      <label for="mpMinPrice">Minimum Price (₱) *</label>
 
      <input
@@ -1000,6 +975,12 @@
      Save Product
     </button>
    </div>
+
+   <!-- Compatibility with previous JavaScript -->
+   <div class="pm-compat" hidden>
+    <div id="mpEditNote"></div>
+    <button id="mpCancel" type="button" tabindex="-1">Cancel</button>
+   </div>
   </form>
  </div>
 </div>
@@ -1013,7 +994,6 @@
  aria-labelledby="pmMasterModalTitle"
 >
  <div class="pm-modal">
-
   <div class="pm-modal-header">
    <h2 id="pmMasterModalTitle">Add Product</h2>
 
@@ -1030,7 +1010,6 @@
 
   <form id="pmMasterForm">
    <div class="pm-grid">
-
     <div class="pm-field full">
      <label for="pmName">Product Name</label>
 
@@ -1050,10 +1029,7 @@
       <option value="">Select a brand</option>
      </select>
 
-     <div
-      id="pmSelectedBrands"
-      class="pm-selection"
-     ></div>
+     <div id="pmSelectedBrands" class="pm-selection"></div>
 
      <small>Select brands one at a time.</small>
     </div>
@@ -1065,26 +1041,18 @@
       <option value="">Select a category</option>
      </select>
 
-     <div
-      id="pmSelectedCategories"
-      class="pm-selection"
-     ></div>
+     <div id="pmSelectedCategories" class="pm-selection"></div>
 
      <small>Select categories one at a time.</small>
     </div>
 
     <div class="pm-field full">
      <label class="pm-check">
-      <input
-       id="pmAllowUnbranded"
-       type="checkbox"
-      >
+      <input id="pmAllowUnbranded" type="checkbox">
       Allow unbranded listing
      </label>
 
-     <small>
-      Unchecked by default for new products.
-     </small>
+     <small>Unchecked by default for new products.</small>
     </div>
    </div>
 
@@ -1097,6 +1065,35 @@
      Save Product
     </button>
    </div>
+
+   <!-- Retained only for existing productManagement.js -->
+   <div class="pm-compat" hidden>
+    <input
+     id="pmNewBrand"
+     type="text"
+     tabindex="-1"
+     autocomplete="off"
+    >
+
+    <button id="pmAddBrand" type="button" tabindex="-1">
+     Add Brand
+    </button>
+
+    <input
+     id="pmNewCategory"
+     type="text"
+     tabindex="-1"
+     autocomplete="off"
+    >
+
+    <button id="pmAddCategory" type="button" tabindex="-1">
+     Add Category
+    </button>
+
+    <button id="pmMasterCancel" type="button" tabindex="-1">
+     Cancel
+    </button>
+   </div>
   </form>
  </div>
 </div>
@@ -1106,7 +1103,6 @@
 <script src="../js/script.js"></script>
 <script src="../js/marketPrice.js"></script>
 <script src="../js/productManagement.js"></script>
-
 <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
 
 <script>
