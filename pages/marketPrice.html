@@ -13,64 +13,385 @@
 <script src="../js/preferences.js"></script>
 
 <style>
-.pm-tabs{display:flex;gap:8px;border-bottom:1px solid #e5e5e5;margin-bottom:18px}
-.pm-tab{padding:13px 18px;margin-bottom:-1px;border:0;border-bottom:3px solid transparent;background:transparent;color:#777;font-size:14px;font-weight:700;cursor:pointer}
-.pm-tab:hover{color:#F5A623}
-.pm-tab.active{color:var(--text,#222);border-bottom-color:#F5A623}
-.pm-section[hidden],.pm-field[hidden],.pm-note[hidden]{display:none!important}
+/* Tabs */
+.pm-tabs{
+ display:flex;
+ align-items:stretch;
+ gap:8px;
+ margin-bottom:18px;
+ border-bottom:1px solid #e5e5e5;
+ border-radius:0!important;
+}
 
-.pm-toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px}
-.pm-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.pm-btn{border:0;border-radius:9px;padding:11px 16px;background:#f1f1f1;color:#333;font-size:13px;font-weight:700;cursor:pointer;transition:background .2s,transform .2s}
-.pm-btn:hover:not(:disabled){transform:translateY(-1px)}
-.pm-btn.primary{background:#F5A623;color:#222}
-.pm-btn.primary:hover:not(:disabled){background:#e99a13}
-.pm-btn.outline{border:1px solid #d6a13b;background:transparent;color:var(--text,#333)}
-.pm-btn:disabled{opacity:.5;cursor:not-allowed}
+.pm-tab{
+ position:relative;
+ display:inline-flex;
+ align-items:center;
+ justify-content:center;
+ gap:5px;
+ padding:13px 18px;
+ margin:0 0 -1px;
+ border:0!important;
+ border-bottom:3px solid transparent!important;
+ border-radius:0!important;
+ background:transparent!important;
+ box-shadow:none!important;
+ color:var(--text-muted,#777);
+ font-size:calc(14px * var(--ppdm-font-scale,1));
+ font-weight:700;
+ cursor:pointer;
+ transition:color .2s;
+}
 
-.pm-input,.pm-search{box-sizing:border-box;min-height:42px;padding:10px 12px;border:1px solid var(--border,#ddd);border-radius:9px;background:var(--ppdm-surface,#fff);color:var(--text,#222);font-size:13px}
-.pm-input{width:100%}
-.pm-search{width:min(350px,100%)}
-.pm-input:focus,.pm-search:focus{outline:2px solid #f5a62355;border-color:#F5A623}
-.pm-input:disabled,.pm-input:read-only{opacity:.7;cursor:default}
-.pm-status{min-height:20px;margin:10px 0;color:var(--text-muted,#777);font-size:12px}
-.pm-market-filters{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
-.pm-filter{width:auto;min-width:145px}
+.pm-tab:hover{
+ color:#F5A623;
+}
 
-.mp-autocomplete{position:relative}
-.mp-suggestions{position:absolute;top:calc(100% + 5px);left:0;right:0;z-index:30;max-height:240px;overflow-y:auto;border:1px solid #ddd;border-radius:10px;background:var(--ppdm-surface,#fff);box-shadow:0 12px 28px #0002}
-.mp-suggestions[hidden]{display:none!important}
-.mp-suggestion{display:block;width:100%;padding:12px 14px;text-align:left;border:0;border-bottom:1px solid #eee;background:transparent;color:var(--text,#222);font-size:13px;cursor:pointer}
-.mp-suggestion:hover,.mp-suggestion:focus{background:#fff3d9;outline:none}
-.mp-suggestion small{display:block;margin-top:4px;color:#888;font-size:11px}
-.mp-suggestion-empty{padding:14px;color:#888;font-size:12px}
-.mp-selected{min-height:17px;color:#31804a;font-size:12px}
-.mp-selected.error{color:#bd3030}
+.pm-tab.active,
+.pm-tab[aria-selected="true"]{
+ color:var(--text,#222);
+ border-bottom:3px solid #F5A623!important;
+ border-radius:0!important;
+ background:transparent!important;
+ box-shadow:none!important;
+}
 
-.pm-table-wrap{width:100%;overflow-x:auto}
-.pm-scroll-table{max-height:390px;overflow:auto;border:1px solid #eee;border-radius:10px}
-.pm-table{width:100%;border-collapse:separate;border-spacing:0}
-.pm-table th{padding:14px 12px;background:#fafafa;color:#777;text-align:left;font-size:12px;text-transform:uppercase;white-space:nowrap;border-bottom:1px solid #e8e8e8}
-.pm-scroll-table .pm-table th{position:sticky;top:0;z-index:2;box-shadow:0 1px 0 #e8e8e8}
-.pm-table td{padding:14px 12px;border-bottom:1px solid #ededed;vertical-align:middle;font-size:13px}
-.pm-table tbody tr:hover{background:#fffaf0}
-.pm-table .name{font-weight:700;color:var(--text,#222)}
-.pm-table .empty{padding:32px 12px;text-align:center;color:#888}
-.pm-table .actions-header{min-width:115px}
-.pm-table-foot{margin-top:12px;color:#777;font-size:12px}
-.pm-row-btn{border:0;border-radius:7px;padding:8px 11px;margin:2px;background:#fff0d4;color:#906000;font-size:12px;font-weight:700;cursor:pointer}
-.pm-row-btn.danger{background:#ffe8e8;color:#b32c2c}
-.pm-badge{display:inline-block;padding:6px 10px;border-radius:20px;background:#f0f0f0;color:#555;font-size:11px;font-weight:700;text-transform:capitalize}
-.pm-badge.pending{background:#fff0cf;color:#8a6200}
-.pm-badge.approved{background:#e3f5e8;color:#24743c}
-.pm-badge.rejected{background:#ffe6e6;color:#a62d2d}
+.pm-tab:focus-visible{
+ outline:2px solid #F5A623;
+ outline-offset:-2px;
+}
 
-.pm-modal-overlay{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(0,0,0,.55)}
-.pm-modal-overlay.open{display:flex}
-.pm-modal{box-sizing:border-box;width:min(620px,100%);max-height:90vh;overflow-y:auto;padding:24px;border-radius:14px;background:var(--ppdm-surface,#fff);color:var(--text,#222);box-shadow:0 20px 50px #0003}
-.pm-modal-header{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-bottom:20px}
-.pm-modal-header h2{margin:0;font-size:20px;line-height:1.3}
+.pm-section[hidden],
+.pm-field[hidden],
+.pm-note[hidden]{
+ display:none!important;
+}
 
+/* Toolbar */
+.pm-toolbar{
+ display:flex;
+ align-items:center;
+ justify-content:space-between;
+ flex-wrap:wrap;
+ gap:12px;
+ margin-bottom:16px;
+}
+
+.pm-actions{
+ display:flex;
+ align-items:center;
+ gap:8px;
+ flex-wrap:wrap;
+}
+
+.pm-btn{
+ border:0;
+ border-radius:9px;
+ padding:11px 16px;
+ background:#f1f1f1;
+ color:#333;
+ font-size:calc(13px * var(--ppdm-font-scale,1));
+ font-weight:700;
+ cursor:pointer;
+ transition:background .2s,transform .2s;
+}
+
+.pm-btn:hover:not(:disabled){
+ transform:translateY(-1px);
+}
+
+.pm-btn.primary{
+ background:#F5A623;
+ color:#222;
+}
+
+.pm-btn.primary:hover:not(:disabled){
+ background:#e99a13;
+}
+
+.pm-btn.outline{
+ border:1px solid #d6a13b;
+ background:transparent;
+ color:var(--text,#333);
+}
+
+.pm-btn:disabled{
+ opacity:.5;
+ cursor:not-allowed;
+}
+
+/* Inputs */
+.pm-input,
+.pm-search{
+ box-sizing:border-box;
+ min-height:42px;
+ padding:10px 12px;
+ border:1px solid var(--border,#ddd);
+ border-radius:9px;
+ background:var(--ppdm-surface,#fff);
+ color:var(--text,#222);
+ font-size:calc(13px * var(--ppdm-font-scale,1));
+}
+
+.pm-input{
+ width:100%;
+}
+
+.pm-search{
+ width:min(350px,100%);
+}
+
+.pm-input:focus,
+.pm-search:focus{
+ outline:2px solid #f5a62355;
+ border-color:#F5A623;
+}
+
+.pm-input:disabled,
+.pm-input:read-only{
+ opacity:.7;
+ cursor:default;
+}
+
+.pm-status{
+ min-height:20px;
+ margin:10px 0;
+ color:var(--text-muted,#777);
+ font-size:calc(12px * var(--ppdm-font-scale,1));
+}
+
+.pm-market-filters{
+ display:flex;
+ flex-wrap:wrap;
+ gap:10px;
+ margin-bottom:12px;
+}
+
+.pm-filter{
+ width:auto;
+ min-width:145px;
+}
+
+/* Autocomplete */
+.mp-autocomplete{
+ position:relative;
+}
+
+.mp-suggestions{
+ position:absolute;
+ top:calc(100% + 5px);
+ left:0;
+ right:0;
+ z-index:30;
+ max-height:240px;
+ overflow-y:auto;
+ border:1px solid #ddd;
+ border-radius:10px;
+ background:var(--ppdm-surface,#fff);
+ box-shadow:0 12px 28px #0002;
+}
+
+.mp-suggestions[hidden]{
+ display:none!important;
+}
+
+.mp-suggestion{
+ display:block;
+ width:100%;
+ padding:12px 14px;
+ text-align:left;
+ border:0;
+ border-bottom:1px solid #eee;
+ background:transparent;
+ color:var(--text,#222);
+ font-size:calc(13px * var(--ppdm-font-scale,1));
+ cursor:pointer;
+}
+
+.mp-suggestion:hover,
+.mp-suggestion:focus{
+ background:#fff3d9;
+ outline:none;
+}
+
+.mp-suggestion small{
+ display:block;
+ margin-top:4px;
+ color:#888;
+ font-size:calc(11px * var(--ppdm-font-scale,1));
+}
+
+.mp-suggestion-empty{
+ padding:14px;
+ color:#888;
+ font-size:12px;
+}
+
+.mp-selected{
+ min-height:17px;
+ color:#31804a;
+ font-size:12px;
+}
+
+.mp-selected.error{
+ color:#bd3030;
+}
+
+/* Tables */
+.pm-table-wrap{
+ width:100%;
+ overflow-x:auto;
+}
+
+.pm-scroll-table{
+ max-height:390px;
+ overflow:auto;
+ border:1px solid #eee;
+ border-radius:10px;
+}
+
+.pm-table{
+ width:100%;
+ border-collapse:separate;
+ border-spacing:0;
+}
+
+.pm-table th{
+ padding:14px 12px;
+ background:#fafafa;
+ color:#777;
+ text-align:left;
+ font-size:calc(12px * var(--ppdm-font-scale,1));
+ text-transform:uppercase;
+ white-space:nowrap;
+ border-bottom:1px solid #e8e8e8;
+}
+
+.pm-scroll-table .pm-table th{
+ position:sticky;
+ top:0;
+ z-index:2;
+ box-shadow:0 1px 0 #e8e8e8;
+}
+
+.pm-table td{
+ padding:14px 12px;
+ border-bottom:1px solid #ededed;
+ vertical-align:middle;
+ font-size:calc(13px * var(--ppdm-font-scale,1));
+}
+
+.pm-table tbody tr:hover{
+ background:#fffaf0;
+}
+
+.pm-table .name{
+ font-weight:700;
+ color:var(--text,#222);
+}
+
+.pm-table .empty{
+ padding:32px 12px;
+ text-align:center;
+ color:#888;
+}
+
+.pm-table .actions-header{
+ min-width:115px;
+}
+
+.pm-table-foot{
+ margin-top:12px;
+ color:#777;
+ font-size:12px;
+}
+
+.pm-row-btn{
+ border:0;
+ border-radius:7px;
+ padding:8px 11px;
+ margin:2px;
+ background:#fff0d4;
+ color:#906000;
+ font-size:12px;
+ font-weight:700;
+ cursor:pointer;
+}
+
+.pm-row-btn.danger{
+ background:#ffe8e8;
+ color:#b32c2c;
+}
+
+.pm-badge{
+ display:inline-block;
+ padding:6px 10px;
+ border-radius:20px;
+ background:#f0f0f0;
+ color:#555;
+ font-size:11px;
+ font-weight:700;
+ text-transform:capitalize;
+}
+
+.pm-badge.pending{
+ background:#fff0cf;
+ color:#8a6200;
+}
+
+.pm-badge.approved{
+ background:#e3f5e8;
+ color:#24743c;
+}
+
+.pm-badge.rejected{
+ background:#ffe6e6;
+ color:#a62d2d;
+}
+
+/* Modals */
+.pm-modal-overlay{
+ position:fixed;
+ inset:0;
+ z-index:9999;
+ display:none;
+ align-items:center;
+ justify-content:center;
+ padding:18px;
+ background:rgba(0,0,0,.55);
+}
+
+.pm-modal-overlay.open{
+ display:flex;
+}
+
+.pm-modal{
+ box-sizing:border-box;
+ width:min(620px,100%);
+ max-height:90vh;
+ overflow-y:auto;
+ padding:24px;
+ border-radius:14px;
+ background:var(--ppdm-surface,#fff);
+ color:var(--text,#222);
+ box-shadow:0 20px 50px #0003;
+}
+
+.pm-modal-header{
+ display:flex;
+ align-items:center;
+ justify-content:space-between;
+ gap:15px;
+ margin-bottom:20px;
+}
+
+.pm-modal-header h2{
+ margin:0;
+ font-size:calc(20px * var(--ppdm-font-scale,1));
+ line-height:1.3;
+}
+
+/* Improved X button */
 .pm-close{
  display:inline-flex;
  align-items:center;
@@ -84,67 +405,238 @@
  background:var(--ppdm-surface,#fff);
  color:var(--text-muted,#777);
  cursor:pointer;
- transition:background .2s,border-color .2s,color .2s,transform .2s;
+ transition:
+  background .2s,
+  border-color .2s,
+  color .2s,
+  transform .2s;
 }
+
 .pm-close:hover:not(:disabled){
  background:#fff0f0;
  border-color:#f2b4b4;
  color:#b93030;
  transform:rotate(90deg);
 }
-.pm-close:focus-visible{outline:3px solid #F5A62388;outline-offset:3px}
-.pm-close:disabled{opacity:.45;cursor:not-allowed}
-.pm-close svg{width:19px;height:19px;stroke-width:2.3}
 
-.pm-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
-.pm-field{display:flex;flex-direction:column;gap:7px;min-width:0}
-.pm-field.full{grid-column:1/-1}
-.pm-field label{font-size:12px;font-weight:700}
-.pm-field small{color:#888;font-size:11px;line-height:1.5}
-.pm-check{display:flex;align-items:center;gap:10px;font-size:13px;cursor:pointer}
-.pm-check input{width:17px;height:17px;accent-color:#F5A623}
-.pm-modal-footer{display:flex;justify-content:flex-end;gap:10px;margin-top:24px}
-.pm-selection{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}
-.pm-chip{display:inline-flex;align-items:center;gap:7px;padding:6px 10px;border:1px solid #f0d99d;border-radius:20px;background:#fff7e5;color:#755300;font-size:12px}
-.pm-chip button{border:0;background:transparent;color:inherit;cursor:pointer;font-weight:700}
-.pm-note{padding:12px 14px;border:1px solid #f0dba8;border-radius:9px;background:#fff7e6;color:#795600;font-size:12px;line-height:1.5}
-
-.pm-mobile-menu{display:none;position:fixed;top:12px;left:12px;z-index:1002;padding:9px;border:1px solid #ddd;border-radius:8px;background:#fff}
-@media(max-width:768px){
- .pm-mobile-menu{display:block}
- .dashboard-header{padding-top:38px}
- .sidebar.mobile-open{display:block;position:fixed;left:0;top:0;width:250px;height:100vh;z-index:1001}
- .sidebar.mobile-open .sidebar-title,.sidebar.mobile-open .text{opacity:1;width:auto}
- .pm-table{min-width:900px}
+.pm-close:focus-visible{
+ outline:3px solid #F5A62388;
+ outline-offset:3px;
 }
+
+.pm-close:disabled{
+ opacity:.45;
+ cursor:not-allowed;
+}
+
+.pm-close svg{
+ width:19px;
+ height:19px;
+ stroke-width:2.3;
+}
+
+.pm-grid{
+ display:grid;
+ grid-template-columns:repeat(2,minmax(0,1fr));
+ gap:16px;
+}
+
+.pm-field{
+ display:flex;
+ flex-direction:column;
+ gap:7px;
+ min-width:0;
+}
+
+.pm-field.full{
+ grid-column:1/-1;
+}
+
+.pm-field label{
+ font-size:calc(12px * var(--ppdm-font-scale,1));
+ font-weight:700;
+}
+
+.pm-field small{
+ color:#888;
+ font-size:calc(11px * var(--ppdm-font-scale,1));
+ line-height:1.5;
+}
+
+.pm-check{
+ display:flex;
+ align-items:center;
+ gap:10px;
+ font-size:13px;
+ cursor:pointer;
+}
+
+.pm-check input{
+ width:17px;
+ height:17px;
+ accent-color:#F5A623;
+}
+
+.pm-modal-footer{
+ display:flex;
+ justify-content:flex-end;
+ gap:10px;
+ margin-top:24px;
+}
+
+.pm-selection{
+ display:flex;
+ flex-wrap:wrap;
+ gap:7px;
+ margin-top:8px;
+}
+
+.pm-chip{
+ display:inline-flex;
+ align-items:center;
+ gap:7px;
+ padding:6px 10px;
+ border:1px solid #f0d99d;
+ border-radius:20px;
+ background:#fff7e5;
+ color:#755300;
+ font-size:12px;
+}
+
+.pm-chip button{
+ border:0;
+ background:transparent;
+ color:inherit;
+ cursor:pointer;
+ font-weight:700;
+}
+
+/* Mobile */
+.pm-mobile-menu{
+ display:none;
+ position:fixed;
+ top:12px;
+ left:12px;
+ z-index:1002;
+ padding:9px;
+ border:1px solid #ddd;
+ border-radius:8px;
+ background:#fff;
+}
+
+@media(max-width:768px){
+ .pm-mobile-menu{
+  display:block;
+ }
+
+ .dashboard-header{
+  padding-top:38px;
+ }
+
+ .sidebar.mobile-open{
+  display:block;
+  position:fixed;
+  left:0;
+  top:0;
+  width:250px;
+  height:100vh;
+  z-index:1001;
+ }
+
+ .sidebar.mobile-open .sidebar-title,
+ .sidebar.mobile-open .text{
+  opacity:1;
+  width:auto;
+ }
+
+ .pm-table{
+  min-width:900px;
+ }
+}
+
 @media(max-width:500px){
- .pm-tabs{gap:0}
- .pm-tab{flex:1;padding:12px 6px;font-size:12px;white-space:nowrap}
- .pm-grid{grid-template-columns:1fr}
- .pm-modal{padding:18px}
+ .pm-tabs{
+  gap:0;
+ }
+
+ .pm-tab{
+  flex:1;
+  padding:12px 6px;
+  font-size:12px;
+  white-space:nowrap;
+ }
+
+ .pm-grid{
+  grid-template-columns:1fr;
+ }
+
+ .pm-modal{
+  padding:18px;
+ }
 }
 </style>
 </head>
+
 <body>
 
+<!-- Sidebar -->
 <aside class="sidebar collapsed" id="sidebar">
  <div class="sidebar-header">
-  <span class="icon"><i data-lucide="store"></i></span>
+  <span class="icon">
+   <i data-lucide="store"></i>
+  </span>
   <h2 class="sidebar-title">PPDM ADMIN</h2>
  </div>
+
  <ul>
-  <li onclick="location.href='dashboard.html'"><span class="icon"><i data-lucide="layout-dashboard"></i></span><span class="text">Dashboard</span></li>
-  <li onclick="location.href='requests.html'"><span class="icon"><i data-lucide="clipboard-list"></i></span><span class="text">Seller Requests</span></li>
-  <li onclick="location.href='users.html'"><span class="icon"><i data-lucide="users"></i></span><span class="text">Users</span></li>
-  <li class="active"><span class="icon"><i data-lucide="tags"></i></span><span class="text">Product Management</span></li>
-  <li onclick="location.href='products.html'"><span class="icon"><i data-lucide="package"></i></span><span class="text">Product Listings</span></li>
-  <li onclick="location.href='audit.html'"><span class="icon"><i data-lucide="scroll-text"></i></span><span class="text">Audit Trail</span></li>
-  <li onclick="location.href='settings.html'"><span class="icon"><i data-lucide="settings"></i></span><span class="text">Settings</span></li>
-  <li onclick="logout()"><span class="icon"><i data-lucide="log-out"></i></span><span class="text">Logout</span></li>
+  <li onclick="location.href='dashboard.html'">
+   <span class="icon"><i data-lucide="layout-dashboard"></i></span>
+   <span class="text">Dashboard</span>
+  </li>
+
+  <li onclick="location.href='requests.html'">
+   <span class="icon"><i data-lucide="clipboard-list"></i></span>
+   <span class="text">Seller Requests</span>
+  </li>
+
+  <li onclick="location.href='users.html'">
+   <span class="icon"><i data-lucide="users"></i></span>
+   <span class="text">Users</span>
+  </li>
+
+  <li class="active">
+   <span class="icon"><i data-lucide="tags"></i></span>
+   <span class="text">Product Management</span>
+  </li>
+
+  <li onclick="location.href='products.html'">
+   <span class="icon"><i data-lucide="package"></i></span>
+   <span class="text">Product Listings</span>
+  </li>
+
+  <li onclick="location.href='audit.html'">
+   <span class="icon"><i data-lucide="scroll-text"></i></span>
+   <span class="text">Audit Trail</span>
+  </li>
+
+  <li onclick="location.href='settings.html'">
+   <span class="icon"><i data-lucide="settings"></i></span>
+   <span class="text">Settings</span>
+  </li>
+
+  <li onclick="logout()">
+   <span class="icon"><i data-lucide="log-out"></i></span>
+   <span class="text">Logout</span>
+  </li>
  </ul>
 </aside>
 
-<button id="pmMobileMenu" class="pm-mobile-menu" type="button" aria-label="Menu">
+<button
+ id="pmMobileMenu"
+ class="pm-mobile-menu"
+ type="button"
+ aria-label="Menu"
+>
  <i data-lucide="menu"></i>
 </button>
 
@@ -156,21 +648,57 @@
   </div>
  </div>
 
+ <!-- Straight underline tabs -->
  <div class="pm-tabs" role="tablist">
-  <button class="pm-tab active" type="button" data-pm-tab="prices" aria-selected="true">Market Price</button>
-  <button class="pm-tab" type="button" data-pm-tab="master" aria-selected="false">Master List</button>
-  <button class="pm-tab" type="button" data-pm-tab="requests" aria-selected="false">
-   Product Requests <span id="pmPendingCount"></span>
+  <button
+   class="pm-tab active"
+   type="button"
+   data-pm-tab="prices"
+   aria-selected="true"
+  >
+   Market Price
+  </button>
+
+  <button
+   class="pm-tab"
+   type="button"
+   data-pm-tab="master"
+   aria-selected="false"
+  >
+   Master List
+  </button>
+
+  <button
+   class="pm-tab"
+   type="button"
+   data-pm-tab="requests"
+   aria-selected="false"
+  >
+   Product Requests
+   <span id="pmPendingCount"></span>
   </button>
  </div>
 
+ <!-- Market Price -->
  <section id="pmPrices" class="pm-section">
   <div class="panel">
+
    <div class="pm-toolbar">
-    <input id="mpSearch" class="pm-search" type="search" placeholder="Search market prices...">
+    <input
+     id="mpSearch"
+     class="pm-search"
+     type="search"
+     placeholder="Search market prices..."
+    >
+
     <div class="pm-actions">
-     <button id="mpRefresh" class="pm-btn outline" type="button">Refresh</button>
-     <button id="mpAdd" class="pm-btn primary" type="button">+ Add Product</button>
+     <button id="mpRefresh" class="pm-btn outline" type="button">
+      Refresh
+     </button>
+
+     <button id="mpAdd" class="pm-btn primary" type="button">
+      + Add Product
+     </button>
     </div>
    </div>
 
@@ -178,9 +706,11 @@
     <select id="mpCategoryFilter" class="pm-input pm-filter">
      <option value="">All Categories</option>
     </select>
+
     <select id="mpBrandFilter" class="pm-input pm-filter">
      <option value="">All Brands</option>
     </select>
+
     <select id="mpTypeFilter" class="pm-input pm-filter">
      <option value="">All Pricing Units</option>
     </select>
@@ -203,8 +733,11 @@
        <th class="actions-header">Actions</th>
       </tr>
      </thead>
+
      <tbody id="marketPriceTable">
-      <tr><td colspan="9" class="empty">Loading...</td></tr>
+      <tr>
+       <td colspan="9" class="empty">Loading...</td>
+      </tr>
      </tbody>
     </table>
    </div>
@@ -213,13 +746,34 @@
   </div>
  </section>
 
+ <!-- Master List -->
  <section id="pmMaster" class="pm-section" hidden>
   <div class="panel">
+
    <div class="pm-toolbar">
-    <input id="pmMasterSearch" class="pm-search" type="search" placeholder="Search master products...">
+    <input
+     id="pmMasterSearch"
+     class="pm-search"
+     type="search"
+     placeholder="Search master products..."
+    >
+
     <div class="pm-actions">
-     <button id="pmMasterRefresh" class="pm-btn outline" type="button">Refresh</button>
-     <button id="pmMasterAdd" class="pm-btn primary" type="button">+ Add Product</button>
+     <button
+      id="pmMasterRefresh"
+      class="pm-btn outline"
+      type="button"
+     >
+      Refresh
+     </button>
+
+     <button
+      id="pmMasterAdd"
+      class="pm-btn primary"
+      type="button"
+     >
+      + Add Product
+     </button>
     </div>
    </div>
 
@@ -235,24 +789,43 @@
        <th class="actions-header">Actions</th>
       </tr>
      </thead>
+
      <tbody id="pmMasterRows"></tbody>
     </table>
    </div>
   </div>
  </section>
 
+ <!-- Product Requests -->
  <section id="pmRequests" class="pm-section" hidden>
   <div class="panel">
+
    <div class="pm-toolbar">
-    <input id="pmRequestSearch" class="pm-search" type="search" placeholder="Search product requests...">
+    <input
+     id="pmRequestSearch"
+     class="pm-search"
+     type="search"
+     placeholder="Search product requests..."
+    >
+
     <div class="pm-actions">
-     <select id="pmRequestFilter" class="pm-input pm-filter">
+     <select
+      id="pmRequestFilter"
+      class="pm-input pm-filter"
+     >
       <option value="all">All Statuses</option>
       <option value="pending" selected>Pending</option>
       <option value="approved">Approved</option>
       <option value="rejected">Rejected</option>
      </select>
-     <button id="pmRequestsRefresh" class="pm-btn outline" type="button">Refresh</button>
+
+     <button
+      id="pmRequestsRefresh"
+      class="pm-btn outline"
+      type="button"
+     >
+      Refresh
+     </button>
     </div>
    </div>
 
@@ -271,6 +844,7 @@
        <th class="actions-header">Actions</th>
       </tr>
      </thead>
+
      <tbody id="pmRequestRows"></tbody>
     </table>
    </div>
@@ -279,20 +853,39 @@
 </main>
 
 <!-- Market Price Modal -->
-<div id="mpModal" class="pm-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="mpModalTitle">
+<div
+ id="mpModal"
+ class="pm-modal-overlay"
+ role="dialog"
+ aria-modal="true"
+ aria-labelledby="mpModalTitle"
+>
  <div class="pm-modal">
+
   <div class="pm-modal-header">
    <h2 id="mpModalTitle">Add Market Price</h2>
-   <button id="mpModalClose" class="pm-close" type="button" aria-label="Close Market Price">
+
+   <button
+    id="mpModalClose"
+    class="pm-close"
+    type="button"
+    aria-label="Close Market Price"
+    title="Close"
+   >
     <i data-lucide="x"></i>
    </button>
   </div>
 
   <form id="mpForm" autocomplete="off">
    <div class="pm-grid">
+
     <div class="pm-field full">
      <label for="mpProductSearch">Product Name *</label>
-     <div class="mp-autocomplete" id="mpProductAutocomplete">
+
+     <div
+      class="mp-autocomplete"
+      id="mpProductAutocomplete"
+     >
       <input
        id="mpProductSearch"
        class="pm-input"
@@ -303,137 +896,224 @@
        aria-expanded="false"
        required
       >
-      <div id="mpSuggestions" class="mp-suggestions" role="listbox" hidden></div>
+
+      <div
+       id="mpSuggestions"
+       class="mp-suggestions"
+       role="listbox"
+       hidden
+      ></div>
      </div>
+
      <div id="mpProductSelected" class="mp-selected"></div>
-     <small id="mpProductHelp">Select a registered product from the Master List.</small>
+
+     <small id="mpProductHelp">
+      Select a registered product from the Master List.
+     </small>
     </div>
 
     <div class="pm-field">
      <label for="mpBrandSelect">Brand *</label>
-     <select id="mpBrandSelect" class="pm-input" required disabled>
+
+     <select
+      id="mpBrandSelect"
+      class="pm-input"
+      required
+      disabled
+     >
       <option value="">Select a product first</option>
      </select>
     </div>
 
     <div class="pm-field">
      <label for="mpCategorySelect">Category *</label>
-     <select id="mpCategorySelect" class="pm-input" required disabled>
+
+     <select
+      id="mpCategorySelect"
+      class="pm-input"
+      required
+      disabled
+     >
       <option value="">Select a brand first</option>
      </select>
     </div>
 
-    <div class="pm-field full pm-note" id="mpEditNote" hidden>
-     Product details are kept from this saved market price record. You can update its reference prices and variant.
-    </div>
-
-    <div class="pm-field full" id="mpVariantField" hidden>
+    <div
+     class="pm-field full"
+     id="mpVariantField"
+     hidden
+    >
      <label for="mpVariant">Variant *</label>
+
      <input
       id="mpVariant"
       class="pm-input"
       maxlength="100"
       placeholder="Example: 25g, 150g, 1L, 12 pcs"
      >
-     <small>Required for packaged products. Must match the product's selling variant.</small>
+
+     <small>
+      Required for packaged products.
+     </small>
     </div>
 
-    <div class="pm-field" id="mpMinField" hidden>
+    <div
+     class="pm-field"
+     id="mpMinField"
+     hidden
+    >
      <label for="mpMinPrice">Minimum Price (₱) *</label>
-     <input id="mpMinPrice" class="pm-input" type="number" min="0" step="0.01">
+
+     <input
+      id="mpMinPrice"
+      class="pm-input"
+      type="number"
+      min="0"
+      step="0.01"
+     >
     </div>
 
     <div class="pm-field">
-     <label id="mpMaxLabel" for="mpMaxPrice">Maximum Price (₱) *</label>
-     <input id="mpMaxPrice" class="pm-input" type="number" min="0" step="0.01" required>
+     <label id="mpMaxLabel" for="mpMaxPrice">
+      Maximum Price (₱) *
+     </label>
+
+     <input
+      id="mpMaxPrice"
+      class="pm-input"
+      type="number"
+      min="0"
+      step="0.01"
+      required
+     >
     </div>
    </div>
 
    <div id="mpPriceHint" class="pm-status"></div>
 
    <div class="pm-modal-footer">
-    <button id="mpSave" class="pm-btn primary" type="submit">Save Product</button>
+    <button
+     id="mpSave"
+     class="pm-btn primary"
+     type="submit"
+    >
+     Save Product
+    </button>
    </div>
   </form>
  </div>
 </div>
 
 <!-- Master List Modal -->
-<div id="pmMasterModal" class="pm-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="pmMasterModalTitle">
+<div
+ id="pmMasterModal"
+ class="pm-modal-overlay"
+ role="dialog"
+ aria-modal="true"
+ aria-labelledby="pmMasterModalTitle"
+>
  <div class="pm-modal">
+
   <div class="pm-modal-header">
    <h2 id="pmMasterModalTitle">Add Product</h2>
-   <button id="pmMasterClose" class="pm-close" type="button" aria-label="Close Master List">
+
+   <button
+    id="pmMasterClose"
+    class="pm-close"
+    type="button"
+    aria-label="Close Master List"
+    title="Close"
+   >
     <i data-lucide="x"></i>
    </button>
   </div>
 
   <form id="pmMasterForm">
    <div class="pm-grid">
+
     <div class="pm-field full">
      <label for="pmName">Product Name</label>
-     <input id="pmName" class="pm-input" maxlength="150" placeholder="Example: Corned Beef" required>
+
+     <input
+      id="pmName"
+      class="pm-input"
+      maxlength="150"
+      placeholder="Example: Corned Beef"
+      required
+     >
     </div>
 
     <div class="pm-field">
      <label for="pmBrandSelect">Brands</label>
+
      <select id="pmBrandSelect" class="pm-input">
       <option value="">Select a brand</option>
      </select>
-     <div id="pmSelectedBrands" class="pm-selection"></div>
+
+     <div
+      id="pmSelectedBrands"
+      class="pm-selection"
+     ></div>
+
      <small>Select brands one at a time.</small>
     </div>
 
     <div class="pm-field">
      <label for="pmCategorySelect">Categories</label>
+
      <select id="pmCategorySelect" class="pm-input">
       <option value="">Select a category</option>
      </select>
-     <div id="pmSelectedCategories" class="pm-selection"></div>
+
+     <div
+      id="pmSelectedCategories"
+      class="pm-selection"
+     ></div>
+
      <small>Select categories one at a time.</small>
     </div>
 
     <div class="pm-field full">
-     <label for="pmNewBrand">Add New Brand (Optional)</label>
-     <div class="pm-actions">
-      <input id="pmNewBrand" class="pm-input" maxlength="100" placeholder="Enter brand name" style="flex:1;min-width:150px">
-      <button id="pmAddBrand" class="pm-btn outline" type="button">Add Brand</button>
-     </div>
-    </div>
-
-    <div class="pm-field full">
-     <label for="pmNewCategory">Add New Category (Optional)</label>
-     <div class="pm-actions">
-      <input id="pmNewCategory" class="pm-input" maxlength="100" placeholder="Enter category name" style="flex:1;min-width:150px">
-      <button id="pmAddCategory" class="pm-btn outline" type="button">Add Category</button>
-     </div>
-    </div>
-
-    <div class="pm-field full">
      <label class="pm-check">
-      <input id="pmAllowUnbranded" type="checkbox">
+      <input
+       id="pmAllowUnbranded"
+       type="checkbox"
+      >
       Allow unbranded listing
      </label>
-     <small>Unchecked by default for new products.</small>
+
+     <small>
+      Unchecked by default for new products.
+     </small>
     </div>
    </div>
 
    <div class="pm-modal-footer">
-    <button id="pmMasterSave" class="pm-btn primary" type="submit">Save Product</button>
+    <button
+     id="pmMasterSave"
+     class="pm-btn primary"
+     type="submit"
+    >
+     Save Product
+    </button>
    </div>
   </form>
  </div>
 </div>
 
+<!-- Scripts -->
 <script src="../js/supabase.js"></script>
 <script src="../js/script.js"></script>
 <script src="../js/marketPrice.js"></script>
 <script src="../js/productManagement.js"></script>
+
 <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
 
 <script>
 document.addEventListener("DOMContentLoaded",()=>{
- if(window.lucide)lucide.createIcons();
+ if(window.lucide){
+  lucide.createIcons();
+ }
 
  const menu=document.getElementById("pmMobileMenu");
  const sidebar=document.getElementById("sidebar");
@@ -441,7 +1121,18 @@ document.addEventListener("DOMContentLoaded",()=>{
  menu.addEventListener("click",()=>{
   sidebar.classList.toggle("mobile-open");
  });
+
+ document.addEventListener("click",event=>{
+  if(
+   window.innerWidth<=768&&
+   !sidebar.contains(event.target)&&
+   !menu.contains(event.target)
+  ){
+   sidebar.classList.remove("mobile-open");
+  }
+ });
 });
 </script>
+
 </body>
 </html>
