@@ -1,71 +1,45 @@
-
 (()=>{
 'use strict';
 
 const $=id=>document.getElementById(id);
-const normalize=value=>String(value??'').trim().toLowerCase();
+const norm=v=>String(v??'').trim().toLowerCase();
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({
+ '&':'&amp;','<':'&lt;','>':'&gt;',
+ '"':'&quot;',"'":'&#39;'
+}[c]));
 
-const escapeHTML=value=>String(value??'').replace(
- /[&<>"']/g,
- char=>({
-  '&':'&amp;',
-  '<':'&lt;',
-  '>':'&gt;',
-  '"':'&quot;',
-  "'":'&#39;'
- }[char])
-);
+const peso=v=>'₱'+Number(v||0).toLocaleString('en-PH',{
+ minimumFractionDigits:2,
+ maximumFractionDigits:2
+});
 
-const money=value=>
- '₱'+Number(value||0).toLocaleString('en-PH',{
-  minimumFractionDigits:2,
-  maximumFractionDigits:2
- });
-
-let client=null;
-let activeTab='prices';
-
-let masterProducts=[];
+let client;
+let master=[];
 let brands=[];
 let categories=[];
-let brandProducts=[];
+let links=[];
 let requests=[];
 let sellers=[];
-
-let editingProductId=null;
-let selectedBrandIds=new Set();
-let selectedCategoryIds=new Set();
-let pendingBrands=[];
-let pendingCategories=[];
+let editId=null;
+let selectedBrands=new Set();
+let selectedCategories=new Set();
+let newBrands=[];
+let newCategories=[];
 let saving=false;
 let reviewing=false;
 
-function status(id,text){
- const element=$(id);
- if(element)element.textContent=text||'';
-}
-
 function getClient(){
- if(typeof db!=='undefined' && db?.from){
-  return db;
- }
-
- if(window.supabaseClient?.from){
-  return window.supabaseClient;
- }
-
- if(window.supabase?.from){
-  return window.supabase;
- }
-
- throw new Error(
-  'Supabase client not found. Check js/supabase.js.'
- );
+ if(typeof db!=='undefined'&&db?.from)return db;
+ if(window.supabaseClient?.from)return window.supabaseClient;
+ if(window.supabase?.from)return window.supabase;
+ throw new Error('Supabase client not found.');
 }
 
-function setTab(tab){
- activeTab=tab;
+function status(id,message){
+ $(id).textContent=message||'';
+}
 
+function switchTab(tab){
  const sections={
   prices:'pmPrices',
   master:'pmMaster',
@@ -78,7 +52,6 @@ function setTab(tab){
 
  document.querySelectorAll('[data-pm-tab]').forEach(button=>{
   const active=button.dataset.pmTab===tab;
-
   button.classList.toggle('active',active);
   button.setAttribute('aria-selected',String(active));
  });
@@ -87,27 +60,25 @@ function setTab(tab){
  if(tab==='requests')loadRequests();
 }
 
-async function fetchAll(table,columns,orderColumn){
+async function fetchAll(table,columns,order){
  const rows=[];
- const pageSize=500;
+ const limit=500;
 
- for(let from=0;from<100000;from+=pageSize){
-  let query=client
-   .from(table)
+ for(let offset=0;offset<100000;offset+=limit){
+  let query=client.from(table)
    .select(columns)
-   .range(from,from+pageSize-1);
+   .range(offset,offset+limit-1);
 
-  if(orderColumn){
-   query=query.order(orderColumn,{ascending:true});
+  if(order){
+   query=query.order(order,{ascending:true});
   }
 
   const {data,error}=await query;
-
   if(error)throw error;
 
   rows.push(...(data||[]));
 
-  if(!data||data.length<pageSize)break;
+  if(!data||data.length<limit)break;
  }
 
  return rows;
@@ -117,7 +88,7 @@ async function loadMaster(){
  status('pmMasterStatus','Loading Master List...');
 
  try{
-  const results=await Promise.all([
+  [master,brands,categories,links]=await Promise.all([
    fetchAll(
     'master_products',
     'id,product_name,allow_unbranded,created_at',
@@ -131,70 +102,45 @@ async function loadMaster(){
    )
   ]);
 
-  [
-   masterProducts,
-   brands,
-   categories,
-   brandProducts
-  ]=results;
-
-  status(
-   'pmMasterStatus',
-   `${masterProducts.length} master products`
-  );
-
+  status('pmMasterStatus',`${master.length} master products`);
   renderMaster();
   populateSelectors();
 
  }catch(error){
-  console.error('Master List:',error);
-  status('pmMasterStatus',error.message);
+  console.error(error);
+  status('pmMasterStatus','Unable to load: '+error.message);
  }
 }
 
-function linkedBrandIds(productId){
- return [
-  ...new Set(
-   brandProducts
-    .filter(link=>link.master_product_id===productId)
-    .map(link=>link.brand_id)
-    .filter(Boolean)
-  )
- ];
+function brandIds(productId){
+ return [...new Set(
+  links.filter(link=>link.master_product_id===productId)
+   .map(link=>link.brand_id)
+   .filter(Boolean)
+ )];
 }
 
-function linkedCategoryIds(productId){
- return [
-  ...new Set(
-   brandProducts
-    .filter(link=>link.master_product_id===productId)
-    .map(link=>link.category_id)
-    .filter(Boolean)
-  )
- ];
+function categoryIds(productId){
+ return [...new Set(
+  links.filter(link=>link.master_product_id===productId)
+   .map(link=>link.category_id)
+   .filter(Boolean)
+ )];
 }
 
-function namesFromIds(ids,records){
- return ids
-  .map(id=>records.find(record=>record.id===id)?.name)
+function names(ids,records){
+ return ids.map(id=>records.find(r=>r.id===id)?.name)
   .filter(Boolean);
 }
 
 function renderMaster(){
- const search=normalize($('pmMasterSearch').value);
+ const search=norm($('pmMasterSearch').value);
 
- const filtered=masterProducts.filter(product=>{
-  const brandNames=namesFromIds(
-   linkedBrandIds(product.id),
-   brands
-  );
+ const filtered=master.filter(product=>{
+  const brandNames=names(brandIds(product.id),brands);
+  const categoryNames=names(categoryIds(product.id),categories);
 
-  const categoryNames=namesFromIds(
-   linkedCategoryIds(product.id),
-   categories
-  );
-
-  return normalize([
+  return norm([
    product.product_name,
    ...brandNames,
    ...categoryNames
@@ -202,146 +148,82 @@ function renderMaster(){
  });
 
  $('pmMasterRows').innerHTML=filtered.length
-  ?filtered.map(product=>{
-   const brandNames=namesFromIds(
-    linkedBrandIds(product.id),
-    brands
-   );
-
-   const categoryNames=namesFromIds(
-    linkedCategoryIds(product.id),
-    categories
-   );
-
-   return `
-    <tr>
-     <td class="name">
-      ${escapeHTML(product.product_name)}
-     </td>
-
-     <td>
-      ${escapeHTML(brandNames.join(', ')||'—')}
-     </td>
-
-     <td>
-      ${escapeHTML(categoryNames.join(', ')||'—')}
-     </td>
-
-     <td>
-      <button
-       class="pm-row-btn"
-       type="button"
-       data-master-edit="${escapeHTML(product.id)}"
-      >
-       Edit
-      </button>
-     </td>
-    </tr>
-   `;
-  }).join('')
-  :`
+  ?filtered.map(product=>`
    <tr>
-    <td colspan="4" class="empty">
-     No master products found.
+    <td class="name">${esc(product.product_name)}</td>
+    <td>${esc(names(brandIds(product.id),brands).join(', ')||'—')}</td>
+    <td>${esc(names(categoryIds(product.id),categories).join(', ')||'—')}</td>
+    <td>
+     <button
+      type="button"
+      class="pm-row-btn"
+      data-master-edit="${esc(product.id)}"
+     >Edit</button>
     </td>
    </tr>
-  `;
+  `).join('')
+  :'<tr><td colspan="4" class="empty">No master products found.</td></tr>';
 }
 
 function populateSelectors(){
  $('pmBrandSelect').innerHTML=`
   <option value="">Select a brand</option>
-  ${brands.map(brand=>`
-   <option value="${escapeHTML(brand.id)}">
-    ${escapeHTML(brand.name)}
-   </option>
+  ${brands.map(b=>`
+   <option value="${esc(b.id)}">${esc(b.name)}</option>
   `).join('')}
  `;
 
  $('pmCategorySelect').innerHTML=`
   <option value="">Select a category</option>
-  ${categories.map(category=>`
-   <option value="${escapeHTML(category.id)}">
-    ${escapeHTML(category.name)}
-   </option>
+  ${categories.map(c=>`
+   <option value="${esc(c.id)}">${esc(c.name)}</option>
   `).join('')}
  `;
 }
 
 function renderSelections(){
- const selectedBrands=brands.filter(brand=>
-  selectedBrandIds.has(brand.id)
- );
-
- const selectedCategories=categories.filter(category=>
-  selectedCategoryIds.has(category.id)
- );
-
  $('pmSelectedBrands').innerHTML=[
-  ...selectedBrands.map(brand=>`
+  ...brands.filter(b=>selectedBrands.has(b.id)).map(b=>`
    <span class="pm-chip">
-    ${escapeHTML(brand.name)}
-    <button
-     type="button"
-     data-remove-brand="${escapeHTML(brand.id)}"
-     aria-label="Remove ${escapeHTML(brand.name)}"
-    >×</button>
+    ${esc(b.name)}
+    <button type="button" data-remove-brand="${esc(b.id)}">×</button>
    </span>
   `),
-  ...pendingBrands.map((name,index)=>`
+  ...newBrands.map((name,i)=>`
    <span class="pm-chip">
-    ${escapeHTML(name)}
-    <button
-     type="button"
-     data-remove-new-brand="${index}"
-    >×</button>
+    ${esc(name)}
+    <button type="button" data-remove-new-brand="${i}">×</button>
    </span>
   `)
  ].join('');
 
  $('pmSelectedCategories').innerHTML=[
-  ...selectedCategories.map(category=>`
+  ...categories.filter(c=>selectedCategories.has(c.id)).map(c=>`
    <span class="pm-chip">
-    ${escapeHTML(category.name)}
-    <button
-     type="button"
-     data-remove-category="${escapeHTML(category.id)}"
-    >×</button>
+    ${esc(c.name)}
+    <button type="button" data-remove-category="${esc(c.id)}">×</button>
    </span>
   `),
-  ...pendingCategories.map((name,index)=>`
+  ...newCategories.map((name,i)=>`
    <span class="pm-chip">
-    ${escapeHTML(name)}
-    <button
-     type="button"
-     data-remove-new-category="${index}"
-    >×</button>
+    ${esc(name)}
+    <button type="button" data-remove-new-category="${i}">×</button>
    </span>
   `)
  ].join('');
 }
 
 function openMaster(product=null){
- editingProductId=product?.id||null;
-
- selectedBrandIds=new Set(
-  product?linkedBrandIds(product.id):[]
- );
-
- selectedCategoryIds=new Set(
-  product?linkedCategoryIds(product.id):[]
- );
-
- pendingBrands=[];
- pendingCategories=[];
+ editId=product?.id||null;
+ selectedBrands=new Set(product?brandIds(product.id):[]);
+ selectedCategories=new Set(product?categoryIds(product.id):[]);
+ newBrands=[];
+ newCategories=[];
 
  $('pmMasterModalTitle').textContent=
   product?'Edit Product':'Add Product';
 
  $('pmName').value=product?.product_name||'';
-
- // Default is NO for new products.
- // Existing records retain their saved setting.
  $('pmAllowUnbranded').checked=
   product?Boolean(product.allow_unbranded):false;
 
@@ -357,53 +239,34 @@ function openMaster(product=null){
 
 function closeMaster(){
  if(saving)return;
-
  $('pmMasterModal').classList.remove('open');
-
- editingProductId=null;
- selectedBrandIds.clear();
- selectedCategoryIds.clear();
- pendingBrands=[];
- pendingCategories=[];
+ editId=null;
 }
 
-function addSelectedBrand(){
- const id=$('pmBrandSelect').value;
-
- if(id){
-  selectedBrandIds.add(id);
-  $('pmBrandSelect').value='';
-  renderSelections();
- }
+function addBrand(){
+ const value=$('pmBrandSelect').value;
+ if(value)selectedBrands.add(value);
+ $('pmBrandSelect').value='';
+ renderSelections();
 }
 
-function addSelectedCategory(){
- const id=$('pmCategorySelect').value;
-
- if(id){
-  selectedCategoryIds.add(id);
-  $('pmCategorySelect').value='';
-  renderSelections();
- }
+function addCategory(){
+ const value=$('pmCategorySelect').value;
+ if(value)selectedCategories.add(value);
+ $('pmCategorySelect').value='';
+ renderSelections();
 }
 
 function addNewBrand(){
- const name=$('pmNewBrand').value.trim();
+ const value=$('pmNewBrand').value.trim();
+ if(!value)return;
 
- if(!name)return;
-
- const existing=brands.find(
-  brand=>normalize(brand.name)===normalize(name)
- );
+ const existing=brands.find(b=>norm(b.name)===norm(value));
 
  if(existing){
-  selectedBrandIds.add(existing.id);
- }else if(
-  !pendingBrands.some(
-   value=>normalize(value)===normalize(name)
-  )
- ){
-  pendingBrands.push(name);
+  selectedBrands.add(existing.id);
+ }else if(!newBrands.some(v=>norm(v)===norm(value))){
+  newBrands.push(value);
  }
 
  $('pmNewBrand').value='';
@@ -411,22 +274,15 @@ function addNewBrand(){
 }
 
 function addNewCategory(){
- const name=$('pmNewCategory').value.trim();
+ const value=$('pmNewCategory').value.trim();
+ if(!value)return;
 
- if(!name)return;
-
- const existing=categories.find(
-  category=>normalize(category.name)===normalize(name)
- );
+ const existing=categories.find(c=>norm(c.name)===norm(value));
 
  if(existing){
-  selectedCategoryIds.add(existing.id);
- }else if(
-  !pendingCategories.some(
-   value=>normalize(value)===normalize(name)
-  )
- ){
-  pendingCategories.push(name);
+  selectedCategories.add(existing.id);
+ }else if(!newCategories.some(v=>norm(v)===norm(value))){
+  newCategories.push(value);
  }
 
  $('pmNewCategory').value='';
@@ -435,70 +291,45 @@ function addNewCategory(){
 
 async function findOrCreate(table,name){
  const records=table==='brands'?brands:categories;
-
- const existing=records.find(
-  record=>normalize(record.name)===normalize(name)
- );
-
+ const existing=records.find(r=>norm(r.name)===norm(name));
  if(existing)return existing.id;
 
- const {data,error}=await client
-  .from(table)
+ const {data,error}=await client.from(table)
   .insert({name})
   .select('id')
   .single();
 
  if(error)throw error;
-
  return data.id;
 }
 
 async function saveMaster(event){
  event.preventDefault();
-
  if(saving)return;
 
- const name=$('pmName').value.trim();
- const allowUnbranded=$('pmAllowUnbranded').checked;
+ const product_name=$('pmName').value.trim();
+ const allow_unbranded=$('pmAllowUnbranded').checked;
 
- if(!name){
-  alert('Please enter a product name.');
+ if(!product_name){
+  alert('Enter a product name.');
   return;
  }
 
- const brandCount=
-  selectedBrandIds.size+pendingBrands.length;
-
- const categoryCount=
-  selectedCategoryIds.size+pendingCategories.length;
-
- if(!categoryCount){
-  alert('Please select at least one category.');
+ if(!selectedCategories.size&&!newCategories.length){
+  alert('Select at least one category.');
   return;
  }
 
- if(!brandCount&&!allowUnbranded){
+ if(!selectedBrands.size&&!newBrands.length){
   alert(
-   'Select at least one brand, or enable Allow unbranded listing.'
+   'Select at least one brand. The current database cannot '+
+   'link a category directly to an unbranded master product.'
   );
   return;
  }
 
- // Current schema stores category associations only
- // in brand_products. A brand is therefore needed
- // to save a category relationship.
- if(!brandCount){
-  alert(
-   'Your current database cannot link categories directly '+
-   'to an unbranded master product. Add a brand for now, '+
-   'or update the database schema first.'
-  );
-  return;
- }
-
- const duplicate=masterProducts.find(product=>
-  normalize(product.product_name)===normalize(name)&&
-  product.id!==editingProductId
+ const duplicate=master.some(p=>
+  norm(p.product_name)===norm(product_name)&&p.id!==editId
  );
 
  if(duplicate){
@@ -510,125 +341,84 @@ async function saveMaster(event){
  $('pmMasterSave').disabled=true;
 
  try{
-  const payload={
-   product_name:name,
-   allow_unbranded:allowUnbranded
-  };
+  let productId=editId;
 
-  let productId=editingProductId;
+  const payload={product_name,allow_unbranded};
 
   if(productId){
-   const {error}=await client
-    .from('master_products')
-    .update(payload)
-    .eq('id',productId);
-
+   const {error}=await client.from('master_products')
+    .update(payload).eq('id',productId);
    if(error)throw error;
-
   }else{
-   const {data,error}=await client
-    .from('master_products')
-    .insert(payload)
-    .select('id')
-    .single();
-
+   const {data,error}=await client.from('master_products')
+    .insert(payload).select('id').single();
    if(error)throw error;
-
    productId=data.id;
   }
 
-  const finalBrandIds=[...selectedBrandIds];
-  const finalCategoryIds=[...selectedCategoryIds];
+  const allBrands=[...selectedBrands];
+  const allCategories=[...selectedCategories];
 
-  for(const name of pendingBrands){
-   finalBrandIds.push(
-    await findOrCreate('brands',name)
-   );
+  for(const name of newBrands){
+   allBrands.push(await findOrCreate('brands',name));
   }
 
-  for(const name of pendingCategories){
-   finalCategoryIds.push(
-    await findOrCreate('categories',name)
-   );
+  for(const name of newCategories){
+   allCategories.push(await findOrCreate('categories',name));
   }
 
-  const uniqueBrandIds=[...new Set(finalBrandIds)];
-  const uniqueCategoryIds=[...new Set(finalCategoryIds)];
+  const desired=[];
 
-  // Each selected brand is associated with each
-  // selected category for this master product.
-  const desiredLinks=[];
-
-  for(const brandId of uniqueBrandIds){
-   for(const categoryId of uniqueCategoryIds){
-    desiredLinks.push({
-     brand_id:brandId,
-     master_product_id:productId,
-     category_id:categoryId
+  for(const brand_id of new Set(allBrands)){
+   for(const category_id of new Set(allCategories)){
+    desired.push({
+     brand_id,
+     category_id,
+     master_product_id:productId
     });
    }
   }
 
-  const {data:currentLinks,error:linksError}=
-   await client
-    .from('brand_products')
-    .select('id,brand_id,category_id')
-    .eq('master_product_id',productId);
+  const {data:current,error:readError}=await client
+   .from('brand_products')
+   .select('id,brand_id,category_id')
+   .eq('master_product_id',productId);
 
-  if(linksError)throw linksError;
+  if(readError)throw readError;
 
-  const sameLink=(a,b)=>
-   a.brand_id===b.brand_id&&
-   a.category_id===b.category_id;
+  const same=(a,b)=>
+   a.brand_id===b.brand_id&&a.category_id===b.category_id;
 
-  const toInsert=desiredLinks.filter(desired=>
-   !(currentLinks||[]).some(current=>
-    sameLink(current,desired)
-   )
+  const insert=desired.filter(d=>
+   !(current||[]).some(c=>same(c,d))
   );
 
-  const toDelete=(currentLinks||[]).filter(current=>
-   !desiredLinks.some(desired=>
-    sameLink(current,desired)
-   )
+  const remove=(current||[]).filter(c=>
+   !desired.some(d=>same(c,d))
   );
 
-  if(toInsert.length){
-   const {error}=await client
-    .from('brand_products')
-    .insert(toInsert);
-
+  if(insert.length){
+   const {error}=await client.from('brand_products')
+    .insert(insert);
    if(error)throw error;
   }
 
-  if(toDelete.length){
-   const {error}=await client
-    .from('brand_products')
-    .delete()
-    .in('id',toDelete.map(link=>link.id));
-
+  if(remove.length){
+   const {error}=await client.from('brand_products')
+    .delete().in('id',remove.map(r=>r.id));
    if(error)throw error;
   }
-
-  alert(
-   editingProductId
-    ?'Master product updated successfully.'
-    :'Master product added successfully.'
-  );
 
   $('pmMasterModal').classList.remove('open');
-
+  editId=null;
   await loadMaster();
 
+  alert('Master product saved successfully.');
+
  }catch(error){
-  console.error('Save master product:',error);
+  console.error('Save Master Product:',error);
+  alert('Unable to save: '+error.message);
 
-  alert(
-   'Unable to save product: '+error.message
-  );
-
-  // Note: these are separate database writes.
-  // A failure can leave some changes saved.
  }finally{
   saving=false;
   $('pmMasterSave').disabled=false;
@@ -639,31 +429,35 @@ async function loadRequests(){
  status('pmRequestStatus','Loading product requests...');
 
  try{
-  const results=await Promise.all([
-   fetchAll(
-    'product_requests',
-    'id,seller_id,product_name,brand_name,category_name,price,stock,pricing_type,weight,variant,unit,image_url,status,created_at',
-    'created_at'
-   ),
-   fetchAll(
-    'profiles',
-    'id,full_name,email,role'
-   )
-  ]);
+  // Main data comes directly from product_requests.
+  requests=await fetchAll(
+   'product_requests',
+   'id,seller_id,product_name,brand_name,category_name,price,stock,pricing_type,weight,variant,unit,image_url,status,created_at',
+   'created_at'
+  );
 
-  requests=results[0].sort((a,b)=>
+  requests.sort((a,b)=>
    new Date(b.created_at)-new Date(a.created_at)
   );
 
-  sellers=results[1];
+  // Seller profiles are optional for display.
+  // RLS on profiles must not hide the requests themselves.
+  const {data,error}=await client.from('profiles')
+   .select('id,full_name,email,role')
+   .eq('role','seller');
 
-  const pending=requests.filter(
-   request=>normalize(request.status)==='pending'
+  if(error){
+   console.warn('Seller names unavailable:',error.message);
+   sellers=[];
+  }else{
+   sellers=data||[];
+  }
+
+  const pending=requests.filter(r=>
+   norm(r.status)==='pending'
   ).length;
 
-  $('pmPendingCount').textContent=
-   pending?`(${pending})`:'';
-
+  $('pmPendingCount').textContent=pending?`(${pending})`:'';
   status(
    'pmRequestStatus',
    `${requests.length} requests · ${pending} pending`
@@ -673,148 +467,95 @@ async function loadRequests(){
 
  }catch(error){
   console.error('Product Requests:',error);
-  status('pmRequestStatus',error.message);
+  status('pmRequestStatus','Unable to load: '+error.message);
+  $('pmRequestRows').innerHTML=`
+   <tr>
+    <td colspan="7" class="empty">${esc(error.message)}</td>
+   </tr>
+  `;
  }
 }
 
 function renderRequests(){
- const search=normalize($('pmRequestSearch').value);
+ const search=norm($('pmRequestSearch').value);
  const filter=$('pmRequestFilter').value;
 
- const filtered=requests.filter(request=>{
-  const seller=sellers.find(
-   profile=>profile.id===request.seller_id
-  );
+ const filtered=requests.filter(r=>{
+  const seller=sellers.find(s=>s.id===r.seller_id);
 
-  const matchesSearch=normalize([
-   request.product_name,
-   request.brand_name,
-   request.category_name,
-   request.variant,
-   request.seller_id,
-   seller?.full_name,
-   seller?.email
+  const match=norm([
+   r.product_name,r.brand_name,r.category_name,
+   r.variant,r.seller_id,seller?.full_name,seller?.email
   ].join(' ')).includes(search);
 
-  const matchesStatus=
-   filter==='all'||
-   normalize(request.status)===filter;
-
-  return matchesSearch&&matchesStatus;
+  return match&&(filter==='all'||norm(r.status)===filter);
  });
 
  $('pmRequestRows').innerHTML=filtered.length
-  ?filtered.map(request=>{
-   const seller=sellers.find(
-    profile=>profile.id===request.seller_id
-   );
-
-   const state=normalize(request.status);
-   const pending=state==='pending';
-
+  ?filtered.map(r=>{
+   const seller=sellers.find(s=>s.id===r.seller_id);
+   const state=norm(r.status);
    const size=[
-    request.variant,
-    request.weight!=null
-     ?`${request.weight}${request.unit||''}`
-     :request.unit
+    r.variant,
+    r.weight!=null?`${r.weight}${r.unit||''}`:r.unit
    ].filter(Boolean).join(' · ')||'—';
 
    return `
     <tr>
      <td>
-      <div class="name">
-       ${escapeHTML(request.product_name)}
-      </div>
-      <small>
-       ${escapeHTML(request.brand_name||'Unbranded')}
-      </small>
+      <div class="name">${esc(r.product_name)}</div>
+      <small>${esc(r.brand_name||'Unbranded')}</small>
      </td>
-
+     <td>${esc(r.category_name)}</td>
      <td>
-      ${escapeHTML(request.category_name)}
+      ${esc(size)}
+      <br><small>${esc(r.pricing_type||'')}</small>
      </td>
-
      <td>
-      ${escapeHTML(size)}
-      <br>
-      <small>
-       ${escapeHTML(request.pricing_type||'')}
-      </small>
+      <strong>${peso(r.price)}</strong>
+      <br><small>${esc(r.stock)} stock</small>
      </td>
-
      <td>
-      <strong>${money(request.price)}</strong>
-      <br>
-      <small>${escapeHTML(request.stock)} stock</small>
-     </td>
-
-     <td>
-      ${escapeHTML(
+      ${esc(
        seller?.full_name||
        seller?.email||
-       request.seller_id.slice(0,8)+'…'
+       r.seller_id.slice(0,8)+'…'
       )}
      </td>
-
      <td>
-      <span class="pm-badge ${escapeHTML(state)}">
-       ${escapeHTML(request.status)}
+      <span class="pm-badge ${esc(state)}">
+       ${esc(r.status)}
       </span>
      </td>
-
      <td>
-      ${pending?`
-       <div class="pm-actions">
-        <button
-         class="pm-row-btn"
-         type="button"
-         data-approve="${escapeHTML(request.id)}"
-        >
-         Approve
-        </button>
-
-        <button
-         class="pm-row-btn danger"
-         type="button"
-         data-reject="${escapeHTML(request.id)}"
-        >
-         Reject
-        </button>
-       </div>
+      ${state==='pending'?`
+       <button
+        type="button"
+        class="pm-row-btn"
+        data-approve="${esc(r.id)}"
+       >Approve</button>
+       <button
+        type="button"
+        class="pm-row-btn danger"
+        data-reject="${esc(r.id)}"
+       >Reject</button>
       `:'—'}
      </td>
     </tr>
    `;
   }).join('')
-  :`
-   <tr>
-    <td colspan="7" class="empty">
-     No product requests found.
-    </td>
-   </tr>
-  `;
+  :'<tr><td colspan="7" class="empty">No product requests found.</td></tr>';
 }
 
 async function reviewRequest(id,approve){
  if(reviewing)return;
 
- const request=requests.find(item=>item.id===id);
+ const request=requests.find(r=>r.id===id);
+ if(!request||norm(request.status)!=='pending')return;
 
- if(!request||normalize(request.status)!=='pending'){
-  return;
- }
-
- const action=approve?'approve and publish':'reject';
-
- const confirmed=confirm(
-  `Are you sure you want to ${action} this product?\n\n`+
-  `${request.product_name}\n`+
-  `Brand: ${request.brand_name||'Unbranded'}\n`+
-  `Category: ${request.category_name}\n`+
-  `Price: ${money(request.price)}`
- );
-
- if(!confirmed)return;
+ if(!confirm(
+  `${approve?'Approve and publish':'Reject'} ${request.product_name}?`
+ ))return;
 
  reviewing=true;
 
@@ -829,165 +570,97 @@ async function reviewRequest(id,approve){
 
   if(error)throw error;
 
-  alert(
-   approve
-    ?'Product approved and published successfully.'
-    :'Product request rejected successfully.'
-  );
-
   await loadRequests();
 
- }catch(error){
-  console.error('Review request:',error);
-
   alert(
-   'Unable to review request: '+error.message
+   approve
+    ?'Product approved and published.'
+    :'Product request rejected.'
   );
+
+ }catch(error){
+  console.error('Review Product Request:',error);
+  alert('Unable to review request: '+error.message);
 
  }finally{
   reviewing=false;
  }
 }
 
-function bindEvents(){
- document.querySelectorAll('[data-pm-tab]').forEach(button=>{
-  button.addEventListener('click',()=>{
-   setTab(button.dataset.pmTab);
-  });
- });
-
- $('pmMasterAdd').addEventListener('click',()=>{
-  openMaster();
- });
-
- $('pmMasterRefresh').addEventListener(
-  'click',loadMaster
- );
-
- $('pmMasterSearch').addEventListener(
-  'input',renderMaster
- );
-
- $('pmMasterClose').addEventListener(
-  'click',closeMaster
- );
-
- $('pmMasterCancel').addEventListener(
-  'click',closeMaster
- );
-
- $('pmMasterForm').addEventListener(
-  'submit',saveMaster
- );
-
- $('pmBrandSelect').addEventListener(
-  'change',addSelectedBrand
- );
-
- $('pmCategorySelect').addEventListener(
-  'change',addSelectedCategory
- );
-
- $('pmAddBrand').addEventListener(
-  'click',addNewBrand
- );
-
- $('pmAddCategory').addEventListener(
-  'click',addNewCategory
- );
-
- $('pmSelectedBrands').addEventListener('click',event=>{
-  const remove=event.target.closest('[data-remove-brand]');
-  const removeNew=event.target.closest('[data-remove-new-brand]');
-
-  if(remove){
-   selectedBrandIds.delete(remove.dataset.removeBrand);
-  }
-
-  if(removeNew){
-   pendingBrands.splice(
-    Number(removeNew.dataset.removeNewBrand),1
-   );
-  }
-
-  renderSelections();
- });
-
- $('pmSelectedCategories').addEventListener('click',event=>{
-  const remove=event.target.closest('[data-remove-category]');
-  const removeNew=event.target.closest('[data-remove-new-category]');
-
-  if(remove){
-   selectedCategoryIds.delete(remove.dataset.removeCategory);
-  }
-
-  if(removeNew){
-   pendingCategories.splice(
-    Number(removeNew.dataset.removeNewCategory),1
-   );
-  }
-
-  renderSelections();
- });
-
- $('pmMasterRows').addEventListener('click',event=>{
-  const button=event.target.closest('[data-master-edit]');
-
-  if(!button)return;
-
-  const product=masterProducts.find(
-   item=>item.id===button.dataset.masterEdit
-  );
-
-  if(product)openMaster(product);
- });
-
- $('pmRequestSearch').addEventListener(
-  'input',renderRequests
- );
-
- $('pmRequestFilter').addEventListener(
-  'change',renderRequests
- );
-
- $('pmRequestsRefresh').addEventListener(
-  'click',loadRequests
- );
-
- $('pmRequestRows').addEventListener('click',event=>{
-  const approve=event.target.closest('[data-approve]');
-  const reject=event.target.closest('[data-reject]');
-
-  if(approve){
-   reviewRequest(approve.dataset.approve,true);
-  }else if(reject){
-   reviewRequest(reject.dataset.reject,false);
-  }
- });
-
- $('pmMasterModal').addEventListener('click',event=>{
-  if(event.target===$('pmMasterModal')){
-   closeMaster();
-  }
- });
-
- document.addEventListener('keydown',event=>{
-  if(event.key==='Escape'){
-   closeMaster();
-  }
- });
-}
-
 document.addEventListener('DOMContentLoaded',()=>{
  try{
   client=getClient();
-  bindEvents();
-  setTab('prices');
+
+  document.querySelectorAll('[data-pm-tab]').forEach(button=>{
+   button.addEventListener('click',()=>
+    switchTab(button.dataset.pmTab)
+   );
+  });
+
+  $('pmMasterAdd').addEventListener('click',()=>openMaster());
+  $('pmMasterRefresh').addEventListener('click',loadMaster);
+  $('pmMasterSearch').addEventListener('input',renderMaster);
+  $('pmMasterClose').addEventListener('click',closeMaster);
+  $('pmMasterCancel').addEventListener('click',closeMaster);
+  $('pmMasterForm').addEventListener('submit',saveMaster);
+
+  $('pmBrandSelect').addEventListener('change',addBrand);
+  $('pmCategorySelect').addEventListener('change',addCategory);
+  $('pmAddBrand').addEventListener('click',addNewBrand);
+  $('pmAddCategory').addEventListener('click',addNewCategory);
+
+  $('pmSelectedBrands').addEventListener('click',event=>{
+   const old=event.target.closest('[data-remove-brand]');
+   const fresh=event.target.closest('[data-remove-new-brand]');
+
+   if(old)selectedBrands.delete(old.dataset.removeBrand);
+   if(fresh)newBrands.splice(Number(fresh.dataset.removeNewBrand),1);
+
+   renderSelections();
+  });
+
+  $('pmSelectedCategories').addEventListener('click',event=>{
+   const old=event.target.closest('[data-remove-category]');
+   const fresh=event.target.closest('[data-remove-new-category]');
+
+   if(old)selectedCategories.delete(old.dataset.removeCategory);
+   if(fresh)newCategories.splice(
+    Number(fresh.dataset.removeNewCategory),1
+   );
+
+   renderSelections();
+  });
+
+  $('pmMasterRows').addEventListener('click',event=>{
+   const button=event.target.closest('[data-master-edit]');
+   if(!button)return;
+
+   const product=master.find(p=>p.id===button.dataset.masterEdit);
+   if(product)openMaster(product);
+  });
+
+  $('pmRequestSearch').addEventListener('input',renderRequests);
+  $('pmRequestFilter').addEventListener('change',renderRequests);
+  $('pmRequestsRefresh').addEventListener('click',loadRequests);
+
+  $('pmRequestRows').addEventListener('click',event=>{
+   const approve=event.target.closest('[data-approve]');
+   const reject=event.target.closest('[data-reject]');
+
+   if(approve)reviewRequest(approve.dataset.approve,true);
+   else if(reject)reviewRequest(reject.dataset.reject,false);
+  });
+
+  $('pmMasterModal').addEventListener('click',event=>{
+   if(event.target===$('pmMasterModal'))closeMaster();
+  });
+
+  switchTab('prices');
+
  }catch(error){
   console.error('Product Management:',error);
   status('pmMasterStatus',error.message);
   status('pmRequestStatus',error.message);
  }
 });
-
 })();
