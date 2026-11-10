@@ -83,10 +83,6 @@ function getPricingType(categoryName){
   :"fixed_size";
 }
 
-function pricingLabel(type){
- return type==="per_kg"?"Per 1 kg":"Per Variant";
-}
-
 function formatDate(value){
  if(!value)return "—";
 
@@ -191,7 +187,7 @@ async function loadPrices(){
 
   $("marketPriceTable").innerHTML=`
    <tr>
-    <td colspan="9" class="empty">
+    <td colspan="8" class="empty">
      ${esc(error.message)}
     </td>
    </tr>
@@ -214,11 +210,9 @@ function getBrandName(row){
 function buildFilters(){
  const categorySelect=$("mpCategoryFilter");
  const brandSelect=$("mpBrandFilter");
- const typeSelect=$("mpTypeFilter");
 
  const previousCategory=categorySelect.value;
  const previousBrand=brandSelect.value;
- const previousType=typeSelect.value;
 
  const categoryValues=[...new Set(
   records.map(r=>r.category).filter(Boolean)
@@ -226,10 +220,6 @@ function buildFilters(){
 
  const brandValues=[...new Set(
   records.map(r=>r.brand_id||"unbranded")
- )];
-
- const typeValues=[...new Set(
-  records.map(r=>r.pricing_type).filter(Boolean)
  )];
 
  categorySelect.replaceChildren(
@@ -252,44 +242,29 @@ function buildFilters(){
   brandSelect.add(new Option(label,id));
  });
 
- typeSelect.replaceChildren(
-  new Option("All Pricing Units","")
- );
-
- typeValues.forEach(value=>{
-  typeSelect.add(new Option(pricingLabel(value),value));
- });
-
  categorySelect.value=categoryValues.includes(previousCategory)
   ?previousCategory:"";
 
  brandSelect.value=brandValues.includes(previousBrand)
   ?previousBrand:"";
-
- typeSelect.value=typeValues.includes(previousType)
-  ?previousType:"";
 }
 
 function renderPrices(){
  const search=norm($("mpSearch").value);
  const category=$("mpCategoryFilter").value;
  const brand=$("mpBrandFilter").value;
- const type=$("mpTypeFilter").value;
 
  const filtered=records.filter(row=>{
   const searchable=norm([
    row.product_name,
    getBrandName(row),
    row.category,
-   row.variant,
-   row.pricing_type,
-   pricingLabel(row.pricing_type)
+   row.variant
   ].join(" "));
 
   return searchable.includes(search)
    &&(!category||row.category===category)
-   &&(!brand||(row.brand_id||"unbranded")===brand)
-   &&(!type||row.pricing_type===type);
+   &&(!brand||(row.brand_id||"unbranded")===brand);
  });
 
  $("marketPriceTable").innerHTML=filtered.length
@@ -298,7 +273,6 @@ function renderPrices(){
     <td class="name">${esc(row.product_name)}</td>
     <td>${esc(getBrandName(row))}</td>
     <td>${esc(row.category||"—")}</td>
-    <td>${esc(pricingLabel(row.pricing_type))}</td>
     <td>${esc(
      row.pricing_type==="per_kg"
       ?"1 kg"
@@ -323,7 +297,7 @@ function renderPrices(){
   `).join("")
   :`
    <tr>
-    <td colspan="9" class="empty">
+    <td colspan="8" class="empty">
      No market prices found.
     </td>
    </tr>
@@ -841,6 +815,7 @@ async function savePrice(event){
     .single();
 
    if(error)throw error;
+
    if(!data?.id){
     throw new Error("Market price was not updated.");
    }
@@ -853,6 +828,7 @@ async function savePrice(event){
     .single();
 
    if(error)throw error;
+
    if(!data?.id){
     throw new Error("Market price was not created.");
    }
@@ -985,7 +961,6 @@ document.addEventListener("DOMContentLoaded",()=>{
   $("mpSearch").addEventListener("input",renderPrices);
   $("mpCategoryFilter").addEventListener("change",renderPrices);
   $("mpBrandFilter").addEventListener("change",renderPrices);
-  $("mpTypeFilter").addEventListener("change",renderPrices);
 
   $("mpBrandSelect").addEventListener("change",()=>{
    if(!editingId)updateCategoryOptions();
