@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Product Management | PPDM Admin</title>
 
 <link rel="stylesheet" href="../css/styles.css">
@@ -14,50 +14,47 @@
 
 <style>
 /* Tabs */
-.pm-tabs{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap;border-bottom:1px solid #e5e5e5;margin-bottom:18px}
-.pm-tab{display:flex;align-items:center;justify-content:center;gap:5px;padding:13px 18px;margin:0 0 -1px;border:0;border-bottom:3px solid transparent;border-radius:0;background:transparent;color:#777;font-size:14px;font-weight:700;cursor:pointer}
+.pm-tabs{display:flex;gap:8px;border-bottom:1px solid #e5e5e5;margin-bottom:18px}
+.pm-tab{padding:13px 18px;margin-bottom:-1px;border:0;border-bottom:3px solid transparent;border-radius:0;background:transparent;color:#777;font-size:14px;font-weight:700;cursor:pointer}
 .pm-tab:hover{color:#F5A623}
-.pm-tab.active{color:var(--text,#222);border-bottom:3px solid #F5A623;border-radius:0}
-.pm-tab:focus-visible{outline:2px solid #F5A623;outline-offset:-5px}
+.pm-tab.active{color:var(--text,#222);border-bottom-color:#F5A623}
 .pm-section[hidden]{display:none!important}
 
 /* Toolbar */
-.pm-toolbar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px}
+.pm-toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px}
 .pm-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .pm-btn{border:0;border-radius:9px;padding:11px 16px;background:#f1f1f1;color:#333;font-size:13px;font-weight:700;cursor:pointer}
-.pm-btn.primary{background:var(--accent,#F5A623);color:#222}
+.pm-btn.primary{background:#F5A623;color:#222}
 .pm-btn.outline{border:1px solid #d6a13b;background:transparent;color:var(--text,#333)}
-.pm-btn.danger{background:#ffe8e8;color:#a72b2b}
 .pm-btn:disabled{opacity:.5;cursor:not-allowed}
 
 /* Inputs */
-.pm-search,.pm-input{box-sizing:border-box;min-height:42px;padding:10px 12px;border:1px solid var(--border,#ddd);border-radius:9px;background:var(--ppdm-surface,#fff);color:var(--text,#222);font-size:13px}
-.pm-search{width:min(350px,100%)}
+.pm-input,.pm-search{box-sizing:border-box;min-height:42px;padding:10px 12px;border:1px solid var(--border,#ddd);border-radius:9px;background:var(--ppdm-surface,#fff);color:var(--text,#222);font-size:13px}
 .pm-input{width:100%}
-.pm-search:focus,.pm-input:focus{outline:2px solid #f5a62355;border-color:#F5A623}
+.pm-search{width:min(350px,100%)}
+.pm-input:focus,.pm-search:focus{outline:2px solid #f5a62355;border-color:#F5A623}
 .pm-input:disabled{opacity:.65;cursor:not-allowed}
 .pm-status{min-height:20px;margin:10px 0;color:var(--text-muted,#777);font-size:12px}
-.pm-market-filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.pm-market-filters{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
 .pm-filter{width:auto;min-width:145px}
 
 /* Autocomplete */
 .mp-autocomplete{position:relative}
-.mp-suggestions{position:absolute;top:calc(100% + 5px);left:0;right:0;z-index:20;max-height:230px;overflow-y:auto;background:var(--ppdm-surface,#fff);border:1px solid #e0e0e0;border-radius:10px;box-shadow:0 12px 28px #0002}
+.mp-suggestions{position:absolute;top:calc(100% + 5px);left:0;right:0;z-index:30;max-height:240px;overflow-y:auto;border:1px solid #ddd;border-radius:10px;background:var(--ppdm-surface,#fff);box-shadow:0 12px 28px #0002}
 .mp-suggestions[hidden]{display:none!important}
-.mp-suggestion{display:block;width:100%;padding:11px 13px;text-align:left;border:0;border-bottom:1px solid #eee;background:transparent;color:var(--text,#222);font-size:13px;cursor:pointer}
-.mp-suggestion:hover,.mp-suggestion:focus{background:#fff4dc;outline:none}
-.mp-suggestion:last-child{border-bottom:0}
+.mp-suggestion{display:block;width:100%;padding:12px 14px;text-align:left;border:0;border-bottom:1px solid #eee;background:transparent;color:var(--text,#222);font-size:13px;cursor:pointer}
+.mp-suggestion:hover,.mp-suggestion:focus{background:#fff3d9;outline:none}
 .mp-suggestion small{display:block;margin-top:4px;color:#888;font-size:11px}
 .mp-suggestion-empty{padding:14px;color:#888;font-size:12px}
-.mp-selected{min-height:16px;color:#3a8753;font-size:12px}
-.mp-selected.error{color:#b33232}
-.mp-unit{display:flex;align-items:center;gap:10px;padding:11px 13px;background:#fff7e8;border:1px solid #f2dfb7;border-radius:9px;color:#73530b;font-size:13px}
+.mp-selected{min-height:17px;color:#31804a;font-size:12px}
+.mp-selected.error{color:#bd3030}
+.mp-unit{padding:12px;border:1px solid #f0dba8;border-radius:9px;background:#fff7e6;color:#795600;font-size:13px}
 
 /* Tables */
 .pm-table-wrap{width:100%;overflow-x:auto}
 .pm-scroll-table{max-height:390px;overflow:auto;border:1px solid #eee;border-radius:10px}
 .pm-table{width:100%;border-collapse:separate;border-spacing:0}
-.pm-table th{padding:14px 12px;background:#fafafa;color:#777;text-align:left;font-size:12px;text-transform:uppercase;border-bottom:1px solid #e8e8e8;white-space:nowrap}
+.pm-table th{padding:14px 12px;background:#fafafa;color:#777;text-align:left;font-size:12px;text-transform:uppercase;white-space:nowrap;border-bottom:1px solid #e8e8e8}
 .pm-scroll-table .pm-table th{position:sticky;top:0;z-index:2;box-shadow:0 1px 0 #e8e8e8}
 .pm-table td{padding:14px 12px;border-bottom:1px solid #ededed;vertical-align:middle;font-size:13px}
 .pm-table tbody tr:hover{background:#fffaf0}
@@ -65,9 +62,9 @@
 .pm-table .empty{padding:32px 12px;text-align:center;color:#888}
 .pm-table .actions-header{min-width:115px}
 .pm-table-foot{margin-top:12px;color:#777;font-size:12px}
-.pm-row-btn{border:0;border-radius:7px;padding:8px 11px;background:#fff0d4;color:#906000;font-size:12px;font-weight:700;cursor:pointer;margin:2px}
+.pm-row-btn{border:0;border-radius:7px;padding:8px 11px;margin:2px;background:#fff0d4;color:#906000;font-size:12px;font-weight:700;cursor:pointer}
 .pm-row-btn.danger{background:#ffe8e8;color:#b32c2c}
-.pm-badge{display:inline-block;padding:6px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#f0f0f0;color:#555;text-transform:capitalize}
+.pm-badge{display:inline-block;padding:6px 10px;border-radius:20px;background:#f0f0f0;color:#555;font-size:11px;font-weight:700;text-transform:capitalize}
 .pm-badge.pending{background:#fff0cf;color:#8a6200}
 .pm-badge.approved{background:#e3f5e8;color:#24743c}
 .pm-badge.rejected{background:#ffe6e6;color:#a62d2d}
@@ -75,8 +72,8 @@
 /* Modals */
 .pm-modal-overlay{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(0,0,0,.55)}
 .pm-modal-overlay.open{display:flex}
-.pm-modal{box-sizing:border-box;width:min(620px,100%);max-height:90vh;overflow-y:auto;padding:24px;background:var(--ppdm-surface,#fff);color:var(--text,#222);border-radius:14px;box-shadow:0 20px 50px #0003}
-.pm-modal-header{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:20px}
+.pm-modal{box-sizing:border-box;width:min(620px,100%);max-height:90vh;overflow-y:auto;padding:24px;border-radius:14px;background:var(--ppdm-surface,#fff);color:var(--text,#222);box-shadow:0 20px 50px #0003}
+.pm-modal-header{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-bottom:20px}
 .pm-modal-header h2{margin:0;font-size:20px}
 .pm-close{width:36px;height:36px;border:0;border-radius:8px;background:#f0f0f0;font-size:22px;cursor:pointer}
 .pm-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
@@ -88,7 +85,7 @@
 .pm-check input{width:17px;height:17px;accent-color:#F5A623}
 .pm-modal-footer{display:flex;justify-content:flex-end;gap:10px;margin-top:24px}
 .pm-selection{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}
-.pm-chip{display:inline-flex;align-items:center;gap:7px;border:1px solid #f0d99d;border-radius:20px;background:#fff7e5;padding:6px 10px;color:#755300;font-size:12px}
+.pm-chip{display:inline-flex;align-items:center;gap:7px;padding:6px 10px;border:1px solid #f0d99d;border-radius:20px;background:#fff7e5;color:#755300;font-size:12px}
 .pm-chip button{border:0;background:transparent;color:inherit;cursor:pointer;font-weight:700}
 
 /* Mobile */
@@ -101,7 +98,7 @@
  .pm-table{min-width:900px}
 }
 @media(max-width:500px){
- .pm-tabs{gap:0;flex-wrap:nowrap}
+ .pm-tabs{gap:0}
  .pm-tab{flex:1;padding:12px 6px;font-size:12px;white-space:nowrap}
  .pm-grid{grid-template-columns:1fr}
  .pm-modal{padding:18px}
@@ -210,7 +207,7 @@
        <th>Min Price</th>
        <th>Max Price</th>
        <th>Updated</th>
-       <th class="actions-header"></th>
+       <th class="actions-header">Actions</th>
       </tr>
      </thead>
      <tbody id="marketPriceTable">
@@ -218,6 +215,7 @@
      </tbody>
     </table>
    </div>
+
    <div id="mpCount" class="pm-table-foot"></div>
   </div>
  </section>
@@ -232,7 +230,9 @@
      <button id="pmMasterAdd" class="pm-btn primary" type="button">+ Add Product</button>
     </div>
    </div>
+
    <div id="pmMasterStatus" class="pm-status"></div>
+
    <div class="pm-table-wrap">
     <table class="pm-table">
      <thead>
@@ -240,7 +240,7 @@
        <th>Product Name</th>
        <th>Brands</th>
        <th>Categories</th>
-       <th class="actions-header"></th>
+       <th class="actions-header">Actions</th>
       </tr>
      </thead>
      <tbody id="pmMasterRows"></tbody>
@@ -264,7 +264,9 @@
      <button id="pmRequestsRefresh" class="pm-btn outline" type="button">Refresh</button>
     </div>
    </div>
+
    <div id="pmRequestStatus" class="pm-status"></div>
+
    <div class="pm-table-wrap">
     <table class="pm-table">
      <thead>
@@ -275,7 +277,7 @@
        <th>Price / Stock</th>
        <th>Seller</th>
        <th>Status</th>
-       <th class="actions-header"></th>
+       <th class="actions-header">Actions</th>
       </tr>
      </thead>
      <tbody id="pmRequestRows"></tbody>
@@ -302,7 +304,7 @@
        id="mpProductSearch"
        class="pm-input"
        type="text"
-       placeholder="Type to search Master List, e.g. Pork"
+       placeholder="Search Master List, e.g. Pork"
        aria-autocomplete="list"
        aria-controls="mpSuggestions"
        aria-expanded="false"
@@ -326,20 +328,25 @@
      <select id="mpCategorySelect" class="pm-input" required disabled>
       <option value="">Select a brand first</option>
      </select>
-     <small>Used to determine the pricing unit automatically.</small>
+     <small>Determines whether pricing is per kg or per variant.</small>
     </div>
 
-    <div class="pm-field full" id="mpUnitField">
+    <div class="pm-field full">
      <label>Pricing Unit</label>
      <div id="mpUnitDisplay" class="mp-unit">
-      Select a product and category first.
+      Select a category first.
      </div>
     </div>
 
     <div class="pm-field full" id="mpVariantField">
      <label for="mpVariant">Variant</label>
-     <input id="mpVariant" class="pm-input" maxlength="100" placeholder="Example: 150g, 1L, 12 pcs">
-     <small>Used for quantity-based products only.</small>
+     <input
+      id="mpVariant"
+      class="pm-input"
+      maxlength="100"
+      placeholder="Example: 25g, 150g, 1L, 12 pcs"
+     >
+     <small>Required for quantity-based products.</small>
     </div>
 
     <div class="pm-field" id="mpMinField">
@@ -435,6 +442,7 @@
 <script src="../js/marketPrice.js"></script>
 <script src="../js/productManagement.js"></script>
 <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+
 <script>
 document.addEventListener('DOMContentLoaded',()=>{
  if(window.lucide)lucide.createIcons();
@@ -447,5 +455,6 @@ document.addEventListener('DOMContentLoaded',()=>{
  });
 });
 </script>
+
 </body>
 </html>
