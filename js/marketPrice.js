@@ -421,7 +421,9 @@ function getAvailableBrands(productId){
 function getAvailableCategories(productId,brandValue){
  let links=getLinks(productId);
 
- if(brandValue!=='unbranded'){
+ if(brandValue==='unbranded'){
+  links=links.filter(link=>!link.brand_id);
+ }else{
   links=links.filter(link=>link.brand_id===brandValue);
  }
 
@@ -519,18 +521,35 @@ function updatePricingFields(){
  const category=getCategory($('mpCategorySelect').value);
  const type=category?getPricingType(category.name):null;
  const perKg=type==='per_kg';
+ const fixed=type==='fixed_size';
 
- $('mpVariantField').style.display=perKg?'none':'';
- $('mpMinField').style.display=perKg?'none':'';
+ // Hide variant until a quantity-based category is selected.
+ $('mpVariantField').hidden=!fixed;
+ $('mpMinField').hidden=!fixed;
 
- $('mpVariant').required=Boolean(category&&!perKg);
- $('mpMinPrice').required=Boolean(category&&!perKg);
+ // Hidden inputs must not block form submission.
+ $('mpVariant').disabled=!fixed;
+ $('mpMinPrice').disabled=!fixed;
+
+ $('mpVariant').required=fixed;
+ $('mpMinPrice').required=fixed;
+
+ // A weight-based product always uses 1 kg internally.
+ if(perKg){
+  $('mpVariant').value='1 kg';
+  $('mpMinPrice').value='';
+ }else if(!category){
+  $('mpVariant').value='';
+  $('mpMinPrice').value='';
+ }else if($('mpVariant').value==='1 kg'){
+  $('mpVariant').value='';
+ }
 
  $('mpUnitDisplay').textContent=!category
   ?'Select a category to determine the pricing unit.'
   :perKg
-   ?'Per kilogram — 1 kg reference quantity'
-   :'Per variant — fixed quantity or package';
+   ?'Per kilogram — reference price is based on 1 kg.'
+   :'Per variant — reference price depends on the package size.';
 
  $('mpMaxLabel').textContent=perKg
   ?'Reference Price per 1 kg (₱)'
@@ -539,7 +558,7 @@ function updatePricingFields(){
  $('mpPriceHint').textContent=!category
   ?''
   :perKg
-   ?'Example: Pork at ₱100 means ₱100 for 1 kg.'
+   ?'Example: Pork at ₱100 means the reference price is ₱100 for 1 kg. No variant or minimum price is needed.'
    :'Enter a variant, minimum price, and maximum price.';
 }
 
@@ -551,6 +570,9 @@ function openModal(row=null){
 
  $('mpModalTitle').textContent=
   row?'Edit Market Price':'Add Market Price';
+
+ $('mpSave').textContent=
+  row?'Save Changes':'Save Product';
 
  if(row){
   const product=getProduct(row.master_product_id);
@@ -567,8 +589,18 @@ function openModal(row=null){
    updateCategoryOptions(category?.id||'');
   }
 
-  $('mpVariant').value=row.variant||'';
-  $('mpMinPrice').value=row.min_price??'';
+  // Restore the variant only for fixed-size products.
+  const category=getCategory($('mpCategorySelect').value);
+  const type=category?getPricingType(category.name):row.pricing_type;
+
+  $('mpVariant').value=type==='per_kg'
+   ?'1 kg'
+   :row.variant||'';
+
+  $('mpMinPrice').value=type==='per_kg'
+   ?''
+   :row.min_price??'';
+
   $('mpMaxPrice').value=row.max_price??'';
  }
 
@@ -588,6 +620,7 @@ function closeModal(){
  selectedProductId=null;
 
  $('mpForm').reset();
+ resetProductSelection();
 }
 
 async function savePrice(event){
@@ -705,7 +738,7 @@ async function savePrice(event){
   product_name:product.product_name,
   category:category.name,
   pricing_type:pricingType,
-  variant:variant,
+  variant,
   min_price:minPrice,
   max_price:maxPrice,
   updated_at:new Date().toISOString()
@@ -713,6 +746,7 @@ async function savePrice(event){
 
  saving=true;
  $('mpSave').disabled=true;
+ $('mpModalClose').disabled=true;
 
  try{
   const query=editingId
@@ -730,6 +764,7 @@ async function savePrice(event){
   selectedProductId=null;
 
   $('mpForm').reset();
+  resetProductSelection();
 
   await loadPrices();
 
@@ -743,6 +778,7 @@ async function savePrice(event){
  }finally{
   saving=false;
   $('mpSave').disabled=false;
+  $('mpModalClose').disabled=false;
  }
 }
 
@@ -844,7 +880,6 @@ document.addEventListener('DOMContentLoaded',()=>{
   $('mpForm').addEventListener('submit',savePrice);
 
   $('mpModalClose').addEventListener('click',closeModal);
-  $('mpCancel').addEventListener('click',closeModal);
 
   $('mpModal').addEventListener('click',event=>{
    if(event.target===$('mpModal')){
