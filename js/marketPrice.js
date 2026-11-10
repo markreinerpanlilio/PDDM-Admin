@@ -1,653 +1,415 @@
-const mpTable = document.getElementById("marketPriceTable");
-const mpModal = document.getElementById("mpModal");
-const mpForm = document.getElementById("mpForm");
-const mpStatusElement = document.getElementById("mpStatus");
+(()=>{
+'use strict';
 
-let marketPriceData = [];
-let mpFiltered = [];
-let mpPage = 1;
-let mpEditingId = null;
-let mpBusy = false;
-let mpAdmin = null;
-let mpSelectedCategory = "all";
-let mpSelectedType = "all";
+const $=id=>document.getElementById(id);
+const norm=v=>String(v??'').trim().toLowerCase();
 
-const mpPageSize = 10;
+const html=v=>String(v??'').replace(/[&<>"']/g,c=>({
+ '&':'&amp;','<':'&lt;','>':'&gt;',
+ '"':'&quot;',"'":'&#39;'
+}[c]));
 
-function mpEscape(value) {
-    return String(value ?? "").replace(/[&<>"']/g, char => ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;"
-    })[char]);
+const peso=v=>v==null||v===''
+ ?'—'
+ :'₱'+Number(v).toLocaleString('en-PH',{
+  minimumFractionDigits:2,
+  maximumFractionDigits:2
+ });
+
+let client;
+let records=[];
+let editingId=null;
+let loading=false;
+let saving=false;
+
+function getClient(){
+ if(typeof db!=='undefined'&&db?.from)return db;
+ if(window.supabaseClient?.from)return window.supabaseClient;
+ if(window.supabase?.from)return window.supabase;
+ throw new Error('Supabase client not found. Check js/supabase.js.');
 }
 
-function mpNormalize(value) {
-    return String(value ?? "").trim().toLowerCase().replace(/\s+/g, "");
+function setStatus(text){
+ $('mpStatus').textContent=text||'';
 }
 
-function mpMoney(value) {
-    if (value === null || value === undefined || value === "") return "—";
-    const number = Number(value);
-    if (!Number.isFinite(number)) return "—";
-    return "₱" + number.toLocaleString("en-PH", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    });
+async function fetchAll(){
+ const all=[];
+ const limit=500;
+
+ for(let offset=0;offset<100000;offset+=limit){
+  const {data,error}=await client
+   .from('market_prices')
+   .select(
+    'id,product_name,size,category,min_price,max_price,pricing_type,created_at,updated_at'
+   )
+   .order('product_name',{ascending:true})
+   .order('id',{ascending:true})
+   .range(offset,offset+limit-1);
+
+  if(error)throw error;
+
+  all.push(...(data||[]));
+
+  if(!data||data.length<limit)break;
+ }
+
+ return all;
 }
 
-function mpDate(value) {
-    if (!value) return "—";
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? "—" : date.toLocaleDateString("en-PH");
+async function loadPrices(){
+ if(loading)return;
+
+ loading=true;
+ $('mpRefresh').disabled=true;
+ setStatus('Loading market prices...');
+
+ try{
+  records=await fetchAll();
+
+  buildFilters();
+  renderPrices();
+
+  if(!records.length){
+   setStatus(
+    'No market price records were returned. '+
+    'Check whether the table has records and whether admin RLS allows SELECT.'
+   );
+  }else{
+   setStatus(`${records.length} market price records loaded.`);
+  }
+
+ }catch(error){
+  console.error('Market Price load error:',error);
+
+  $('marketPriceTable').innerHTML=`
+   <tr>
+    <td colspan="8" class="empty">
+     ${html(error.message)}
+    </td>
+   </tr>
+  `;
+
+  $('mpCount').textContent='';
+  setStatus('Unable to load Market Price: '+error.message);
+
+ }finally{
+  loading=false;
+  $('mpRefresh').disabled=false;
+ }
 }
 
-function mpMessage(message, error = false) {
-    mpStatusElement.textContent = message;
-    mpStatusElement.style.color = error ? "#c62828" : "";
+function buildFilters(){
+ const categoryValue=$('mpCategoryFilter').value;
+ const typeValue=$('mpTypeFilter').value;
+
+ const categories=[
+  ...new Set(records.map(r=>r.category).filter(Boolean))
+ ].sort((a,b)=>a.localeCompare(b));
+
+ const types=[
+  ...new Set(records.map(r=>r.pricing_type).filter(Boolean))
+ ].sort((a,b)=>a.localeCompare(b));
+
+ $('mpCategoryFilter').innerHTML=`
+  <option value="">All Categories</option>
+  ${categories.map(v=>`
+   <option value="${html(v)}">${html(v)}</option>
+  `).join('')}
+ `;
+
+ $('mpTypeFilter').innerHTML=`
+  <option value="">All Types</option>
+  ${types.map(v=>`
+   <option value="${html(v)}">${html(typeLabel(v))}</option>
+  `).join('')}
+ `;
+
+ $('mpCategoryFilter').value=categories.includes(categoryValue)
+  ?categoryValue:'';
+
+ $('mpTypeFilter').value=types.includes(typeValue)
+  ?typeValue:'';
+
+ $('mpCategorySuggestions').innerHTML=categories.map(v=>
+  `<option value="${html(v)}"></option>`
+ ).join('');
 }
 
-function mpSetBusy(value) {
-    mpBusy = value;
-    document.querySelectorAll("#mpAdd,#mpRefresh,#mpSave,.mp-actions button")
-        .forEach(button => button.disabled = value);
+function typeLabel(value){
+ const type=norm(value);
+
+ if(type==='per_kg')return 'Per kg';
+ if(type==='fixed_size')return 'Fixed Size';
+
+ return String(value||'—').replace(/_/g,' ');
 }
 
-async function mpVerifyAdmin() {
-    const { data: { user }, error } = await db.auth.getUser();
+function formatDate(value){
+ if(!value)return '—';
 
-    if (error || !user) throw Error("Please sign in as admin.");
+ const date=new Date(value);
 
-    const { data: profile, error: profileError } = await db
-        .from("profiles")
-        .select("id,role,email,full_name")
-        .eq("id", user.id)
-        .single();
+ if(Number.isNaN(date.getTime()))return '—';
 
-    if (profileError || String(profile?.role).toLowerCase() !== "admin") {
-        throw Error("Admin access required.");
-    }
-
-    mpAdmin = { user, profile };
-    return mpAdmin;
+ return date.toLocaleDateString('en-PH',{
+  year:'numeric',
+  month:'short',
+  day:'numeric'
+ });
 }
 
-async function mpFetchAll() {
-    const rows = [];
-    const size = 1000;
+function renderPrices(){
+ const search=norm($('mpSearch').value);
+ const category=$('mpCategoryFilter').value;
+ const type=$('mpTypeFilter').value;
 
-    for (let start = 0; start < 100000; start += size) {
-        const { data, error } = await db
-            .from("market_prices")
-            .select("id,product_name,category,pricing_type,size,min_price,max_price,created_at,updated_at")
-            .order("product_name", { ascending: true })
-            .order("id", { ascending: true })
-            .range(start, start + size - 1);
+ const filtered=records.filter(row=>{
+  const matchesSearch=norm([
+   row.product_name,
+   row.category,
+   row.size,
+   row.pricing_type
+  ].join(' ')).includes(search);
 
-        if (error) throw error;
+  return matchesSearch&&
+   (!category||row.category===category)&&
+   (!type||row.pricing_type===type);
+ });
 
-        rows.push(...(data || []));
+ $('marketPriceTable').innerHTML=filtered.length
+  ?filtered.map(row=>`
+   <tr>
+    <td class="name">${html(row.product_name)}</td>
+    <td>${html(row.category||'—')}</td>
+    <td>${html(typeLabel(row.pricing_type))}</td>
+    <td>${html(row.size||'—')}</td>
+    <td>${peso(row.min_price)}</td>
+    <td><strong>${peso(row.max_price)}</strong></td>
+    <td>${html(formatDate(row.updated_at||row.created_at))}</td>
+    <td>
+     <button
+      class="pm-row-btn"
+      type="button"
+      data-mp-edit="${html(row.id)}"
+     >Edit</button>
+     <button
+      class="pm-row-btn danger"
+      type="button"
+      data-mp-delete="${html(row.id)}"
+     >Delete</button>
+    </td>
+   </tr>
+  `).join('')
+  :`
+   <tr>
+    <td colspan="8" class="empty">
+     No market prices found.
+    </td>
+   </tr>
+  `;
 
-        if (!data || data.length < size) return rows;
-    }
+ $('mpCount').textContent=
+  `Showing ${filtered.length} of ${records.length} records. `+
+  'Scroll inside the table to see more.';
 
-    throw Error("Benchmark limit reached.");
+ // Return to the first row after searching or filtering.
+ $('mpScrollArea').scrollTop=0;
 }
 
-async function loadMarketPrices() {
-    if (mpBusy) return;
+function updateTypeFields(){
+ const perKg=$('mpPricingType').value==='per_kg';
 
-    mpSetBusy(true);
-    mpMessage("Loading benchmarks...");
+ $('mpSizeField').style.display=perKg?'none':'';
+ $('mpMinField').style.display=perKg?'none':'';
 
-    try {
-        await mpVerifyAdmin();
+ $('mpSize').required=!perKg;
+ $('mpMinPrice').required=!perKg;
 
-        marketPriceData = await mpFetchAll();
-
-        mpPage = 1;
-        mpBuildFilters();
-        mpFilter();
-        mpMessage("");
-    } catch (error) {
-        console.error("Load benchmarks:", error);
-        mpMessage(error.message || "Unable to load benchmarks.", true);
-        mpTable.innerHTML = '<tr><td colspan="8" class="mp-empty">Unable to load benchmarks</td></tr>';
-    } finally {
-        mpSetBusy(false);
-    }
+ $('mpPriceHint').textContent=perKg
+  ?'Per kg: enter the maximum reference price for one kilogram.'
+  :'Fixed Size: enter size, minimum price, and maximum price.';
 }
 
-function mpCloseFilters() {
-    document.querySelectorAll(".mp-filter-menu").forEach(menu => {
-        menu.classList.remove("open");
-    });
+function openModal(row=null){
+ editingId=row?.id||null;
 
-    document.querySelectorAll(".mp-filter-trigger").forEach(button => {
-        button.setAttribute("aria-expanded", "false");
-    });
+ $('mpModalTitle').textContent=
+  row?'Edit Market Price':'Add Market Price';
+
+ $('mpProductName').value=row?.product_name||'';
+ $('mpCategory').value=row?.category||'';
+ $('mpSize').value=row?.size||'';
+ $('mpMinPrice').value=row?.min_price??'';
+ $('mpMaxPrice').value=row?.max_price??'';
+ $('mpPricingType').value=row?.pricing_type||'fixed_size';
+
+ // Preserve any older pricing type not listed in the form.
+ if(row?.pricing_type&&
+    $('mpPricingType').value!==row.pricing_type){
+  const option=document.createElement('option');
+  option.value=row.pricing_type;
+  option.textContent=typeLabel(row.pricing_type);
+  $('mpPricingType').appendChild(option);
+  $('mpPricingType').value=row.pricing_type;
+ }
+
+ updateTypeFields();
+ $('mpModal').classList.add('open');
+ $('mpProductName').focus();
 }
 
-function mpToggleFilter(menuId, triggerId) {
-    const menu = document.getElementById(menuId);
-    const trigger = document.getElementById(triggerId);
-    const wasOpen = menu.classList.contains("open");
-
-    mpCloseFilters();
-
-    if (!wasOpen) {
-        menu.classList.add("open");
-        trigger.setAttribute("aria-expanded", "true");
-    }
+function closeModal(){
+ if(saving)return;
+ $('mpModal').classList.remove('open');
+ editingId=null;
+ $('mpForm').reset();
 }
 
-function mpCreateFilterOption(label, value, filterName) {
-    const button = document.createElement("button");
+async function savePrice(event){
+ event.preventDefault();
+ if(saving)return;
 
-    button.type = "button";
-    button.className = "mp-filter-option";
-    button.textContent = label;
-    button.dataset.value = value;
+ const product_name=$('mpProductName').value.trim();
+ const category=$('mpCategory').value.trim();
+ const pricing_type=$('mpPricingType').value;
+ const perKg=pricing_type==='per_kg';
 
-    const selected = filterName === "category"
-        ? mpSelectedCategory
-        : mpSelectedType;
+ const size=perKg?null:($('mpSize').value.trim()||null);
 
-    if (selected === value) {
-        button.classList.add("selected");
-    }
+ const min_price=perKg
+  ?null
+  :($('mpMinPrice').value===''?null:Number($('mpMinPrice').value));
 
-    button.addEventListener("click", () => {
-        if (filterName === "category") {
-            mpSelectedCategory = value;
-        } else {
-            mpSelectedType = value;
-        }
+ const max_price=Number($('mpMaxPrice').value);
 
-        mpPage = 1;
-        mpBuildFilters();
-        mpCloseFilters();
-        mpFilter();
-    });
+ if(!product_name){
+  alert('Product name is required.');
+  return;
+ }
 
-    return button;
+ if(!Number.isFinite(max_price)||max_price<0){
+  alert('Enter a valid maximum price.');
+  return;
+ }
+
+ if(!perKg){
+  if(!size){
+   alert('Size is required for Fixed Size products.');
+   return;
+  }
+
+  if(min_price===null||!Number.isFinite(min_price)||min_price<0){
+   alert('Enter a valid minimum price.');
+   return;
+  }
+
+  if(min_price>max_price){
+   alert('Minimum price cannot exceed maximum price.');
+   return;
+  }
+ }
+
+ const payload={
+  product_name,
+  category:category||null,
+  pricing_type,
+  size,
+  min_price,
+  max_price,
+  updated_at:new Date().toISOString()
+ };
+
+ saving=true;
+ $('mpSave').disabled=true;
+
+ try{
+  const query=editingId
+   ?client.from('market_prices')
+    .update(payload).eq('id',editingId)
+   :client.from('market_prices').insert(payload);
+
+  const {error}=await query;
+  if(error)throw error;
+
+  $('mpModal').classList.remove('open');
+  editingId=null;
+  $('mpForm').reset();
+
+  await loadPrices();
+
+ }catch(error){
+  console.error('Market Price save:',error);
+  alert('Unable to save market price: '+error.message);
+
+ }finally{
+  saving=false;
+  $('mpSave').disabled=false;
+ }
 }
 
-function mpBuildFilters() {
-    const categoryMenu = document.getElementById("mpCategoryMenu");
-    const typeMenu = document.getElementById("mpTypeMenu");
-    const suggestions = document.getElementById("mpCategorySuggestions");
+async function deletePrice(id){
+ const row=records.find(item=>item.id===id);
+ if(!row)return;
 
-    const categories = [...new Set(
-        marketPriceData
-            .map(item => String(item.category ?? "").trim())
-            .filter(Boolean)
-    )].sort((a, b) => a.localeCompare(b));
+ if(!confirm(
+  `Delete the market price for "${row.product_name}"?`
+ ))return;
 
-    if (
-        mpSelectedCategory !== "all" &&
-        !categories.includes(mpSelectedCategory)
-    ) {
-        mpSelectedCategory = "all";
-    }
+ try{
+  const {error}=await client
+   .from('market_prices')
+   .delete()
+   .eq('id',id);
 
-    categoryMenu.replaceChildren(
-        mpCreateFilterOption("All Categories", "all", "category")
-    );
+  if(error)throw error;
 
-    categories.forEach(category => {
-        categoryMenu.appendChild(
-            mpCreateFilterOption(category, category, "category")
-        );
-    });
+  await loadPrices();
 
-    typeMenu.replaceChildren(
-        mpCreateFilterOption("All Types", "all", "type"),
-        mpCreateFilterOption("Per kg", "per_kg", "type"),
-        mpCreateFilterOption("Fixed Size", "fixed_size", "type")
-    );
-
-    suggestions.replaceChildren();
-
-    categories.forEach(category => {
-        const option = document.createElement("option");
-        option.value = category;
-        suggestions.appendChild(option);
-    });
-
-    document.getElementById("mpCategoryTrigger")
-        .classList.toggle("has-filter", mpSelectedCategory !== "all");
-
-    document.getElementById("mpTypeTrigger")
-        .classList.toggle("has-filter", mpSelectedType !== "all");
+ }catch(error){
+  console.error('Market Price delete:',error);
+  alert('Unable to delete market price: '+error.message);
+ }
 }
 
-function mpFilter() {
-    const search = document.getElementById("mpSearch")
-        .value.trim().toLowerCase();
+document.addEventListener('DOMContentLoaded',()=>{
+ try{
+  client=getClient();
 
-    mpFiltered = marketPriceData.filter(product => {
-        const searchable = [
-            product.product_name,
-            product.category,
-            product.size,
-            product.pricing_type
-        ].map(value => String(value ?? "")).join(" ").toLowerCase();
+  $('mpRefresh').addEventListener('click',loadPrices);
+  $('mpAdd').addEventListener('click',()=>openModal());
 
-        const matchesSearch = !search || searchable.includes(search);
+  $('mpSearch').addEventListener('input',renderPrices);
+  $('mpCategoryFilter').addEventListener('change',renderPrices);
+  $('mpTypeFilter').addEventListener('change',renderPrices);
 
-        const matchesCategory = mpSelectedCategory === "all" ||
-            product.category === mpSelectedCategory;
+  $('mpPricingType').addEventListener('change',updateTypeFields);
+  $('mpForm').addEventListener('submit',savePrice);
 
-        const matchesType = mpSelectedType === "all" ||
-            product.pricing_type === mpSelectedType;
+  $('mpModalClose').addEventListener('click',closeModal);
+  $('mpCancel').addEventListener('click',closeModal);
 
-        return matchesSearch && matchesCategory && matchesType;
-    });
+  $('mpModal').addEventListener('click',event=>{
+   if(event.target===$('mpModal'))closeModal();
+  });
 
-    mpPage = Math.min(
-        mpPage,
-        Math.max(1, Math.ceil(mpFiltered.length / mpPageSize))
-    );
+  $('marketPriceTable').addEventListener('click',event=>{
+   const edit=event.target.closest('[data-mp-edit]');
+   const remove=event.target.closest('[data-mp-delete]');
 
-    mpRender();
-}
+   if(edit){
+    const row=records.find(r=>r.id===edit.dataset.mpEdit);
+    if(row)openModal(row);
+   }
 
-function mpRender() {
-    const start = (mpPage - 1) * mpPageSize;
-    const page = mpFiltered.slice(start, start + mpPageSize);
+   if(remove)deletePrice(remove.dataset.mpDelete);
+  });
 
-    if (!page.length) {
-        mpTable.innerHTML = '<tr><td colspan="8" class="mp-empty">No benchmarks found</td></tr>';
-    } else {
-        mpTable.innerHTML = page.map(product => {
-            const isKg = product.pricing_type === "per_kg";
+  loadPrices();
 
-            return `
-                <tr>
-                    <td>
-                        <div class="mp-product-name">
-                            ${mpEscape(product.product_name || "Unnamed Product")}
-                        </div>
-                    </td>
-                    <td class="mp-category">
-                        ${mpEscape(product.category || "—")}
-                    </td>
-                    <td>
-                        <span class="mp-pill ${isKg ? "kg" : "fixed"}">
-                            ${isKg ? "Per kg" : "Fixed Size"}
-                        </span>
-                    </td>
-                    <td>${isKg ? "—" : mpEscape(product.size || "—")}</td>
-                    <td class="${isKg ? "mp-muted" : "mp-price"}">
-                        ${isKg ? "—" : mpMoney(product.min_price)}
-                    </td>
-                    <td class="mp-price">${mpMoney(product.max_price)}</td>
-                    <td>${mpDate(product.updated_at || product.created_at)}</td>
-                    <td>
-                        <div class="mp-actions">
-                            <button type="button" class="mp-edit"
-                                data-action="edit"
-                                data-id="${mpEscape(product.id)}">Edit</button>
-                            <button type="button" class="mp-delete"
-                                data-action="delete"
-                                data-id="${mpEscape(product.id)}">Delete</button>
-                        </div>
-                    </td>
-                </tr>
-            `;
-        }).join("");
-    }
-
-    const total = mpFiltered.length;
-    const from = total ? start + 1 : 0;
-    const to = Math.min(start + mpPageSize, total);
-
-    document.getElementById("mpPageInfo").textContent =
-        `${from}–${to} of ${total} benchmarks`;
-
-    document.getElementById("mpPrevious").disabled = mpPage <= 1;
-    document.getElementById("mpNext").disabled =
-        mpPage * mpPageSize >= total;
-}
-
-function mpUpdateFormFields() {
-    const isKg = document.getElementById("mpPricingType").value === "per_kg";
-
-    document.getElementById("mpSizeField").style.display =
-        isKg ? "none" : "flex";
-
-    document.getElementById("mpMinField").style.display =
-        isKg ? "none" : "flex";
-
-    document.getElementById("mpSize").required = !isKg;
-    document.getElementById("mpMinPrice").required = !isKg;
-
-    document.getElementById("mpPriceHint").textContent = isKg
-        ? "Per kg products use a maximum price only."
-        : "Fixed Size products require a size, minimum price, and maximum price.";
-}
-
-function mpOpenModal(id = null) {
-    if (mpBusy) return;
-
-    const product = id
-        ? marketPriceData.find(item => String(item.id) === String(id))
-        : null;
-
-    if (id && !product) return;
-
-    mpEditingId = id;
-    mpForm.reset();
-
-    document.getElementById("mpModalTitle").textContent =
-        product ? "Edit Product" : "Add Product";
-
-    document.getElementById("mpModalSubtitle").textContent =
-        product ? "Update Market Price Benchmark" : "New Market Price Benchmark";
-
-    document.getElementById("mpSave").textContent =
-        product ? "Save Changes" : "Save Product";
-
-    document.getElementById("mpProductName").value =
-        product?.product_name || "";
-
-    document.getElementById("mpCategory").value =
-        product?.category || "";
-
-    document.getElementById("mpPricingType").value =
-        product?.pricing_type || "fixed_size";
-
-    document.getElementById("mpSize").value =
-        product?.size || "";
-
-    document.getElementById("mpMinPrice").value =
-        product?.min_price ?? "";
-
-    document.getElementById("mpMaxPrice").value =
-        product?.max_price ?? "";
-
-    mpUpdateFormFields();
-
-    mpModal.style.display = "flex";
-    document.getElementById("mpProductName").focus();
-}
-
-function mpCloseModal() {
-    if (mpBusy) return;
-
-    mpEditingId = null;
-    mpModal.style.display = "none";
-    mpForm.reset();
-}
-
-function mpReadForm() {
-    if (!mpForm.reportValidity()) return null;
-
-    const name = document.getElementById("mpProductName").value.trim();
-    const category = document.getElementById("mpCategory").value.trim();
-    const type = document.getElementById("mpPricingType").value;
-    const size = document.getElementById("mpSize").value.trim();
-    const minText = document.getElementById("mpMinPrice").value.trim();
-    const maxText = document.getElementById("mpMaxPrice").value.trim();
-
-    if (!name) throw Error("Product name is required.");
-
-    if (!["per_kg", "fixed_size"].includes(type)) {
-        throw Error("Invalid pricing type.");
-    }
-
-    if (maxText === "") {
-        throw Error("Maximum price is required.");
-    }
-
-    const max = Number(maxText);
-
-    if (
-        !Number.isFinite(max) ||
-        max < 0 ||
-        Math.abs(max * 100 - Math.round(max * 100)) > 0.000001
-    ) {
-        throw Error("Enter a valid maximum price with up to 2 decimal places.");
-    }
-
-    let min = null;
-    let finalSize = null;
-
-    if (type === "fixed_size") {
-        if (!size) throw Error("Size is required for Fixed Size products.");
-        if (minText === "") throw Error("Minimum price is required.");
-
-        min = Number(minText);
-        finalSize = size;
-
-        if (
-            !Number.isFinite(min) ||
-            min < 0 ||
-            Math.abs(min * 100 - Math.round(min * 100)) > 0.000001
-        ) {
-            throw Error("Enter a valid minimum price with up to 2 decimal places.");
-        }
-
-        if (min > max) {
-            throw Error("Minimum price cannot exceed maximum price.");
-        }
-    }
-
-    const duplicate = marketPriceData.find(item => {
-        if (String(item.id) === String(mpEditingId)) return false;
-
-        return (
-            mpNormalize(item.product_name) === mpNormalize(name) &&
-            item.pricing_type === type &&
-            mpNormalize(item.category) === mpNormalize(category) &&
-            (
-                type === "per_kg" ||
-                mpNormalize(item.size) === mpNormalize(finalSize)
-            )
-        );
-    });
-
-    if (duplicate) {
-        throw Error("This product benchmark already exists.");
-    }
-
-    return {
-        product_name: name,
-        category: category || null,
-        pricing_type: type,
-        size: finalSize,
-        min_price: min,
-        max_price: max
-    };
-}
-
-async function mpWriteAudit(action, description) {
-    if (!mpAdmin) return;
-
-    const { error } = await db.from("audit_logs").insert({
-        user_id: mpAdmin.user.id,
-        user: mpAdmin.profile.email || "Admin",
-        action,
-        module: "Market Price",
-        description
-    });
-
-    if (error) {
-        console.error("Market Price audit:", error.message);
-    }
-}
-
-async function mpSave(event) {
-    event.preventDefault();
-
-    if (mpBusy) return;
-
-    let values;
-
-    try {
-        values = mpReadForm();
-        if (!values) return;
-    } catch (error) {
-        mpMessage(error.message, true);
-        alert(error.message);
-        return;
-    }
-
-    mpSetBusy(true);
-    mpMessage("Saving...");
-
-    try {
-        await mpVerifyAdmin();
-
-        const editing = mpEditingId !== null;
-
-        const query = editing
-            ? db.from("market_prices").update(values).eq("id", mpEditingId)
-            : db.from("market_prices").insert(values);
-
-        const { data, error } = await query.select("id").single();
-
-        if (error) throw error;
-        if (!data?.id) throw Error("No benchmark was saved.");
-
-        await mpWriteAudit(
-            editing ? "Update Market Price" : "Create Market Price",
-            `${values.product_name} (${values.pricing_type}${values.size ? `, ${values.size}` : ""})`
-        );
-
-        mpBusy = false;
-        mpCloseModal();
-
-        await loadMarketPrices();
-
-        mpMessage(
-            editing
-                ? "Benchmark updated successfully."
-                : "Benchmark added successfully."
-        );
-    } catch (error) {
-        console.error("Save benchmark:", error);
-        mpMessage(error.message || "Unable to save benchmark.", true);
-    } finally {
-        mpSetBusy(false);
-    }
-}
-
-async function mpDelete(id) {
-    if (mpBusy) return;
-
-    const product = marketPriceData.find(
-        item => String(item.id) === String(id)
-    );
-
-    if (!product) return;
-
-    const description = product.size
-        ? `${product.product_name} (${product.size})`
-        : product.product_name;
-
-    if (!confirm(
-        `Delete benchmark for ${description}?\n\nThis will remove its pricing reference.`
-    )) {
-        return;
-    }
-
-    mpSetBusy(true);
-    mpMessage("Deleting...");
-
-    try {
-        await mpVerifyAdmin();
-
-        const { data, error } = await db
-            .from("market_prices")
-            .delete()
-            .eq("id", id)
-            .select("id");
-
-        if (error) throw error;
-        if (!data?.length) throw Error("Benchmark was not deleted.");
-
-        await mpWriteAudit("Delete Market Price", description);
-
-        mpBusy = false;
-        await loadMarketPrices();
-
-        mpMessage("Benchmark deleted successfully.");
-    } catch (error) {
-        console.error("Delete benchmark:", error);
-        mpMessage(error.message || "Unable to delete benchmark.", true);
-    } finally {
-        mpSetBusy(false);
-    }
-}
-
-mpTable.addEventListener("click", event => {
-    const button = event.target.closest("button[data-action]");
-
-    if (!button || mpBusy) return;
-
-    const { action, id } = button.dataset;
-
-    if (action === "edit") mpOpenModal(id);
-    if (action === "delete") mpDelete(id);
+ }catch(error){
+  console.error(error);
+  setStatus(error.message);
+ }
 });
-
-document.getElementById("mpCategoryTrigger").addEventListener("click", () => {
-    mpToggleFilter("mpCategoryMenu", "mpCategoryTrigger");
-});
-
-document.getElementById("mpTypeTrigger").addEventListener("click", () => {
-    mpToggleFilter("mpTypeMenu", "mpTypeTrigger");
-});
-
-document.addEventListener("click", event => {
-    if (!event.target.closest(".mp-filter-header")) {
-        mpCloseFilters();
-    }
-});
-
-document.getElementById("mpAdd").addEventListener("click", () => mpOpenModal());
-document.getElementById("mpRefresh").addEventListener("click", loadMarketPrices);
-document.getElementById("mpPricingType").addEventListener("change", mpUpdateFormFields);
-mpForm.addEventListener("submit", mpSave);
-
-document.getElementById("mpSearch").addEventListener("input", () => {
-    mpPage = 1;
-    mpFilter();
-});
-
-document.getElementById("mpPrevious").addEventListener("click", () => {
-    if (mpPage > 1) {
-        mpPage--;
-        mpRender();
-    }
-});
-
-document.getElementById("mpNext").addEventListener("click", () => {
-    if (mpPage * mpPageSize < mpFiltered.length) {
-        mpPage++;
-        mpRender();
-    }
-});
-
-document.getElementById("mpModalClose").addEventListener("click", mpCloseModal);
-document.getElementById("mpCancel").addEventListener("click", mpCloseModal);
-
-mpModal.addEventListener("click", event => {
-    if (event.target === mpModal) mpCloseModal();
-});
-
-document.addEventListener("keydown", event => {
-    if (event.key === "Escape") {
-        mpCloseFilters();
-
-        if (mpModal.style.display === "flex") {
-            mpCloseModal();
-        }
-    }
-});
-
-loadMarketPrices();
+})();
