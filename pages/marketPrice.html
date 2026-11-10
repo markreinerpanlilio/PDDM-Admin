@@ -5,10 +5,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Product Management | PPDM Admin</title>
+
 <link rel="stylesheet" href="../css/styles.css">
 <link rel="stylesheet" href="../css/preferences.css">
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../js/preferences.js"></script>
+
 <style>
 /* Tabs */
 .pm-tabs{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap;border-bottom:1px solid #e5e5e5;margin-bottom:18px}
@@ -36,6 +39,19 @@
 .pm-status{min-height:20px;margin:10px 0;color:var(--text-muted,#777);font-size:12px}
 .pm-market-filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
 .pm-filter{width:auto;min-width:145px}
+
+/* Autocomplete */
+.mp-autocomplete{position:relative}
+.mp-suggestions{position:absolute;top:calc(100% + 5px);left:0;right:0;z-index:20;max-height:230px;overflow-y:auto;background:var(--ppdm-surface,#fff);border:1px solid #e0e0e0;border-radius:10px;box-shadow:0 12px 28px #0002}
+.mp-suggestions[hidden]{display:none!important}
+.mp-suggestion{display:block;width:100%;padding:11px 13px;text-align:left;border:0;border-bottom:1px solid #eee;background:transparent;color:var(--text,#222);font-size:13px;cursor:pointer}
+.mp-suggestion:hover,.mp-suggestion:focus{background:#fff4dc;outline:none}
+.mp-suggestion:last-child{border-bottom:0}
+.mp-suggestion small{display:block;margin-top:4px;color:#888;font-size:11px}
+.mp-suggestion-empty{padding:14px;color:#888;font-size:12px}
+.mp-selected{min-height:16px;color:#3a8753;font-size:12px}
+.mp-selected.error{color:#b33232}
+.mp-unit{display:flex;align-items:center;gap:10px;padding:11px 13px;background:#fff7e8;border:1px solid #f2dfb7;border-radius:9px;color:#73530b;font-size:13px}
 
 /* Tables */
 .pm-table-wrap{width:100%;overflow-x:auto}
@@ -82,7 +98,7 @@
  .dashboard-header{padding-top:38px}
  .sidebar.mobile-open{display:block;position:fixed;left:0;top:0;width:250px;height:100vh;z-index:1001}
  .sidebar.mobile-open .sidebar-title,.sidebar.mobile-open .text{opacity:1;width:auto}
- .pm-table{min-width:780px}
+ .pm-table{min-width:900px}
 }
 @media(max-width:500px){
  .pm-tabs{gap:0;flex-wrap:nowrap}
@@ -176,7 +192,7 @@
      <option value="">All Brands</option>
     </select>
     <select id="mpTypeFilter" class="pm-input pm-filter">
-     <option value="">All Types</option>
+     <option value="">All Pricing Units</option>
     </select>
    </div>
 
@@ -189,8 +205,8 @@
        <th>Product</th>
        <th>Brand</th>
        <th>Category</th>
-       <th>Type</th>
-       <th>Size</th>
+       <th>Pricing Unit</th>
+       <th>Variant</th>
        <th>Min Price</th>
        <th>Max Price</th>
        <th>Updated</th>
@@ -277,14 +293,25 @@
    <button id="mpModalClose" class="pm-close" type="button">×</button>
   </div>
 
-  <form id="mpForm">
+  <form id="mpForm" autocomplete="off">
    <div class="pm-grid">
     <div class="pm-field full">
-     <label for="mpProductSelect">Product Name</label>
-     <select id="mpProductSelect" class="pm-input" required>
-      <option value="">Select a product from Master List</option>
-     </select>
-     <small>Products are managed in the Master List tab.</small>
+     <label for="mpProductSearch">Product Name</label>
+     <div class="mp-autocomplete" id="mpProductAutocomplete">
+      <input
+       id="mpProductSearch"
+       class="pm-input"
+       type="text"
+       placeholder="Type to search Master List, e.g. Pork"
+       aria-autocomplete="list"
+       aria-controls="mpSuggestions"
+       aria-expanded="false"
+       required
+      >
+      <div id="mpSuggestions" class="mp-suggestions" role="listbox" hidden></div>
+     </div>
+     <div id="mpProductSelected" class="mp-selected"></div>
+     <small>Only products registered in Master List can be saved.</small>
     </div>
 
     <div class="pm-field">
@@ -299,20 +326,20 @@
      <select id="mpCategorySelect" class="pm-input" required disabled>
       <option value="">Select a brand first</option>
      </select>
-     <small>Only categories registered for this product and brand appear.</small>
+     <small>Used to determine the pricing unit automatically.</small>
     </div>
 
-    <div class="pm-field">
-     <label for="mpPricingType">Pricing Type</label>
-     <select id="mpPricingType" class="pm-input" required>
-      <option value="fixed_size">Fixed Size</option>
-      <option value="per_kg">Per kg</option>
-     </select>
+    <div class="pm-field full" id="mpUnitField">
+     <label>Pricing Unit</label>
+     <div id="mpUnitDisplay" class="mp-unit">
+      Select a product and category first.
+     </div>
     </div>
 
-    <div class="pm-field" id="mpSizeField">
-     <label for="mpSize">Size</label>
-     <input id="mpSize" class="pm-input" placeholder="Example: 150g">
+    <div class="pm-field full" id="mpVariantField">
+     <label for="mpVariant">Variant</label>
+     <input id="mpVariant" class="pm-input" maxlength="100" placeholder="Example: 150g, 1L, 12 pcs">
+     <small>Used for quantity-based products only.</small>
     </div>
 
     <div class="pm-field" id="mpMinField">
@@ -321,7 +348,7 @@
     </div>
 
     <div class="pm-field">
-     <label for="mpMaxPrice">Maximum Price (₱)</label>
+     <label id="mpMaxLabel" for="mpMaxPrice">Maximum Price (₱)</label>
      <input id="mpMaxPrice" class="pm-input" type="number" min="0" step="0.01" required>
     </div>
    </div>
@@ -411,9 +438,13 @@
 <script>
 document.addEventListener('DOMContentLoaded',()=>{
  if(window.lucide)lucide.createIcons();
+
  const menu=document.getElementById('pmMobileMenu');
  const sidebar=document.getElementById('sidebar');
- menu.addEventListener('click',()=>sidebar.classList.toggle('mobile-open'));
+
+ menu.addEventListener('click',()=>{
+  sidebar.classList.toggle('mobile-open');
+ });
 });
 </script>
 </body>
