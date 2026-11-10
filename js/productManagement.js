@@ -3,7 +3,9 @@
 'use strict';
 
 const $=id=>document.getElementById(id);
+
 const norm=v=>String(v??'').trim().toLowerCase();
+
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({
  '&':'&amp;',
  '<':'&lt;',
@@ -18,6 +20,7 @@ const peso=v=>'₱'+Number(v||0).toLocaleString('en-PH',{
 });
 
 let client;
+
 let master=[];
 let brands=[];
 let categories=[];
@@ -28,13 +31,17 @@ let sellers=[];
 let editId=null;
 let selectedBrands=new Set();
 let selectedCategories=new Set();
+
 let saving=false;
 let reviewing=false;
+let masterLoading=false;
+let requestsLoading=false;
 
 function getClient(){
  if(typeof db!=='undefined'&&db?.from)return db;
  if(window.supabaseClient?.from)return window.supabaseClient;
  if(window.supabase?.from)return window.supabase;
+
  throw new Error('Supabase client not found.');
 }
 
@@ -42,6 +49,8 @@ function status(id,message){
  const element=$(id);
  if(element)element.textContent=message||'';
 }
+
+/* Tabs */
 
 function switchTab(tab){
  const sections={
@@ -51,11 +60,13 @@ function switchTab(tab){
  };
 
  Object.entries(sections).forEach(([key,id])=>{
-  if($(id))$(id).hidden=key!==tab;
+  const section=$(id);
+  if(section)section.hidden=key!==tab;
  });
 
  document.querySelectorAll('[data-pm-tab]').forEach(button=>{
   const active=button.dataset.pmTab===tab;
+
   button.classList.toggle('active',active);
   button.setAttribute('aria-selected',String(active));
  });
@@ -63,6 +74,8 @@ function switchTab(tab){
  if(tab==='master')loadMaster();
  if(tab==='requests')loadRequests();
 }
+
+/* Database */
 
 async function fetchAll(table,columns,order){
  const rows=[];
@@ -78,6 +91,7 @@ async function fetchAll(table,columns,order){
   }
 
   const {data,error}=await query;
+
   if(error)throw error;
 
   rows.push(...(data||[]));
@@ -91,6 +105,9 @@ async function fetchAll(table,columns,order){
 /* Master List */
 
 async function loadMaster(){
+ if(masterLoading)return;
+
+ masterLoading=true;
  status('pmMasterStatus','Loading Master List...');
 
  try{
@@ -111,17 +128,28 @@ async function loadMaster(){
   renderMaster();
   populateSelectors();
 
-  status('pmMasterStatus',`${master.length} master products`);
+  status(
+   'pmMasterStatus',
+   `${master.length} master products`
+  );
 
  }catch(error){
   console.error('Load Master List:',error);
-  status('pmMasterStatus','Unable to load: '+error.message);
+
+  status(
+   'pmMasterStatus',
+   'Unable to load: '+error.message
+  );
+
+ }finally{
+  masterLoading=false;
  }
 }
 
 function brandIds(productId){
  return [...new Set(
-  links.filter(link=>link.master_product_id===productId)
+  links
+   .filter(link=>link.master_product_id===productId)
    .map(link=>link.brand_id)
    .filter(Boolean)
  )];
@@ -129,14 +157,16 @@ function brandIds(productId){
 
 function categoryIds(productId){
  return [...new Set(
-  links.filter(link=>link.master_product_id===productId)
+  links
+   .filter(link=>link.master_product_id===productId)
    .map(link=>link.category_id)
    .filter(Boolean)
  )];
 }
 
 function names(ids,records){
- return ids.map(id=>records.find(r=>r.id===id)?.name)
+ return ids
+  .map(id=>records.find(row=>row.id===id)?.name)
   .filter(Boolean);
 }
 
@@ -144,8 +174,15 @@ function renderMaster(){
  const search=norm($('pmMasterSearch').value);
 
  const filtered=master.filter(product=>{
-  const brandNames=names(brandIds(product.id),brands);
-  const categoryNames=names(categoryIds(product.id),categories);
+  const brandNames=names(
+   brandIds(product.id),
+   brands
+  );
+
+  const categoryNames=names(
+   categoryIds(product.id),
+   categories
+  );
 
   return norm([
    product.product_name,
@@ -157,19 +194,40 @@ function renderMaster(){
  $('pmMasterRows').innerHTML=filtered.length
   ?filtered.map(product=>`
    <tr>
-    <td class="name">${esc(product.product_name)}</td>
-    <td>${esc(names(brandIds(product.id),brands).join(', ')||'—')}</td>
-    <td>${esc(names(categoryIds(product.id),categories).join(', ')||'—')}</td>
+    <td class="name">
+     ${esc(product.product_name)}
+    </td>
+
+    <td>
+     ${esc(
+      names(brandIds(product.id),brands).join(', ')||'—'
+     )}
+    </td>
+
+    <td>
+     ${esc(
+      names(categoryIds(product.id),categories).join(', ')||'—'
+     )}
+    </td>
+
     <td>
      <button
       type="button"
       class="pm-row-btn"
       data-master-edit="${esc(product.id)}"
-     >Edit</button>
+     >
+      Edit
+     </button>
     </td>
    </tr>
   `).join('')
-  :'<tr><td colspan="4" class="empty">No master products found.</td></tr>';
+  :`
+   <tr>
+    <td colspan="4" class="empty">
+     No master products found.
+    </td>
+   </tr>
+  `;
 }
 
 function populateSelectors(){
@@ -181,7 +239,9 @@ function populateSelectors(){
  );
 
  brands.forEach(brand=>{
-  brandSelect.add(new Option(brand.name,brand.id));
+  brandSelect.add(
+   new Option(brand.name,brand.id)
+  );
  });
 
  categorySelect.replaceChildren(
@@ -189,7 +249,9 @@ function populateSelectors(){
  );
 
  categories.forEach(category=>{
-  categorySelect.add(new Option(category.name,category.id));
+  categorySelect.add(
+   new Option(category.name,category.id)
+  );
  });
 }
 
@@ -199,11 +261,14 @@ function renderSelections(){
   .map(brand=>`
    <span class="pm-chip">
     ${esc(brand.name)}
+
     <button
      type="button"
      data-remove-brand="${esc(brand.id)}"
-     aria-label="Remove ${esc(brand.name)}"
-    >×</button>
+     aria-label="Remove brand"
+    >
+     ×
+    </button>
    </span>
   `).join('');
 
@@ -212,11 +277,14 @@ function renderSelections(){
   .map(category=>`
    <span class="pm-chip">
     ${esc(category.name)}
+
     <button
      type="button"
      data-remove-category="${esc(category.id)}"
-     aria-label="Remove ${esc(category.name)}"
-    >×</button>
+     aria-label="Remove category"
+    >
+     ×
+    </button>
    </span>
   `).join('');
 }
@@ -261,7 +329,9 @@ function closeMaster(){
 function addBrand(){
  const value=$('pmBrandSelect').value;
 
- if(value)selectedBrands.add(value);
+ if(value){
+  selectedBrands.add(value);
+ }
 
  $('pmBrandSelect').value='';
  renderSelections();
@@ -270,7 +340,9 @@ function addBrand(){
 function addCategory(){
  const value=$('pmCategorySelect').value;
 
- if(value)selectedCategories.add(value);
+ if(value){
+  selectedCategories.add(value);
+ }
 
  $('pmCategorySelect').value='';
  renderSelections();
@@ -278,6 +350,7 @@ function addCategory(){
 
 async function saveMaster(event){
  event.preventDefault();
+
  if(saving)return;
 
  const product_name=$('pmName').value.trim();
@@ -295,8 +368,8 @@ async function saveMaster(event){
 
  if(!selectedBrands.size){
   alert(
-   'Select at least one brand. The current database requires '+
-   'a brand to link categories to a master product.'
+   'Select at least one brand. The current database '+
+   'requires a brand to link categories to a master product.'
   );
   return;
  }
@@ -312,6 +385,7 @@ async function saveMaster(event){
  }
 
  saving=true;
+
  $('pmMasterSave').disabled=true;
  $('pmMasterClose').disabled=true;
 
@@ -400,10 +474,14 @@ async function saveMaster(event){
 
  }catch(error){
   console.error('Save Master Product:',error);
-  alert('Unable to save: '+error.message);
+
+  alert(
+   'Unable to save master product: '+error.message
+  );
 
  }finally{
   saving=false;
+
   $('pmMasterSave').disabled=false;
   $('pmMasterClose').disabled=false;
  }
@@ -412,9 +490,17 @@ async function saveMaster(event){
 /* Product Requests */
 
 async function loadRequests(){
- status('pmRequestStatus','Loading pending product requests...');
+ if(requestsLoading)return;
+
+ requestsLoading=true;
+
+ status(
+  'pmRequestStatus',
+  'Loading pending product requests...'
+ );
 
  try{
+  // Only pending requests are displayed.
   const {data,error}=await client
    .from('product_requests')
    .select(
@@ -429,8 +515,11 @@ async function loadRequests(){
 
   requests=data||[];
 
+  // Seller information is optional for display.
   const sellerIds=[...new Set(
-   requests.map(request=>request.seller_id).filter(Boolean)
+   requests
+    .map(request=>request.seller_id)
+    .filter(Boolean)
   )];
 
   sellers=[];
@@ -453,7 +542,9 @@ async function loadRequests(){
 
   const count=requests.length;
 
-  $('pmPendingCount').textContent=count?`(${count})`:'';
+  $('pmPendingCount').textContent=count
+   ?`(${count})`
+   :'';
 
   status(
    'pmRequestStatus',
@@ -477,6 +568,9 @@ async function loadRequests(){
     </td>
    </tr>
   `;
+
+ }finally{
+  requestsLoading=false;
  }
 }
 
@@ -484,7 +578,9 @@ function renderRequests(){
  const search=norm($('pmRequestSearch').value);
 
  const filtered=requests.filter(request=>{
-  const seller=sellers.find(s=>s.id===request.seller_id);
+  const seller=sellers.find(row=>
+   row.id===request.seller_id
+  );
 
   return norm([
    request.product_name,
@@ -499,7 +595,9 @@ function renderRequests(){
 
  $('pmRequestRows').innerHTML=filtered.length
   ?filtered.map(request=>{
-   const seller=sellers.find(s=>s.id===request.seller_id);
+   const seller=sellers.find(row=>
+    row.id===request.seller_id
+   );
 
    const size=[
     request.variant,
@@ -511,9 +609,11 @@ function renderRequests(){
    const sellerName=
     seller?.full_name||
     seller?.email||
-    (request.seller_id
-     ?request.seller_id.slice(0,8)+'…'
-     :'Unknown Seller');
+    (
+     request.seller_id
+      ?request.seller_id.slice(0,8)+'…'
+      :'Unknown Seller'
+    );
 
    return `
     <tr>
@@ -521,26 +621,39 @@ function renderRequests(){
       <div class="name">
        ${esc(request.product_name)}
       </div>
+
       <small>
        ${esc(request.brand_name||'Unbranded')}
       </small>
      </td>
 
-     <td>${esc(request.category_name||'—')}</td>
+     <td>
+      ${esc(request.category_name||'—')}
+     </td>
 
      <td>
       ${esc(size)}
       <br>
-      <small>${esc(request.pricing_type||'')}</small>
+      <small>
+       ${esc(request.pricing_type||'')}
+      </small>
      </td>
 
      <td>
-      <strong>${peso(request.price)}</strong>
+      <strong>
+       ${peso(request.price)}
+      </strong>
+
       <br>
-      <small>${esc(request.stock)} stock</small>
+
+      <small>
+       ${esc(request.stock)} stock
+      </small>
      </td>
 
-     <td>${esc(sellerName)}</td>
+     <td>
+      ${esc(sellerName)}
+     </td>
 
      <td>
       <span class="pm-badge pending">
@@ -554,14 +667,18 @@ function renderRequests(){
        class="pm-row-btn"
        data-approve="${esc(request.id)}"
        ${reviewing?'disabled':''}
-      >Approve</button>
+      >
+       Approve
+      </button>
 
       <button
        type="button"
        class="pm-row-btn danger"
        data-reject="${esc(request.id)}"
        ${reviewing?'disabled':''}
-      >Reject</button>
+      >
+       Reject
+      </button>
      </td>
     </tr>
    `;
@@ -575,12 +692,16 @@ function renderRequests(){
   `;
 }
 
+/* Approve / Reject */
+
 async function reviewRequest(id,approve){
  if(reviewing)return;
 
  const request=requests.find(row=>row.id===id);
 
- if(!request||norm(request.status)!=='pending')return;
+ if(!request||norm(request.status)!=='pending'){
+  return;
+ }
 
  const message=approve
   ?`Approve and publish "${request.product_name}"?`
@@ -592,7 +713,12 @@ async function reviewRequest(id,approve){
  renderRequests();
 
  try{
-  const {data,error}=await client.rpc(
+  // The SQL function handles:
+  // 1. Master product registration
+  // 2. Brand and category registration
+  // 3. Seller product publication
+  // 4. Request status update
+  const {error}=await client.rpc(
    'admin_review_product_request',
    {
     p_request_id:id,
@@ -602,7 +728,7 @@ async function reviewRequest(id,approve){
 
   if(error)throw error;
 
-  // Confirm the request was actually reviewed.
+  // Confirm the request status was updated.
   const {data:updated,error:verifyError}=await client
    .from('product_requests')
    .select('id,status')
@@ -620,34 +746,44 @@ async function reviewRequest(id,approve){
   }
 
   if(approve){
-   // Verify that the approved listing exists.
-   // The database RPC is responsible for creating it.
+   // The SQL function stores branded products as:
+   // Brand + Product Name.
+   const expectedName=[
+    request.brand_name,
+    request.product_name
+   ].filter(value=>String(value||'').trim())
+    .join(' ')
+    .trim();
+
    const {data:products,error:productError}=await client
     .from('products')
     .select('id,name,seller_id,is_active,created_at')
     .eq('seller_id',request.seller_id)
-    .ilike('name',request.product_name)
+    .eq('is_active',true)
     .order('created_at',{ascending:false})
-    .limit(20);
+    .limit(100);
 
    if(productError){
     console.warn(
-     'Unable to verify published product:',
+     'Published product verification unavailable:',
      productError.message
     );
    }else{
     const published=(products||[]).some(product=>
-     norm(product.name)===norm(request.product_name)&&
-     product.is_active===true
+     norm(product.name)===norm(expectedName)
     );
 
     if(!published){
+     console.warn(
+      'Request approved, but the published listing '+
+      'was not confirmed by the client query.'
+     );
+
      await loadRequests();
 
      alert(
-      'The request was approved, but an active product '+
-      'listing could not be confirmed. Check the products '+
-      'table and the approval database function.'
+      'The request was approved, but the published '+
+      'listing could not be confirmed. Check Product Listings.'
      );
 
      return;
@@ -657,16 +793,22 @@ async function reviewRequest(id,approve){
 
   await loadRequests();
 
-  alert(
-   approve
-    ?'Product request approved. Check Product Listings to confirm publication.'
-    :'Product request rejected successfully.'
-  );
+  if(approve){
+   alert(
+    'Product approved and published successfully.'
+   );
+  }else{
+   alert(
+    'Product request rejected successfully.'
+   );
+  }
 
  }catch(error){
   console.error('Review Product Request:',error);
 
-  alert('Unable to review request: '+error.message);
+  alert(
+   'Unable to review product request: '+error.message
+  );
 
   await loadRequests();
 
@@ -682,6 +824,7 @@ document.addEventListener('DOMContentLoaded',()=>{
  try{
   client=getClient();
 
+  // Tabs
   document.querySelectorAll('[data-pm-tab]').forEach(button=>{
    button.addEventListener('click',()=>{
     switchTab(button.dataset.pmTab);
@@ -689,15 +832,40 @@ document.addEventListener('DOMContentLoaded',()=>{
   });
 
   // Master List
-  $('pmMasterAdd').addEventListener('click',()=>openMaster());
-  $('pmMasterRefresh').addEventListener('click',loadMaster);
-  $('pmMasterSearch').addEventListener('input',renderMaster);
-  $('pmMasterClose').addEventListener('click',closeMaster);
-  $('pmMasterForm').addEventListener('submit',saveMaster);
+  $('pmMasterAdd').addEventListener('click',()=>{
+   openMaster();
+  });
 
-  // Existing dropdown selection
-  $('pmBrandSelect').addEventListener('change',addBrand);
-  $('pmCategorySelect').addEventListener('change',addCategory);
+  $('pmMasterRefresh').addEventListener(
+   'click',
+   loadMaster
+  );
+
+  $('pmMasterSearch').addEventListener(
+   'input',
+   renderMaster
+  );
+
+  $('pmMasterClose').addEventListener(
+   'click',
+   closeMaster
+  );
+
+  $('pmMasterForm').addEventListener(
+   'submit',
+   saveMaster
+  );
+
+  // Select existing brands and categories
+  $('pmBrandSelect').addEventListener(
+   'change',
+   addBrand
+  );
+
+  $('pmCategorySelect').addEventListener(
+   'change',
+   addCategory
+  );
 
   // Remove selected brand
   $('pmSelectedBrands').addEventListener('click',event=>{
@@ -729,11 +897,16 @@ document.addEventListener('DOMContentLoaded',()=>{
     row.id===button.dataset.masterEdit
    );
 
-   if(product)openMaster(product);
+   if(product){
+    openMaster(product);
+   }
   });
 
   // Product Requests
-  $('pmRequestSearch').addEventListener('input',renderRequests);
+  $('pmRequestSearch').addEventListener(
+   'input',
+   renderRequests
+  );
 
   $('pmRequestsRefresh').addEventListener(
    'click',
