@@ -4,6 +4,7 @@
 
 const $=id=>document.getElementById(id);
 const norm=v=>String(v??'').trim().toLowerCase();
+const normalizeVariant=v=>norm(v).replace(/\s+/g,'');
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({
  '&':'&amp;',
@@ -74,11 +75,9 @@ function getLinks(productId){
 }
 
 function getPricingType(categoryName){
- const name=norm(categoryName);
-
- return WEIGHT_CATEGORIES.some(item=>
-  name===item
- )?'per_kg':'fixed_size';
+ return WEIGHT_CATEGORIES.includes(norm(categoryName))
+  ?'per_kg'
+  :'fixed_size';
 }
 
 function pricingLabel(type){
@@ -153,7 +152,7 @@ async function loadPrices(){
 
   records=await fetchAll(
    'market_prices',
-   'id,master_product_id,brand_id,product_name,category,variant,size,min_price,max_price,pricing_type,created_at,updated_at'
+   'id,master_product_id,brand_id,product_name,category,variant,min_price,max_price,pricing_type,created_at,updated_at'
   );
 
   records.sort((a,b)=>
@@ -229,7 +228,11 @@ function buildFilters(){
   <option value="">All Brands</option>
   ${brandValues.map(id=>`
    <option value="${esc(id)}">
-    ${esc(id==='unbranded'?'Unbranded':getBrand(id)?.name||'Unknown Brand')}
+    ${esc(
+     id==='unbranded'
+      ?'Unbranded'
+      :getBrand(id)?.name||'Unknown Brand'
+    )}
    </option>
   `).join('')}
  `;
@@ -265,7 +268,8 @@ function renderPrices(){
    getBrandName(row),
    row.category,
    row.variant,
-   row.pricing_type
+   row.pricing_type,
+   pricingLabel(row.pricing_type)
   ].join(' '));
 
   return searchable.includes(search)
@@ -373,6 +377,7 @@ function showSuggestions(){
 
 function resetProductSelection(){
  selectedProductId=null;
+
  $('mpProductSelected').textContent='';
  $('mpProductSelected').classList.remove('error');
 
@@ -578,8 +583,10 @@ function closeModal(){
 
  $('mpModal').classList.remove('open');
  hideSuggestions();
+
  editingId=null;
  selectedProductId=null;
+
  $('mpForm').reset();
 }
 
@@ -594,6 +601,7 @@ async function savePrice(event){
  if(!product||typedName!==norm(product.product_name)){
   $('mpProductSelected').textContent=
    'Select an existing product from the suggestions.';
+
   $('mpProductSelected').classList.add('error');
 
   alert(
@@ -635,18 +643,20 @@ async function savePrice(event){
  );
 
  if(!validCategories.some(c=>c.id===category.id)){
-  alert('This category is not registered for the selected product and brand.');
+  alert(
+   'This category is not registered for the selected product and brand.'
+  );
   return;
  }
 
  const pricingType=getPricingType(category.name);
  const perKg=pricingType==='per_kg';
 
- const variant=perKg?null:$('mpVariant').value.trim();
+ const variant=perKg?'1 kg':$('mpVariant').value.trim();
  const minPrice=perKg?null:Number($('mpMinPrice').value);
  const maxPrice=Number($('mpMaxPrice').value);
 
- if(!perKg&&!variant){
+ if(!variant){
   alert('Enter the product variant.');
   return;
  }
@@ -678,7 +688,7 @@ async function savePrice(event){
   (row.brand_id||null)===(brandId||null)&&
   norm(row.category)===norm(category.name)&&
   row.pricing_type===pricingType&&
-  norm(row.variant)===norm(variant)
+  normalizeVariant(row.variant)===normalizeVariant(variant)
  );
 
  if(duplicate){
@@ -695,8 +705,7 @@ async function savePrice(event){
   product_name:product.product_name,
   category:category.name,
   pricing_type:pricingType,
-  variant:perKg?null:variant,
-  size:null,
+  variant:variant,
   min_price:minPrice,
   max_price:maxPrice,
   updated_at:new Date().toISOString()
