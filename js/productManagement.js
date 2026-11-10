@@ -1,96 +1,443 @@
-// Product Management: uses existing Supabase client and leaves Market Price logic intact.
+
+// Product Management uses existing PPDM Supabase tables.
+// Market Price is handled by the existing marketPrice.js.
+
 (()=>{
 'use strict';
+
 const $=id=>document.getElementById(id);
-const client=()=>db;
-const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let master=[],requests=[],editing=null;
-function status(id,message){$(id).textContent=message||'';}
-function setTab(tab){
- for(const key of ['prices','master','requests']){
-  const el=$('pm'+key[0].toUpperCase()+key.slice(1));
-  el.hidden=key!==tab;
+
+const esc=v=>String(v??'').replace(
+ /[&<>"']/g,
+ c=>({
+  '&':'&amp;',
+  '<':'&lt;',
+  '>':'&gt;',
+  '"':'&quot;',
+  "'":'&#39;'
+ }[c])
+);
+
+let master=[];
+let brands=[];
+let categories=[];
+let links=[];
+let requests=[];
+let editing=null;
+
+const message=(id,text)=>{
+ $(id).textContent=text||'';
+};
+
+function tab(name){
+ const sections={
+  prices:'pmPrices',
+  master:'pmMaster',
+  requests:'pmRequests'
+ };
+
+ for(const [key,id] of Object.entries(sections)){
+  $(id).hidden=key!==name;
  }
- document.querySelectorAll('.pm-tab').forEach(b=>{b.classList.toggle('active',b.dataset.tab===tab);b.setAttribute('aria-selected',String(b.dataset.tab===tab));});
- $('mpHeaderActions').style.display=tab==='prices'?'':'none';
- if(tab==='master')loadMaster();
- if(tab==='requests')loadRequests();
+
+ document.querySelectorAll('.pm-tab').forEach(button=>{
+  const active=button.dataset.tab===name;
+
+  button.classList.toggle('active',active);
+  button.setAttribute('aria-selected',String(active));
+ });
+
+ $('mpHeaderActions').style.display=
+  name==='prices'?'':'none';
+
+ if(name==='master')loadMaster();
+ if(name==='requests')loadRequests();
 }
+
 async function loadMaster(){
- status('pmMasterStatus','Loading master list...');
- const {data,error}=await client().from('master_products').select('id,name,category,type,unit').order('name');
- if(error){status('pmMasterStatus',`Unable to load master list: ${error.message}. Apply the included SQL migration and policies first.`);return;}
- master=data||[];status('pmMasterStatus',`${master.length} approved products`);renderMaster();
+ message('pmMasterStatus','Loading...');
+
+ const results=await Promise.all([
+  db.from('master_products')
+   .select('id,product_name,allow_unbranded,created_at')
+   .order('product_name'),
+
+  db.from('brands')
+   .select('id,name')
+   .order('name'),
+
+  db.from('categories')
+   .select('id,name')
+   .order('name'),
+
+  db.from('brand_products')
+   .select('id,brand_id,master_product_id,category_id')
+ ]);
+
+ const error=results.find(r=>r.error)?.error;
+
+ if(error){
+  message(
+   'pmMasterStatus',
+   `Cannot load Master List: ${error.message}`
+  );
+  return;
+ }
+
+ [master,brands,categories,links]=results.map(
+  result=>result.data||[]
+ );
+
+ message(
+  'pmMasterStatus',
+  `${master.length} master products · ${brands.length} brands`
+ );
+
+ renderMaster();
 }
+
 function renderMaster(){
- const q=$('pmMasterSearch').value.trim().toLowerCase();
- const rows=master.filter(p=>[p.name,p.category,p.type,p.unit].join(' ').toLowerCase().includes(q));
- $('pmMasterRows').innerHTML=rows.length?rows.map(p=>`<tr><td class="mp-product-name">${esc(p.name)}</td><td>${esc(p.category)}</td><td>${esc(p.type)}</td><td>${esc(p.unit)}</td><td><button class="pm-small-btn" data-edit="${esc(p.id)}">Edit</button><button class="pm-small-btn pm-danger" data-remove="${esc(p.id)}">Remove</button></td></tr>`).join(''):'<tr><td colspan="5" class="mp-empty">No products found.</td></tr>';
+ const search=$('pmMasterSearch').value
+  .trim()
+  .toLowerCase();
+
+ const rows=master.filter(product=>{
+  const related=links.filter(
+   link=>link.master_product_id===product.id
+  );
+
+  const brandNames=related.map(link=>
+   brands.find(brand=>brand.id===link.brand_id)?.name||''
+  ).join(' ');
+
+  return `${product.product_name} ${brandNames}`
+   .toLowerCase()
+   .includes(search);
+ });
+
+ $('pmMasterRows').innerHTML=rows.length
+  ?rows.map(product=>{
+   const related=links.filter(
+    link=>link.master_product_id===product.id
+   );
+
+   const brandNames=[
+    ...new Set(
+     related.map(link=>
+      brands.find(brand=>brand.id===link.brand_id)?.name
+     ).filter(Boolean)
+    )
+   ];
+
+   const categoryNames=[
+    ...new Set(
+     related.map(link=>
+      categories.find(cat=>cat.id===link.category_id)?.name
+     ).filter(Boolean)
+    )
+   ];
+
+   return `
+    <tr>
+     <td class="mp-product-name">
+      ${esc(product.product_name)}
+     </td>
+
+     <td>
+      ${esc(brandNames.join(', ')||'—')}
+     </td>
+
+     <td>
+      ${esc(categoryNames.join(', ')||'—')}
+     </td>
+
+     <td>
+      ${product.allow_unbranded?'Yes':'No'}
+     </td>
+
+     <td>
+      <button
+       type="button"
+       class="pm-small-btn"
+       data-edit="${esc(product.id)}"
+      >
+       Edit
+      </button>
+     </td>
+    </tr>
+   `;
+  }).join('')
+  :'<tr><td colspan="5" class="mp-empty">No master products found.</td></tr>';
 }
-function openMaster(p){
- editing=p?.id||null;$('pmMasterModalTitle').textContent=p?'Edit Master Product':'Add Master Product';
- $('pmName').value=p?.name||'';$('pmCategory').value=p?.category||'';$('pmType').value=p?.type||'';$('pmUnit').value=p?.unit||'kg';
- $('pmMasterModal').style.display='flex';$('pmName').focus();
+
+function openMaster(product){
+ editing=product?.id||null;
+
+ $('pmMasterModalTitle').textContent=
+  product?'Edit Master Product':'Add Master Product';
+
+ $('pmName').value=product?.product_name||'';
+
+ $('pmAllowUnbranded').checked=
+  product?.allow_unbranded??true;
+
+ $('pmMasterModal').style.display='flex';
+ $('pmName').focus();
 }
-function closeMaster(){$('pmMasterModal').style.display='none';editing=null;}
+
+function closeMaster(){
+ $('pmMasterModal').style.display='none';
+ editing=null;
+}
+
 async function saveMaster(event){
  event.preventDefault();
- const payload={name:$('pmName').value.trim(),category:$('pmCategory').value.trim(),type:$('pmType').value.trim(),unit:$('pmUnit').value};
- if(!payload.name||!payload.category)return;
- const query=editing?client().from('master_products').update(payload).eq('id',editing):client().from('master_products').insert(payload);
+
+ const product_name=$('pmName').value.trim();
+
+ if(!product_name)return;
+
+ const payload={
+  product_name,
+  allow_unbranded:$('pmAllowUnbranded').checked
+ };
+
+ const query=editing
+  ?db.from('master_products')
+   .update(payload)
+   .eq('id',editing)
+  :db.from('master_products')
+   .insert(payload);
+
  const {error}=await query;
- if(error){alert(`Unable to save product: ${error.message}`);return;}
- closeMaster();await loadMaster();
-}
-async function removeMaster(id){
- const p=master.find(x=>String(x.id)===String(id));
- if(!p||!confirm(`Remove ${p.name} from the Master List? Existing linked records may prevent deletion.`))return;
- const {error}=await client().from('master_products').delete().eq('id',id);
- if(error){alert(`Unable to remove: ${error.message}`);return;}
+
+ if(error){
+  alert(`Unable to save: ${error.message}`);
+  return;
+ }
+
+ closeMaster();
  await loadMaster();
 }
+
 async function loadRequests(){
- status('pmRequestStatus','Loading product requests...');
- const {data,error}=await client().from('product_requests').select('id,product_name,category,type,unit,seller_id,status,created_at').order('created_at',{ascending:false});
- if(error){status('pmRequestStatus',`Unable to load requests: ${error.message}. Apply the included SQL migration and policies first.`);return;}
+ message('pmRequestStatus','Loading...');
+
+ const {data,error}=await db
+  .from('product_requests')
+  .select(
+   'id,seller_id,product_name,brand_name,category_name,price,stock,pricing_type,weight,variant,unit,image_url,status,created_at'
+  )
+  .order('created_at',{ascending:false});
+
+ if(error){
+  message(
+   'pmRequestStatus',
+   `Cannot load product requests: ${error.message}`
+  );
+  return;
+ }
+
  requests=data||[];
- const pending=requests.filter(x=>x.status==='pending').length;
- $('pmPendingCount').textContent=pending?`(${pending})`:'';
- status('pmRequestStatus',`${pending} pending requests`);renderRequests();
+
+ const pending=requests.filter(
+  request=>String(request.status).toLowerCase()==='pending'
+ ).length;
+
+ $('pmPendingCount').textContent=
+  pending?`(${pending})`:'';
+
+ message(
+  'pmRequestStatus',
+  `${pending} pending requests`
+ );
+
+ renderRequests();
 }
+
 function renderRequests(){
- const q=$('pmRequestSearch').value.trim().toLowerCase();
- const rows=requests.filter(p=>Object.values(p).join(' ').toLowerCase().includes(q));
- $('pmRequestRows').innerHTML=rows.length?rows.map(p=>`<tr><td class="mp-product-name">${esc(p.product_name)}</td><td>${esc(p.category)}</td><td>${esc(p.type)}</td><td>${esc(p.unit)}</td><td title="${esc(p.seller_id)}">${esc(String(p.seller_id).slice(0,8))}…</td><td>${esc(p.status)}</td><td>${p.status==='pending'?`<button class="pm-small-btn" data-approve="${esc(p.id)}">Approve</button><button class="pm-small-btn pm-danger" data-reject="${esc(p.id)}">Reject</button>`:'—'}</td></tr>`).join(''):'<tr><td colspan="7" class="mp-empty">No requests found.</td></tr>';
+ const search=$('pmRequestSearch').value
+  .trim()
+  .toLowerCase();
+
+ const rows=requests.filter(request=>
+  Object.values(request)
+   .join(' ')
+   .toLowerCase()
+   .includes(search)
+ );
+
+ $('pmRequestRows').innerHTML=rows.length
+  ?rows.map(request=>{
+   const pending=
+    String(request.status).toLowerCase()==='pending';
+
+   return `
+    <tr>
+     <td class="mp-product-name">
+      ${esc(request.product_name)}
+
+      ${request.brand_name
+       ?`<br><small>${esc(request.brand_name)}</small>`
+       :''}
+     </td>
+
+     <td>
+      ${esc(request.category_name)}
+     </td>
+
+     <td>
+      ${esc(request.variant||'—')}
+      ${esc(request.weight??'')}
+      ${esc(request.unit||'')}
+     </td>
+
+     <td>
+      ₱${Number(request.price).toFixed(2)}
+      / ${esc(request.stock)} stock
+     </td>
+
+     <td title="${esc(request.seller_id)}">
+      ${esc(String(request.seller_id).slice(0,8))}…
+     </td>
+
+     <td>
+      ${esc(request.status)}
+     </td>
+
+     <td>
+      ${pending?`
+       <button
+        type="button"
+        class="pm-small-btn"
+        data-approve="${esc(request.id)}"
+       >
+        Approve
+       </button>
+
+       <button
+        type="button"
+        class="pm-small-btn pm-danger"
+        data-reject="${esc(request.id)}"
+       >
+        Reject
+       </button>
+      `:'—'}
+     </td>
+    </tr>
+   `;
+  }).join('')
+  :'<tr><td colspan="7" class="mp-empty">No requests found.</td></tr>';
 }
+
 async function decide(id,approve){
- const p=requests.find(x=>String(x.id)===String(id));
- if(!p||p.status!=='pending')return;
- if(!confirm(`${approve?'Approve':'Reject'} the request for ${p.product_name}?`))return;
- // Atomic database function prevents approved requests without master entries.
- const {error}=await client().rpc('admin_review_product_request',{p_request_id:id,p_approve:approve});
- if(error){alert(`Unable to review request: ${error.message}`);return;}
+ const request=requests.find(
+  item=>item.id===id
+ );
+
+ if(
+  !request||
+  String(request.status).toLowerCase()!=='pending'
+ ){
+  return;
+ }
+
+ const description=approve
+  ?'add the product to the Master List and publish its seller listing'
+  :'reject this request';
+
+ const confirmed=confirm(
+  `Do you want to ${description}?\n\n`+
+  `${request.brand_name?request.brand_name+' ':''}`+
+  request.product_name
+ );
+
+ if(!confirmed)return;
+
+ const {error}=await db.rpc(
+  'admin_review_product_request',
+  {
+   p_request_id:id,
+   p_approve:approve
+  }
+ );
+
+ if(error){
+  alert(
+   `Review failed: ${error.message}\n\n`+
+   'Make sure the matching approval SQL function has been installed.'
+  );
+  return;
+ }
+
  await loadRequests();
 }
+
 document.addEventListener('DOMContentLoaded',()=>{
- document.querySelectorAll('.pm-tab').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
- $('pmMasterAdd').addEventListener('click',()=>openMaster(null));
- $('pmMasterClose').addEventListener('click',closeMaster);
- $('pmMasterCancel').addEventListener('click',closeMaster);
- $('pmMasterForm').addEventListener('submit',saveMaster);
- $('pmMasterSearch').addEventListener('input',renderMaster);
- $('pmRequestSearch').addEventListener('input',renderRequests);
- $('pmRequestsRefresh').addEventListener('click',loadRequests);
- $('pmMasterRows').addEventListener('click',e=>{
-  const edit=e.target.closest('[data-edit]'),remove=e.target.closest('[data-remove]');
-  if(edit)openMaster(master.find(p=>String(p.id)===edit.dataset.edit));
-  if(remove)removeMaster(remove.dataset.remove);
+ document.querySelectorAll('.pm-tab').forEach(button=>{
+  button.addEventListener('click',()=>
+   tab(button.dataset.tab)
+  );
  });
- $('pmRequestRows').addEventListener('click',e=>{
-  const approve=e.target.closest('[data-approve]'),reject=e.target.closest('[data-reject]');
-  if(approve)decide(approve.dataset.approve,true);
-  if(reject)decide(reject.dataset.reject,false);
+
+ $('pmMasterAdd').addEventListener(
+  'click',()=>openMaster(null)
+ );
+
+ $('pmMasterClose').addEventListener(
+  'click',closeMaster
+ );
+
+ $('pmMasterCancel').addEventListener(
+  'click',closeMaster
+ );
+
+ $('pmMasterForm').addEventListener(
+  'submit',saveMaster
+ );
+
+ $('pmMasterSearch').addEventListener(
+  'input',renderMaster
+ );
+
+ $('pmRequestSearch').addEventListener(
+  'input',renderRequests
+ );
+
+ $('pmRequestsRefresh').addEventListener(
+  'click',loadRequests
+ );
+
+ $('pmMasterRows').addEventListener('click',event=>{
+  const button=event.target.closest('[data-edit]');
+
+  if(button){
+   openMaster(
+    master.find(product=>
+     product.id===button.dataset.edit
+    )
+   );
+  }
  });
- setTab('prices');
+
+ $('pmRequestRows').addEventListener('click',event=>{
+  const approveButton=event.target.closest(
+   '[data-approve]'
+  );
+
+  const rejectButton=event.target.closest(
+   '[data-reject]'
+  );
+
+  if(approveButton){
+   decide(approveButton.dataset.approve,true);
+  }
+
+  if(rejectButton){
+   decide(rejectButton.dataset.reject,false);
+  }
+ });
+
+ tab('prices');
 });
 })();
