@@ -1,11 +1,15 @@
+
 (()=>{
 'use strict';
 
 const $=id=>document.getElementById(id);
 const norm=v=>String(v??'').trim().toLowerCase();
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({
- '&':'&amp;','<':'&lt;','>':'&gt;',
- '"':'&quot;',"'":'&#39;'
+ '&':'&amp;',
+ '<':'&lt;',
+ '>':'&gt;',
+ '"':'&quot;',
+ "'":'&#39;'
 }[c]));
 
 const peso=v=>'₱'+Number(v||0).toLocaleString('en-PH',{
@@ -20,11 +24,10 @@ let categories=[];
 let links=[];
 let requests=[];
 let sellers=[];
+
 let editId=null;
 let selectedBrands=new Set();
 let selectedCategories=new Set();
-let newBrands=[];
-let newCategories=[];
 let saving=false;
 let reviewing=false;
 
@@ -36,7 +39,8 @@ function getClient(){
 }
 
 function status(id,message){
- $(id).textContent=message||'';
+ const element=$(id);
+ if(element)element.textContent=message||'';
 }
 
 function switchTab(tab){
@@ -47,7 +51,7 @@ function switchTab(tab){
  };
 
  Object.entries(sections).forEach(([key,id])=>{
-  $(id).hidden=key!==tab;
+  if($(id))$(id).hidden=key!==tab;
  });
 
  document.querySelectorAll('[data-pm-tab]').forEach(button=>{
@@ -84,6 +88,8 @@ async function fetchAll(table,columns,order){
  return rows;
 }
 
+/* Master List */
+
 async function loadMaster(){
  status('pmMasterStatus','Loading Master List...');
 
@@ -102,12 +108,13 @@ async function loadMaster(){
    )
   ]);
 
-  status('pmMasterStatus',`${master.length} master products`);
   renderMaster();
   populateSelectors();
 
+  status('pmMasterStatus',`${master.length} master products`);
+
  }catch(error){
-  console.error(error);
+  console.error('Load Master List:',error);
   status('pmMasterStatus','Unable to load: '+error.message);
  }
 }
@@ -166,69 +173,76 @@ function renderMaster(){
 }
 
 function populateSelectors(){
- $('pmBrandSelect').innerHTML=`
-  <option value="">Select a brand</option>
-  ${brands.map(b=>`
-   <option value="${esc(b.id)}">${esc(b.name)}</option>
-  `).join('')}
- `;
+ const brandSelect=$('pmBrandSelect');
+ const categorySelect=$('pmCategorySelect');
 
- $('pmCategorySelect').innerHTML=`
-  <option value="">Select a category</option>
-  ${categories.map(c=>`
-   <option value="${esc(c.id)}">${esc(c.name)}</option>
-  `).join('')}
- `;
+ brandSelect.replaceChildren(
+  new Option('Select a brand','')
+ );
+
+ brands.forEach(brand=>{
+  brandSelect.add(new Option(brand.name,brand.id));
+ });
+
+ categorySelect.replaceChildren(
+  new Option('Select a category','')
+ );
+
+ categories.forEach(category=>{
+  categorySelect.add(new Option(category.name,category.id));
+ });
 }
 
 function renderSelections(){
- $('pmSelectedBrands').innerHTML=[
-  ...brands.filter(b=>selectedBrands.has(b.id)).map(b=>`
+ $('pmSelectedBrands').innerHTML=brands
+  .filter(brand=>selectedBrands.has(brand.id))
+  .map(brand=>`
    <span class="pm-chip">
-    ${esc(b.name)}
-    <button type="button" data-remove-brand="${esc(b.id)}">×</button>
+    ${esc(brand.name)}
+    <button
+     type="button"
+     data-remove-brand="${esc(brand.id)}"
+     aria-label="Remove ${esc(brand.name)}"
+    >×</button>
    </span>
-  `),
-  ...newBrands.map((name,i)=>`
-   <span class="pm-chip">
-    ${esc(name)}
-    <button type="button" data-remove-new-brand="${i}">×</button>
-   </span>
-  `)
- ].join('');
+  `).join('');
 
- $('pmSelectedCategories').innerHTML=[
-  ...categories.filter(c=>selectedCategories.has(c.id)).map(c=>`
+ $('pmSelectedCategories').innerHTML=categories
+  .filter(category=>selectedCategories.has(category.id))
+  .map(category=>`
    <span class="pm-chip">
-    ${esc(c.name)}
-    <button type="button" data-remove-category="${esc(c.id)}">×</button>
+    ${esc(category.name)}
+    <button
+     type="button"
+     data-remove-category="${esc(category.id)}"
+     aria-label="Remove ${esc(category.name)}"
+    >×</button>
    </span>
-  `),
-  ...newCategories.map((name,i)=>`
-   <span class="pm-chip">
-    ${esc(name)}
-    <button type="button" data-remove-new-category="${i}">×</button>
-   </span>
-  `)
- ].join('');
+  `).join('');
 }
 
 function openMaster(product=null){
- editId=product?.id||null;
- selectedBrands=new Set(product?brandIds(product.id):[]);
- selectedCategories=new Set(product?categoryIds(product.id):[]);
- newBrands=[];
- newCategories=[];
+ if(saving)return;
 
- $('pmMasterModalTitle').textContent=
-  product?'Edit Product':'Add Product';
+ editId=product?.id||null;
+
+ selectedBrands=new Set(
+  product?brandIds(product.id):[]
+ );
+
+ selectedCategories=new Set(
+  product?categoryIds(product.id):[]
+ );
+
+ $('pmMasterModalTitle').textContent=product
+  ?'Edit Product'
+  :'Add Product';
 
  $('pmName').value=product?.product_name||'';
- $('pmAllowUnbranded').checked=
-  product?Boolean(product.allow_unbranded):false;
 
- $('pmNewBrand').value='';
- $('pmNewCategory').value='';
+ $('pmAllowUnbranded').checked=product
+  ?Boolean(product.allow_unbranded)
+  :false;
 
  populateSelectors();
  renderSelections();
@@ -239,68 +253,27 @@ function openMaster(product=null){
 
 function closeMaster(){
  if(saving)return;
+
  $('pmMasterModal').classList.remove('open');
  editId=null;
 }
 
 function addBrand(){
  const value=$('pmBrandSelect').value;
+
  if(value)selectedBrands.add(value);
+
  $('pmBrandSelect').value='';
  renderSelections();
 }
 
 function addCategory(){
  const value=$('pmCategorySelect').value;
+
  if(value)selectedCategories.add(value);
+
  $('pmCategorySelect').value='';
  renderSelections();
-}
-
-function addNewBrand(){
- const value=$('pmNewBrand').value.trim();
- if(!value)return;
-
- const existing=brands.find(b=>norm(b.name)===norm(value));
-
- if(existing){
-  selectedBrands.add(existing.id);
- }else if(!newBrands.some(v=>norm(v)===norm(value))){
-  newBrands.push(value);
- }
-
- $('pmNewBrand').value='';
- renderSelections();
-}
-
-function addNewCategory(){
- const value=$('pmNewCategory').value.trim();
- if(!value)return;
-
- const existing=categories.find(c=>norm(c.name)===norm(value));
-
- if(existing){
-  selectedCategories.add(existing.id);
- }else if(!newCategories.some(v=>norm(v)===norm(value))){
-  newCategories.push(value);
- }
-
- $('pmNewCategory').value='';
- renderSelections();
-}
-
-async function findOrCreate(table,name){
- const records=table==='brands'?brands:categories;
- const existing=records.find(r=>norm(r.name)===norm(name));
- if(existing)return existing.id;
-
- const {data,error}=await client.from(table)
-  .insert({name})
-  .select('id')
-  .single();
-
- if(error)throw error;
- return data.id;
 }
 
 async function saveMaster(event){
@@ -315,21 +288,22 @@ async function saveMaster(event){
   return;
  }
 
- if(!selectedCategories.size&&!newCategories.length){
+ if(!selectedCategories.size){
   alert('Select at least one category.');
   return;
  }
 
- if(!selectedBrands.size&&!newBrands.length){
+ if(!selectedBrands.size){
   alert(
-   'Select at least one brand. The current database cannot '+
-   'link a category directly to an unbranded master product.'
+   'Select at least one brand. The current database requires '+
+   'a brand to link categories to a master product.'
   );
   return;
  }
 
- const duplicate=master.some(p=>
-  norm(p.product_name)===norm(product_name)&&p.id!==editId
+ const duplicate=master.some(product=>
+  norm(product.product_name)===norm(product_name)&&
+  product.id!==editId
  );
 
  if(duplicate){
@@ -339,38 +313,40 @@ async function saveMaster(event){
 
  saving=true;
  $('pmMasterSave').disabled=true;
+ $('pmMasterClose').disabled=true;
 
  try{
   let productId=editId;
 
-  const payload={product_name,allow_unbranded};
+  const payload={
+   product_name,
+   allow_unbranded
+  };
 
   if(productId){
-   const {error}=await client.from('master_products')
-    .update(payload).eq('id',productId);
+   const {error}=await client
+    .from('master_products')
+    .update(payload)
+    .eq('id',productId);
+
    if(error)throw error;
+
   }else{
-   const {data,error}=await client.from('master_products')
-    .insert(payload).select('id').single();
+   const {data,error}=await client
+    .from('master_products')
+    .insert(payload)
+    .select('id')
+    .single();
+
    if(error)throw error;
+
    productId=data.id;
-  }
-
-  const allBrands=[...selectedBrands];
-  const allCategories=[...selectedCategories];
-
-  for(const name of newBrands){
-   allBrands.push(await findOrCreate('brands',name));
-  }
-
-  for(const name of newCategories){
-   allCategories.push(await findOrCreate('categories',name));
   }
 
   const desired=[];
 
-  for(const brand_id of new Set(allBrands)){
-   for(const category_id of new Set(allCategories)){
+  for(const brand_id of selectedBrands){
+   for(const category_id of selectedCategories){
     desired.push({
      brand_id,
      category_id,
@@ -387,30 +363,37 @@ async function saveMaster(event){
   if(readError)throw readError;
 
   const same=(a,b)=>
-   a.brand_id===b.brand_id&&a.category_id===b.category_id;
+   a.brand_id===b.brand_id&&
+   a.category_id===b.category_id;
 
-  const insert=desired.filter(d=>
-   !(current||[]).some(c=>same(c,d))
+  const insert=desired.filter(item=>
+   !(current||[]).some(row=>same(row,item))
   );
 
-  const remove=(current||[]).filter(c=>
-   !desired.some(d=>same(c,d))
+  const remove=(current||[]).filter(row=>
+   !desired.some(item=>same(row,item))
   );
 
   if(insert.length){
-   const {error}=await client.from('brand_products')
+   const {error}=await client
+    .from('brand_products')
     .insert(insert);
+
    if(error)throw error;
   }
 
   if(remove.length){
-   const {error}=await client.from('brand_products')
-    .delete().in('id',remove.map(r=>r.id));
+   const {error}=await client
+    .from('brand_products')
+    .delete()
+    .in('id',remove.map(row=>row.id));
+
    if(error)throw error;
   }
 
   $('pmMasterModal').classList.remove('open');
   editId=null;
+
   await loadMaster();
 
   alert('Master product saved successfully.');
@@ -422,55 +405,76 @@ async function saveMaster(event){
  }finally{
   saving=false;
   $('pmMasterSave').disabled=false;
+  $('pmMasterClose').disabled=false;
  }
 }
 
+/* Product Requests */
+
 async function loadRequests(){
- status('pmRequestStatus','Loading product requests...');
+ status('pmRequestStatus','Loading pending product requests...');
 
  try{
-  // Main data comes directly from product_requests.
-  requests=await fetchAll(
-   'product_requests',
-   'id,seller_id,product_name,brand_name,category_name,price,stock,pricing_type,weight,variant,unit,image_url,status,created_at',
-   'created_at'
-  );
+  const {data,error}=await client
+   .from('product_requests')
+   .select(
+    'id,seller_id,product_name,brand_name,category_name,'+
+    'price,stock,pricing_type,weight,variant,unit,'+
+    'image_url,status,created_at'
+   )
+   .eq('status','pending')
+   .order('created_at',{ascending:false});
 
-  requests.sort((a,b)=>
-   new Date(b.created_at)-new Date(a.created_at)
-  );
+  if(error)throw error;
 
-  // Seller profiles are optional for display.
-  // RLS on profiles must not hide the requests themselves.
-  const {data,error}=await client.from('profiles')
-   .select('id,full_name,email,role')
-   .eq('role','seller');
+  requests=data||[];
 
-  if(error){
-   console.warn('Seller names unavailable:',error.message);
-   sellers=[];
-  }else{
-   sellers=data||[];
+  const sellerIds=[...new Set(
+   requests.map(request=>request.seller_id).filter(Boolean)
+  )];
+
+  sellers=[];
+
+  if(sellerIds.length){
+   const {data:profiles,error:profileError}=await client
+    .from('profiles')
+    .select('id,full_name,email,role')
+    .in('id',sellerIds);
+
+   if(profileError){
+    console.warn(
+     'Seller profiles unavailable:',
+     profileError.message
+    );
+   }else{
+    sellers=profiles||[];
+   }
   }
 
-  const pending=requests.filter(r=>
-   norm(r.status)==='pending'
-  ).length;
+  const count=requests.length;
 
-  $('pmPendingCount').textContent=pending?`(${pending})`:'';
+  $('pmPendingCount').textContent=count?`(${count})`:'';
+
   status(
    'pmRequestStatus',
-   `${requests.length} requests · ${pending} pending`
+   `${count} pending product request${count===1?'':'s'}`
   );
 
   renderRequests();
 
  }catch(error){
   console.error('Product Requests:',error);
-  status('pmRequestStatus','Unable to load: '+error.message);
+
+  status(
+   'pmRequestStatus',
+   'Unable to load: '+error.message
+  );
+
   $('pmRequestRows').innerHTML=`
    <tr>
-    <td colspan="7" class="empty">${esc(error.message)}</td>
+    <td colspan="7" class="empty">
+     ${esc(error.message)}
+    </td>
    </tr>
   `;
  }
@@ -478,89 +482,117 @@ async function loadRequests(){
 
 function renderRequests(){
  const search=norm($('pmRequestSearch').value);
- const filter=$('pmRequestFilter').value;
 
- const filtered=requests.filter(r=>{
-  const seller=sellers.find(s=>s.id===r.seller_id);
+ const filtered=requests.filter(request=>{
+  const seller=sellers.find(s=>s.id===request.seller_id);
 
-  const match=norm([
-   r.product_name,r.brand_name,r.category_name,
-   r.variant,r.seller_id,seller?.full_name,seller?.email
+  return norm([
+   request.product_name,
+   request.brand_name,
+   request.category_name,
+   request.variant,
+   request.seller_id,
+   seller?.full_name,
+   seller?.email
   ].join(' ')).includes(search);
-
-  return match&&(filter==='all'||norm(r.status)===filter);
  });
 
  $('pmRequestRows').innerHTML=filtered.length
-  ?filtered.map(r=>{
-   const seller=sellers.find(s=>s.id===r.seller_id);
-   const state=norm(r.status);
+  ?filtered.map(request=>{
+   const seller=sellers.find(s=>s.id===request.seller_id);
+
    const size=[
-    r.variant,
-    r.weight!=null?`${r.weight}${r.unit||''}`:r.unit
+    request.variant,
+    request.weight!=null
+     ?`${request.weight}${request.unit||''}`
+     :request.unit
    ].filter(Boolean).join(' · ')||'—';
+
+   const sellerName=
+    seller?.full_name||
+    seller?.email||
+    (request.seller_id
+     ?request.seller_id.slice(0,8)+'…'
+     :'Unknown Seller');
 
    return `
     <tr>
      <td>
-      <div class="name">${esc(r.product_name)}</div>
-      <small>${esc(r.brand_name||'Unbranded')}</small>
+      <div class="name">
+       ${esc(request.product_name)}
+      </div>
+      <small>
+       ${esc(request.brand_name||'Unbranded')}
+      </small>
      </td>
-     <td>${esc(r.category_name)}</td>
+
+     <td>${esc(request.category_name||'—')}</td>
+
      <td>
       ${esc(size)}
-      <br><small>${esc(r.pricing_type||'')}</small>
+      <br>
+      <small>${esc(request.pricing_type||'')}</small>
      </td>
+
      <td>
-      <strong>${peso(r.price)}</strong>
-      <br><small>${esc(r.stock)} stock</small>
+      <strong>${peso(request.price)}</strong>
+      <br>
+      <small>${esc(request.stock)} stock</small>
      </td>
+
+     <td>${esc(sellerName)}</td>
+
      <td>
-      ${esc(
-       seller?.full_name||
-       seller?.email||
-       r.seller_id.slice(0,8)+'…'
-      )}
-     </td>
-     <td>
-      <span class="pm-badge ${esc(state)}">
-       ${esc(r.status)}
+      <span class="pm-badge pending">
+       Pending
       </span>
      </td>
+
      <td>
-      ${state==='pending'?`
-       <button
-        type="button"
-        class="pm-row-btn"
-        data-approve="${esc(r.id)}"
-       >Approve</button>
-       <button
-        type="button"
-        class="pm-row-btn danger"
-        data-reject="${esc(r.id)}"
-       >Reject</button>
-      `:'—'}
+      <button
+       type="button"
+       class="pm-row-btn"
+       data-approve="${esc(request.id)}"
+       ${reviewing?'disabled':''}
+      >Approve</button>
+
+      <button
+       type="button"
+       class="pm-row-btn danger"
+       data-reject="${esc(request.id)}"
+       ${reviewing?'disabled':''}
+      >Reject</button>
      </td>
     </tr>
    `;
   }).join('')
-  :'<tr><td colspan="7" class="empty">No product requests found.</td></tr>';
+  :`
+   <tr>
+    <td colspan="7" class="empty">
+     No pending product requests found.
+    </td>
+   </tr>
+  `;
 }
 
 async function reviewRequest(id,approve){
  if(reviewing)return;
 
- const request=requests.find(r=>r.id===id);
+ const request=requests.find(row=>row.id===id);
+
  if(!request||norm(request.status)!=='pending')return;
 
- if(!confirm(
-  `${approve?'Approve and publish':'Reject'} ${request.product_name}?`
- ))return;
+ const message=approve
+  ?`Approve and publish "${request.product_name}"?`
+  :`Reject "${request.product_name}"?`;
+
+ if(!confirm(message))return;
 
  reviewing=true;
+ renderRequests();
 
  try{
-  const {error}=await client.rpc(
+  const {data,error}=await client.rpc(
    'admin_review_product_request',
    {
     p_request_id:id,
@@ -570,95 +602,176 @@ async function reviewRequest(id,approve){
 
   if(error)throw error;
 
+  // Confirm the request was actually reviewed.
+  const {data:updated,error:verifyError}=await client
+   .from('product_requests')
+   .select('id,status')
+   .eq('id',id)
+   .single();
+
+  if(verifyError)throw verifyError;
+
+  const expected=approve?'approved':'rejected';
+
+  if(norm(updated?.status)!==expected){
+   throw new Error(
+    'The request status was not updated as expected.'
+   );
+  }
+
+  if(approve){
+   // Verify that the approved listing exists.
+   // The database RPC is responsible for creating it.
+   const {data:products,error:productError}=await client
+    .from('products')
+    .select('id,name,seller_id,is_active,created_at')
+    .eq('seller_id',request.seller_id)
+    .ilike('name',request.product_name)
+    .order('created_at',{ascending:false})
+    .limit(20);
+
+   if(productError){
+    console.warn(
+     'Unable to verify published product:',
+     productError.message
+    );
+   }else{
+    const published=(products||[]).some(product=>
+     norm(product.name)===norm(request.product_name)&&
+     product.is_active===true
+    );
+
+    if(!published){
+     await loadRequests();
+
+     alert(
+      'The request was approved, but an active product '+
+      'listing could not be confirmed. Check the products '+
+      'table and the approval database function.'
+     );
+
+     return;
+    }
+   }
+  }
+
   await loadRequests();
 
   alert(
    approve
-    ?'Product approved and published.'
-    :'Product request rejected.'
+    ?'Product request approved. Check Product Listings to confirm publication.'
+    :'Product request rejected successfully.'
   );
 
  }catch(error){
   console.error('Review Product Request:',error);
+
   alert('Unable to review request: '+error.message);
+
+  await loadRequests();
 
  }finally{
   reviewing=false;
+  renderRequests();
  }
 }
+
+/* Events */
 
 document.addEventListener('DOMContentLoaded',()=>{
  try{
   client=getClient();
 
   document.querySelectorAll('[data-pm-tab]').forEach(button=>{
-   button.addEventListener('click',()=>
-    switchTab(button.dataset.pmTab)
-   );
+   button.addEventListener('click',()=>{
+    switchTab(button.dataset.pmTab);
+   });
   });
 
+  // Master List
   $('pmMasterAdd').addEventListener('click',()=>openMaster());
   $('pmMasterRefresh').addEventListener('click',loadMaster);
   $('pmMasterSearch').addEventListener('input',renderMaster);
   $('pmMasterClose').addEventListener('click',closeMaster);
-  $('pmMasterCancel').addEventListener('click',closeMaster);
   $('pmMasterForm').addEventListener('submit',saveMaster);
 
+  // Existing dropdown selection
   $('pmBrandSelect').addEventListener('change',addBrand);
   $('pmCategorySelect').addEventListener('change',addCategory);
-  $('pmAddBrand').addEventListener('click',addNewBrand);
-  $('pmAddCategory').addEventListener('click',addNewCategory);
 
+  // Remove selected brand
   $('pmSelectedBrands').addEventListener('click',event=>{
-   const old=event.target.closest('[data-remove-brand]');
-   const fresh=event.target.closest('[data-remove-new-brand]');
+   const button=event.target.closest('[data-remove-brand]');
 
-   if(old)selectedBrands.delete(old.dataset.removeBrand);
-   if(fresh)newBrands.splice(Number(fresh.dataset.removeNewBrand),1);
-
-   renderSelections();
-  });
-
-  $('pmSelectedCategories').addEventListener('click',event=>{
-   const old=event.target.closest('[data-remove-category]');
-   const fresh=event.target.closest('[data-remove-new-category]');
-
-   if(old)selectedCategories.delete(old.dataset.removeCategory);
-   if(fresh)newCategories.splice(
-    Number(fresh.dataset.removeNewCategory),1
-   );
-
-   renderSelections();
-  });
-
-  $('pmMasterRows').addEventListener('click',event=>{
-   const button=event.target.closest('[data-master-edit]');
    if(!button)return;
 
-   const product=master.find(p=>p.id===button.dataset.masterEdit);
+   selectedBrands.delete(button.dataset.removeBrand);
+   renderSelections();
+  });
+
+  // Remove selected category
+  $('pmSelectedCategories').addEventListener('click',event=>{
+   const button=event.target.closest('[data-remove-category]');
+
+   if(!button)return;
+
+   selectedCategories.delete(button.dataset.removeCategory);
+   renderSelections();
+  });
+
+  // Edit master product
+  $('pmMasterRows').addEventListener('click',event=>{
+   const button=event.target.closest('[data-master-edit]');
+
+   if(!button)return;
+
+   const product=master.find(row=>
+    row.id===button.dataset.masterEdit
+   );
+
    if(product)openMaster(product);
   });
 
+  // Product Requests
   $('pmRequestSearch').addEventListener('input',renderRequests);
-  $('pmRequestFilter').addEventListener('change',renderRequests);
-  $('pmRequestsRefresh').addEventListener('click',loadRequests);
+
+  $('pmRequestsRefresh').addEventListener(
+   'click',
+   loadRequests
+  );
 
   $('pmRequestRows').addEventListener('click',event=>{
    const approve=event.target.closest('[data-approve]');
    const reject=event.target.closest('[data-reject]');
 
-   if(approve)reviewRequest(approve.dataset.approve,true);
-   else if(reject)reviewRequest(reject.dataset.reject,false);
+   if(approve){
+    reviewRequest(approve.dataset.approve,true);
+   }else if(reject){
+    reviewRequest(reject.dataset.reject,false);
+   }
   });
 
+  // Close Master List modal
   $('pmMasterModal').addEventListener('click',event=>{
-   if(event.target===$('pmMasterModal'))closeMaster();
+   if(event.target===$('pmMasterModal')){
+    closeMaster();
+   }
+  });
+
+  document.addEventListener('keydown',event=>{
+   if(
+    event.key==='Escape'&&
+    $('pmMasterModal').classList.contains('open')
+   ){
+    closeMaster();
+   }
   });
 
   switchTab('prices');
 
  }catch(error){
   console.error('Product Management:',error);
+
   status('pmMasterStatus',error.message);
   status('pmRequestStatus',error.message);
  }
