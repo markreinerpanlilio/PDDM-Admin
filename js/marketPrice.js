@@ -4,12 +4,7 @@
 
 const $=id=>document.getElementById(id);
 const norm=v=>String(v??"").trim().toLowerCase();
-const normalizeVariant=v=>norm(v)
- .replace(/\bkilograms?\b/g,"kg")
- .replace(/\bgrams?\b/g,"g")
- .replace(/\bmillilit(?:ers?|res?)\b/g,"ml")
- .replace(/\blit(?:ers?|res?)\b/g,"l")
- .replace(/\s+/g,"");
+const normalizeVariant=v=>norm(v).replace(/\s+/g,"");
 
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({
  "&":"&amp;",
@@ -27,9 +22,16 @@ const peso=v=>v===null||v===undefined||v===""
  });
 
 const WEIGHT_CATEGORIES=[
- "meat","meats","fish","fishes",
- "seafood","seafoods","poultry",
- "fresh meat","fresh fish","fresh seafood"
+ "meat",
+ "meats",
+ "fish",
+ "fishes",
+ "seafood",
+ "seafoods",
+ "poultry",
+ "fresh meat",
+ "fresh fish",
+ "fresh seafood"
 ];
 
 let client;
@@ -38,9 +40,11 @@ let masterProducts=[];
 let brands=[];
 let categories=[];
 let brandProducts=[];
+
 let selectedProductId=null;
 let editingId=null;
 let editingRecord=null;
+
 let loading=false;
 let saving=false;
 
@@ -48,7 +52,7 @@ function getClient(){
  if(typeof db!=="undefined"&&db?.from)return db;
  if(window.supabaseClient?.from)return window.supabaseClient;
  if(window.supabase?.from)return window.supabase;
- throw Error("Supabase client not found.");
+ throw new Error("Supabase client not found. Check js/supabase.js.");
 }
 
 function setStatus(message){
@@ -75,7 +79,8 @@ function getLinks(productId){
 
 function getPricingType(categoryName){
  return WEIGHT_CATEGORIES.includes(norm(categoryName))
-  ?"per_kg":"fixed_size";
+  ?"per_kg"
+  :"fixed_size";
 }
 
 function pricingLabel(type){
@@ -84,6 +89,7 @@ function pricingLabel(type){
 
 function formatDate(value){
  if(!value)return "—";
+
  const date=new Date(value);
  if(Number.isNaN(date.getTime()))return "—";
 
@@ -144,7 +150,6 @@ async function loadPrices(){
  setStatus("Loading market prices...");
 
  try{
-  // The Market Price table always reads from market_prices.
   const [catalogResult,pricesResult]=await Promise.allSettled([
    loadCatalog(),
    fetchAll(
@@ -158,7 +163,10 @@ async function loadPrices(){
   }
 
   if(catalogResult.status==="rejected"){
-   console.warn("Master List unavailable:",catalogResult.reason);
+   console.warn(
+    "Unable to refresh Master List catalog:",
+    catalogResult.reason
+   );
   }
 
   records=pricesResult.value;
@@ -173,16 +181,20 @@ async function loadPrices(){
   renderPrices();
 
   setStatus(
-   `${records.length} market price record${records.length===1?"":"s"} loaded.`
+   records.length
+    ?`${records.length} market price records loaded.`
+    :"No market price records found."
   );
 
  }catch(error){
   console.error("Market Price load error:",error);
 
   $("marketPriceTable").innerHTML=`
-   <tr><td colspan="9" class="empty">
-    ${esc(error.message)}
-   </td></tr>
+   <tr>
+    <td colspan="9" class="empty">
+     ${esc(error.message)}
+    </td>
+   </tr>
   `;
 
   $("mpCount").textContent="";
@@ -204,9 +216,9 @@ function buildFilters(){
  const brandSelect=$("mpBrandFilter");
  const typeSelect=$("mpTypeFilter");
 
- const oldCategory=categorySelect.value;
- const oldBrand=brandSelect.value;
- const oldType=typeSelect.value;
+ const previousCategory=categorySelect.value;
+ const previousBrand=brandSelect.value;
+ const previousType=typeSelect.value;
 
  const categoryValues=[...new Set(
   records.map(r=>r.category).filter(Boolean)
@@ -223,33 +235,39 @@ function buildFilters(){
  categorySelect.replaceChildren(
   new Option("All Categories","")
  );
- categoryValues.forEach(value=>
-  categorySelect.add(new Option(value,value))
- );
+
+ categoryValues.forEach(value=>{
+  categorySelect.add(new Option(value,value));
+ });
 
  brandSelect.replaceChildren(
   new Option("All Brands","")
  );
+
  brandValues.forEach(id=>{
   const label=id==="unbranded"
    ?"Unbranded"
    :getBrand(id)?.name||"Unknown Brand";
+
   brandSelect.add(new Option(label,id));
  });
 
  typeSelect.replaceChildren(
   new Option("All Pricing Units","")
  );
- typeValues.forEach(value=>
-  typeSelect.add(new Option(pricingLabel(value),value))
- );
 
- categorySelect.value=categoryValues.includes(oldCategory)
-  ?oldCategory:"";
- brandSelect.value=brandValues.includes(oldBrand)
-  ?oldBrand:"";
- typeSelect.value=typeValues.includes(oldType)
-  ?oldType:"";
+ typeValues.forEach(value=>{
+  typeSelect.add(new Option(pricingLabel(value),value));
+ });
+
+ categorySelect.value=categoryValues.includes(previousCategory)
+  ?previousCategory:"";
+
+ brandSelect.value=brandValues.includes(previousBrand)
+  ?previousBrand:"";
+
+ typeSelect.value=typeValues.includes(previousType)
+  ?previousType:"";
 }
 
 function renderPrices(){
@@ -281,22 +299,35 @@ function renderPrices(){
     <td>${esc(getBrandName(row))}</td>
     <td>${esc(row.category||"—")}</td>
     <td>${esc(pricingLabel(row.pricing_type))}</td>
-    <td>${esc(row.pricing_type==="per_kg"
-     ?"1 kg":row.variant||"—")}</td>
+    <td>${esc(
+     row.pricing_type==="per_kg"
+      ?"1 kg"
+      :row.variant||"—"
+    )}</td>
     <td>${peso(row.min_price)}</td>
     <td><strong>${peso(row.max_price)}</strong></td>
     <td>${esc(formatDate(row.updated_at||row.created_at))}</td>
     <td>
-     <button class="pm-row-btn" type="button"
-      data-mp-edit="${esc(row.id)}">Edit</button>
-     <button class="pm-row-btn danger" type="button"
-      data-mp-delete="${esc(row.id)}">Delete</button>
+     <button
+      class="pm-row-btn"
+      type="button"
+      data-mp-edit="${esc(row.id)}"
+     >Edit</button>
+     <button
+      class="pm-row-btn danger"
+      type="button"
+      data-mp-delete="${esc(row.id)}"
+     >Delete</button>
     </td>
    </tr>
   `).join("")
-  :`<tr><td colspan="9" class="empty">
-      No market prices found.
-     </td></tr>`;
+  :`
+   <tr>
+    <td colspan="9" class="empty">
+     No market prices found.
+    </td>
+   </tr>
+  `;
 
  $("mpCount").textContent=
   `Showing ${filtered.length} of ${records.length} records. `+
@@ -320,6 +351,7 @@ function showSuggestions(){
   .sort((a,b)=>{
    const aStart=norm(a.product_name).startsWith(query)?0:1;
    const bStart=norm(b.product_name).startsWith(query)?0:1;
+
    return aStart-bStart||
     a.product_name.localeCompare(b.product_name);
   })
@@ -327,46 +359,34 @@ function showSuggestions(){
 
  const container=$("mpSuggestions");
 
- container.innerHTML=matches.length
-  ?matches.map(product=>`
-    <button class="mp-suggestion" type="button"
-     role="option" data-product-id="${esc(product.id)}">
-     ${esc(product.product_name)}
-     <small>Master List product</small>
-    </button>
-   `).join("")
-  :`<div class="mp-suggestion-empty">
-      ${masterProducts.length
-       ?"No matching product in Master List."
-       :"No products available in Master List."}
-     </div>`;
+ if(!masterProducts.length){
+  container.innerHTML=`
+   <div class="mp-suggestion-empty">
+    No products in Master List.
+   </div>
+  `;
+ }else if(!matches.length){
+  container.innerHTML=`
+   <div class="mp-suggestion-empty">
+    No matching product in Master List.
+   </div>
+  `;
+ }else{
+  container.innerHTML=matches.map(product=>`
+   <button
+    class="mp-suggestion"
+    type="button"
+    role="option"
+    data-product-id="${esc(product.id)}"
+   >
+    ${esc(product.product_name)}
+    <small>Master List product</small>
+   </button>
+  `).join("");
+ }
 
  container.hidden=false;
  $("mpProductSearch").setAttribute("aria-expanded","true");
-}
-
-function getAvailableBrands(productId){
- const ids=new Set(
-  getLinks(productId)
-   .map(link=>link.brand_id)
-   .filter(Boolean)
- );
-
- return brands.filter(brand=>ids.has(brand.id));
-}
-
-function getAvailableCategories(productId,brandValue){
- const links=getLinks(productId).filter(link=>
-  brandValue==="unbranded"
-   ?!link.brand_id
-   :link.brand_id===brandValue
- );
-
- const ids=new Set(
-  links.map(link=>link.category_id).filter(Boolean)
- );
-
- return categories.filter(category=>ids.has(category.id));
 }
 
 function resetProductSelection(){
@@ -403,6 +423,30 @@ function selectProduct(productId){
  updateBrandOptions();
 }
 
+function getAvailableBrands(productId){
+ const ids=new Set(
+  getLinks(productId)
+   .map(link=>link.brand_id)
+   .filter(Boolean)
+ );
+
+ return brands.filter(brand=>ids.has(brand.id));
+}
+
+function getAvailableCategories(productId,brandValue){
+ let links=getLinks(productId);
+
+ if(brandValue!=="unbranded"){
+  links=links.filter(link=>link.brand_id===brandValue);
+ }
+
+ const ids=new Set(
+  links.map(link=>link.category_id).filter(Boolean)
+ );
+
+ return categories.filter(category=>ids.has(category.id));
+}
+
 function updateBrandOptions(preferred=""){
  const product=getProduct(selectedProductId);
  const select=$("mpBrandSelect");
@@ -421,9 +465,9 @@ function updateBrandOptions(preferred=""){
   select.add(new Option("Unbranded","unbranded"));
  }
 
- available.forEach(brand=>
-  select.add(new Option(brand.name,brand.id))
- );
+ available.forEach(brand=>{
+  select.add(new Option(brand.name,brand.id));
+ });
 
  select.disabled=false;
 
@@ -453,12 +497,13 @@ function updateCategoryOptions(preferred=""){
  }
 
  const available=getAvailableCategories(
-  selectedProductId,brandValue
+  selectedProductId,
+  brandValue
  );
 
- available.forEach(category=>
-  select.add(new Option(category.name,category.id))
- );
+ available.forEach(category=>{
+  select.add(new Option(category.name,category.id));
+ });
 
  select.disabled=!available.length;
 
@@ -477,7 +522,6 @@ function updateCategoryOptions(preferred=""){
  updatePricingFields();
 }
 
-// Pricing fields depend on the saved record in Edit mode.
 function currentPricingType(){
  if(editingId&&editingRecord){
   return editingRecord.pricing_type||
@@ -508,7 +552,7 @@ function updatePricingFields(){
  }else if(!type){
   $("mpVariant").value="";
   $("mpMinPrice").value="";
- }else if($("mpVariant").value==="1 kg"){
+ }else if(!editingId&&$("mpVariant").value==="1 kg"){
   $("mpVariant").value="";
  }
 
@@ -519,11 +563,10 @@ function updatePricingFields(){
  $("mpPriceHint").textContent=!type
   ?"Select a product, brand, and category."
   :perKg
-   ?"Weight-based product: enter the reference price for 1 kg."
-   :"Packaged product: enter its variant and minimum/maximum prices.";
+   ?"Enter the reference price for 1 kg."
+   :"Enter the variant, minimum price, and maximum price.";
 }
 
-// Add uses Master List; Edit uses the saved market_prices row.
 function openModal(row=null){
  if(saving)return;
 
@@ -532,29 +575,26 @@ function openModal(row=null){
 
  $("mpForm").reset();
  $("mpProductSearch").readOnly=false;
- $("mpBrandSelect").disabled=true;
- $("mpCategorySelect").disabled=true;
 
  resetProductSelection();
  hideSuggestions();
 
  $("mpModalTitle").textContent=row
-  ?"Edit Market Price":"Add Market Price";
+  ?"Edit Market Price"
+  :"Add Market Price";
 
  $("mpSave").textContent=row
-  ?"Save Changes":"Save Product";
-
- $("mpEditNote").hidden=!row;
+  ?"Save Changes"
+  :"Save Product";
 
  if(row){
   selectedProductId=row.master_product_id||null;
 
-  // Values come from market_prices, not Master List.
   $("mpProductSearch").value=row.product_name||"";
   $("mpProductSearch").readOnly=true;
 
-  $("mpProductSelected").textContent=
-   "Loaded from saved Market Price record";
+  $("mpProductSelected").textContent="";
+  $("mpProductHelp").textContent="";
 
   const brandValue=row.brand_id||"unbranded";
   const brandName=row.brand_id
@@ -573,10 +613,6 @@ function openModal(row=null){
   $("mpCategorySelect").value=row.category||"";
   $("mpCategorySelect").disabled=true;
 
-  $("mpProductHelp").textContent=
-   "This product is loaded directly from its saved market price record.";
-
-  // Populate all editable fields from the saved row.
   $("mpVariant").value=row.variant??"";
   $("mpMinPrice").value=row.min_price??"";
   $("mpMaxPrice").value=row.max_price??"";
@@ -616,7 +652,10 @@ function closeModal(){
 
 function validatePrices(type){
  const perKg=type==="per_kg";
- const variant=perKg?"1 kg":$("mpVariant").value.trim();
+
+ const variant=perKg
+  ?"1 kg"
+  :$("mpVariant").value.trim();
 
  const maxText=$("mpMaxPrice").value;
  const minText=$("mpMinPrice").value;
@@ -625,7 +664,7 @@ function validatePrices(type){
  const minPrice=perKg?null:Number(minText);
 
  if(!variant){
-  throw Error("Enter a product variant.");
+  throw new Error("Enter the product variant.");
  }
 
  if(
@@ -633,7 +672,7 @@ function validatePrices(type){
   !Number.isFinite(maxPrice)||
   maxPrice<0
  ){
-  throw Error("Enter a valid reference price.");
+  throw new Error("Enter a valid reference price.");
  }
 
  if(!perKg&&(
@@ -642,7 +681,7 @@ function validatePrices(type){
   minPrice<0||
   minPrice>maxPrice
  )){
-  throw Error(
+  throw new Error(
    "Minimum price must be valid and must not exceed maximum price."
   );
  }
@@ -670,21 +709,13 @@ async function savePrice(event){
  try{
   if(editingId){
    if(!editingRecord){
-    throw Error("The saved market price record was not found.");
+    throw new Error("The saved market price record was not found.");
    }
 
    const type=editingRecord.pricing_type||
     getPricingType(editingRecord.category);
 
    const values=validatePrices(type);
-
-   // Preserve the saved record's identity.
-   payload={
-    variant:values.variant,
-    min_price:values.minPrice,
-    max_price:values.maxPrice,
-    updated_at:new Date().toISOString()
-   };
 
    const identity={
     master_product_id:editingRecord.master_product_id,
@@ -694,13 +725,19 @@ async function savePrice(event){
    };
 
    if(isDuplicate(identity,values.variant,editingId)){
-    throw Error(
+    throw new Error(
      "Another market price already exists for this product, brand, category, and variant."
     );
    }
 
+   payload={
+    variant:values.variant,
+    min_price:values.minPrice,
+    max_price:values.maxPrice,
+    updated_at:new Date().toISOString()
+   };
+
   }else{
-   // Master List restriction applies when adding only.
    const product=getProduct(selectedProductId);
    const typedName=norm($("mpProductSearch").value);
 
@@ -709,40 +746,51 @@ async function savePrice(event){
      "Select an existing product from Master List.";
     $("mpProductSelected").classList.add("error");
 
-    throw Error(
+    throw new Error(
      "You can only add products registered in the Master List."
     );
    }
 
    const brandValue=$("mpBrandSelect").value;
-   const brandId=brandValue==="unbranded"?null:brandValue;
+   const brandId=brandValue==="unbranded"
+    ?null
+    :brandValue;
+
    const categoryId=$("mpCategorySelect").value;
    const category=getCategory(categoryId);
 
    if(!brandValue){
-    throw Error("Select a brand.");
+    throw new Error("Select a brand.");
    }
 
    if(!brandId&&!product.allow_unbranded){
-    throw Error("This product does not allow unbranded listings.");
+    throw new Error(
+     "This product does not allow unbranded listings."
+    );
    }
 
-   if(brandId&&!getAvailableBrands(product.id)
-    .some(brand=>brand.id===brandId)){
-    throw Error("The brand is not registered for this product.");
+   if(
+    brandId&&
+    !getAvailableBrands(product.id)
+     .some(brand=>brand.id===brandId)
+   ){
+    throw new Error(
+     "The selected brand does not belong to this product."
+    );
    }
 
    if(!category){
-    throw Error("Select a registered category.");
+    throw new Error("Select a registered category.");
    }
 
-   const available=getAvailableCategories(
-    product.id,brandValue
+   const validCategories=getAvailableCategories(
+    product.id,
+    brandValue
    );
 
-   if(!available.some(c=>c.id===category.id)){
-    throw Error(
-     "The category is not registered for this product and brand."
+   if(!validCategories.some(c=>c.id===category.id)){
+    throw new Error(
+     "This category is not registered for the selected product and brand."
     );
    }
 
@@ -757,8 +805,8 @@ async function savePrice(event){
    };
 
    if(isDuplicate(identity,values.variant)){
-    throw Error(
-     "A market price already exists for this product, brand, category, and variant."
+    throw new Error(
+     "A reference price already exists for this product, brand, category, and variant."
     );
    }
 
@@ -782,7 +830,9 @@ async function savePrice(event){
  $("mpModalClose").disabled=true;
 
  try{
-  if(editingId){
+  const wasEditing=Boolean(editingId);
+
+  if(wasEditing){
    const {data,error}=await client
     .from("market_prices")
     .update(payload)
@@ -791,7 +841,9 @@ async function savePrice(event){
     .single();
 
    if(error)throw error;
-   if(!data?.id)throw Error("Market price was not updated.");
+   if(!data?.id){
+    throw new Error("Market price was not updated.");
+   }
 
   }else{
    const {data,error}=await client
@@ -801,19 +853,19 @@ async function savePrice(event){
     .single();
 
    if(error)throw error;
-   if(!data?.id)throw Error("Market price was not created.");
+   if(!data?.id){
+    throw new Error("Market price was not created.");
+   }
   }
 
-  const wasEditing=Boolean(editingId);
-
-  // Close the modal and refresh the actual database records.
   $("mpModal").classList.remove("open");
+  hideSuggestions();
+
   editingId=null;
   editingRecord=null;
   selectedProductId=null;
 
   $("mpForm").reset();
-  hideSuggestions();
 
   await loadPrices();
 
@@ -825,7 +877,10 @@ async function savePrice(event){
 
  }catch(error){
   console.error("Market Price save error:",error);
-  alert("Unable to save market price: "+error.message);
+
+  alert(
+   "Unable to save market price: "+error.message
+  );
 
  }finally{
   saving=false;
@@ -852,14 +907,20 @@ async function deletePrice(id){
    .select("id");
 
   if(error)throw error;
-  if(!data?.length)throw Error("Market price was not deleted.");
+
+  if(!data?.length){
+   throw new Error("Market price was not deleted.");
+  }
 
   await loadPrices();
   setStatus("Market price deleted successfully.");
 
  }catch(error){
   console.error("Market Price delete error:",error);
-  alert("Unable to delete market price: "+error.message);
+
+  alert(
+   "Unable to delete market price: "+error.message
+  );
  }
 }
 
@@ -901,7 +962,10 @@ function setupAutocomplete(){
 
  suggestions.addEventListener("click",event=>{
   const button=event.target.closest("[data-product-id]");
-  if(button)selectProduct(button.dataset.productId);
+
+  if(button){
+   selectProduct(button.dataset.productId);
+  }
  });
 
  document.addEventListener("click",event=>{
@@ -936,16 +1000,21 @@ document.addEventListener("DOMContentLoaded",()=>{
   $("mpModalClose").addEventListener("click",closeModal);
 
   $("mpModal").addEventListener("click",event=>{
-   if(event.target===$("mpModal"))closeModal();
+   if(event.target===$("mpModal")){
+    closeModal();
+   }
   });
 
   document.addEventListener("keydown",event=>{
    if(
     event.key==="Escape"&&
-    $("mpModal").classList.contains("open")&&
-    $("mpSuggestions").hidden
+    $("mpModal").classList.contains("open")
    ){
-    closeModal();
+    if(!$("mpSuggestions").hidden){
+     hideSuggestions();
+    }else{
+     closeModal();
+    }
    }
   });
 
